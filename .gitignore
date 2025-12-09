@@ -27,6 +27,7 @@ pnpm-debug.log*
 .idea/
 .cursor/
 .agent/
+.cursorrules
 *.suo
 *.ntvs*
 *.njsproj
