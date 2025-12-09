@@ -612,14 +612,14 @@ export const getGroupActivity = async (groupId: string, timeRange: '24h' | '7d' 
 };
 
 /**
- * Get member stats (solar system)
+ * Get member vibes (radar chart)
  */
-export const getMemberStats = async (groupId: string): Promise<any[]> => {
-  const response = await fetchWithAuth(`/analytics/${groupId}/members`);
+export const getMemberVibes = async (groupId: string): Promise<any[]> => {
+  const response = await fetchWithAuth(`/analytics/${groupId}/vibes`);
   const data = await response.json();
 
   if (!data.success) {
-    throw new Error(data.message || 'Failed to fetch member stats');
+    throw new Error(data.message || 'Failed to fetch member vibes');
   }
 
   return data.data;

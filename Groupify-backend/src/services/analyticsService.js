@@ -65,54 +65,118 @@ class AnalyticsService {
   }
 
   /**
-   * Get stats for solar system (Member engagement)
-   * Returns list of members with their "planet" stats.
+   * Get Vibe Radar stats (Member Personality)
+   * Returns list of members with their normalized scores (0-100) on 5 axes.
    * @param {string} groupId 
    */
-  static async getMemberStats(groupId) {
+  static async getMemberVibes(groupId) {
     const gid = new mongoose.Types.ObjectId(groupId);
 
-    // 1. Aggregation to get stats for users who have shared
+    // 1. Aggregation for Shared By Me (Activity, Popularity, Variety, Freshness)
     const shareStats = await Share.aggregate([
       { $match: { group: gid } },
       {
         $group: {
           _id: "$sharedBy",
-          shareCount: { $sum: 1 },
-          totalLikesReceived: { $sum: "$likeCount" },
-          lastSharedAt: { $max: "$createdAt" }
+          shareCount: { $sum: 1 }, // Activity
+          totalLikesReceived: { $sum: "$likeCount" }, // Popularity (Numerator)
+          uniqueArtists: { $addToSet: "$artistName" }, // Variety
+          lastSharedAt: { $max: "$createdAt" } // Freshness
         }
       }
     ]);
 
-    // Map stats for easy lookup
+    // 2. Aggregation for Likes Given (Support)
+    const likeStats = await Share.aggregate([
+      { $match: { group: gid } },
+      { $unwind: "$likes" },
+      { $group: { _id: "$likes.user", likesGiven: { $sum: 1 } } }
+    ]);
+
+    // Map stats for lookup
     const statsMap = {};
     shareStats.forEach(s => {
-      statsMap[s._id.toString()] = s;
+      statsMap[s._id.toString()] = {
+        ...s,
+        avgLikesReceived: s.shareCount > 0 ? (s.totalLikesReceived / s.shareCount) : 0,
+        varietyCount: s.uniqueArtists.length
+      };
     });
 
-    // 2. Get all members from group to ensure we include inactive ones (planets far away)
-    const group = await Group.findById(groupId).populate('members', 'displayName profileImage');
+    const supportMap = {};
+    likeStats.forEach(l => {
+      supportMap[l._id.toString()] = l.likesGiven;
+    });
 
+    // 3. Normalize Scores (Find Maxima)
+    let maxActivity = 0;
+    let maxPopularity = 0;
+    let maxSupport = 0;
+    let maxVariety = 0;
+    // Freshness is calculated relative to time, not max user
+
+    Object.values(statsMap).forEach(s => {
+      if (s.shareCount > maxActivity) maxActivity = s.shareCount;
+      if (s.avgLikesReceived > maxPopularity) maxPopularity = s.avgLikesReceived;
+      if (s.varietyCount > maxVariety) maxVariety = s.varietyCount;
+    });
+
+    Object.values(supportMap).forEach(val => {
+      if (val > maxSupport) maxSupport = val;
+    });
+
+    // 4. Build Result
+    const group = await Group.findById(groupId).populate('members', 'displayName profileImage');
     if (!group) throw new Error('Group not found');
 
+    const now = new Date();
+
     return group.members.map(member => {
-      const s = statsMap[member._id.toString()] || {};
-      const shareCount = s.shareCount || 0;
-      const likesReceived = s.totalLikesReceived || 0;
+      const mid = member._id.toString();
+      const s = statsMap[mid] || { shareCount: 0, avgLikesReceived: 0, varietyCount: 0, lastSharedAt: null };
+      const likesGiven = supportMap[mid] || 0;
+
+      // Calculate Scores (0-100)
+
+      // Activity: Raw share count vs max
+      const activityScore = maxActivity > 0 ? Math.round((s.shareCount / maxActivity) * 100) : 0;
+
+      // Popularity: Avg likes per share vs max
+      const popularityScore = maxPopularity > 0 ? Math.round((s.avgLikesReceived / maxPopularity) * 100) : 0;
+
+      // Support: Likes given vs max
+      const supportScore = maxSupport > 0 ? Math.round((likesGiven / maxSupport) * 100) : 0;
+
+      // Variety: Unique artists vs max
+      const varietyScore = maxVariety > 0 ? Math.round((s.varietyCount / maxVariety) * 100) : 0;
+
+      // Freshness: Decay function. 
+      // 100 if active < 24h. 
+      // Lose 5 points per day. Min 0.
+      let freshnessScore = 0;
+      if (s.lastSharedAt) {
+        const daysDiff = (now - new Date(s.lastSharedAt)) / (1000 * 3600 * 24);
+        freshnessScore = Math.max(0, Math.round(100 - (daysDiff * 5)));
+      }
 
       return {
         userId: member._id,
         displayName: member.displayName,
         profileImage: member.profileImage,
-        shareCount,
-        totalLikesReceived: likesReceived,
-        lastActive: s.lastSharedAt || null,
-        // Derived metrics for UI
-        planetSize: shareCount + likesReceived, // Influence
-        orbitDistance: s.lastSharedAt ? (new Date() - new Date(s.lastSharedAt)) : -1 // -1 means infinite/far
+        stats: {
+          activity: activityScore,
+          popularity: popularityScore,
+          support: supportScore,
+          variety: varietyScore,
+          freshness: freshnessScore
+        },
+        raw: {
+          shares: s.shareCount,
+          likesGiven,
+          avgLikesReceived: s.avgLikesReceived.toFixed(1)
+        }
       };
-    });
+    }).sort((a, b) => b.stats.activity - a.stats.activity); // Sort by activity for default view
   }
 
   /**

@@ -36,7 +36,6 @@ export default function AppSidebar({ currentScreen, onNavigate }: AppSidebarProp
   
   const menuItems = [
     { id: "dashboard", label: "Groups", icon: Home },
-    { id: "analytics", label: "Analytics", icon: TrendingUp },
   ];
 
   // Get user initials for avatar fallback

@@ -26,13 +26,13 @@ class AnalyticsController {
   }
 
   /**
-   * Get member stats (Solar System)
-   * GET /api/v1/groups/:id/analytics/members
+   * Get member vibes (Vibe Radar)
+   * GET /api/v1/groups/:id/analytics/vibes
    */
-  static async getMemberStats(req, res, next) {
+  static async getMemberVibes(req, res, next) {
     try {
       const { id } = req.params;
-      const data = await AnalyticsService.getMemberStats(id);
+      const data = await AnalyticsService.getMemberVibes(id);
 
       res.json({
         success: true,

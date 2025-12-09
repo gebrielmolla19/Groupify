@@ -83,28 +83,65 @@ describe('AnalyticsService', () => {
         expect(totalShares).toBe(3); // 2 from Alice + 1 from Bob
     });
 
-    it('should calculate member stats correctly (Solar System)', async () => {
-        const stats = await AnalyticsService.getMemberStats(group._id);
-        expect(stats).toHaveLength(3); // Alice, Bob, Charlie
+    it('should calculate member vibes correctly (Radar Chart)', async () => {
+        const vibes = await AnalyticsService.getMemberVibes(group._id);
+        expect(vibes).toHaveLength(3);
 
-        const alice = stats.find(s => s.userId.equals(user1._id));
-        const bob = stats.find(s => s.userId.equals(user2._id));
-        const charlie = stats.find(s => s.userId.equals(user3._id));
+        const alice = vibes.find(s => s.userId.equals(user1._id));
+        const bob = vibes.find(s => s.userId.equals(user2._id));
+        const charlie = vibes.find(s => s.userId.equals(user3._id));
 
-        expect(alice.shareCount).toBe(2);
-        expect(bob.shareCount).toBe(1);
-        expect(charlie.shareCount).toBe(0);
+        // 1. Activity (Shares)
+        // Alice: 2 shares (Max), Score 100
+        // Bob: 1 share, Score 50
+        expect(alice.stats.activity).toBe(100);
+        expect(bob.stats.activity).toBe(50);
+        expect(charlie.stats.activity).toBe(0);
 
-        // Planet Size = Shares + Likes Received
-        // Alice: 2 shares + 6 likes = 8
-        // Bob: 1 share + 7 likes = 8
-        // Charlie: 0 + 0 = 0
-        expect(alice.planetSize).toBe(8);
-        expect(bob.planetSize).toBe(8);
-        expect(charlie.planetSize).toBe(0);
+        // 2. Popularity (Avg Likes Received)
+        // Alice: (5 + 1) / 2 = 3.0 avg
+        // Bob: 7 / 1 = 7.0 avg (Max)
+        // Alice Score: (3/7)*100 = 43
+        expect(bob.stats.popularity).toBe(100);
+        expect(alice.stats.popularity).toBe(43);
 
-        expect(alice.orbitDistance).not.toBe(-1);
-        expect(charlie.orbitDistance).toBe(-1); // Inactive
+        // 3. Support (Likes Given)
+        // Alice gave 1 like to Bob.
+        // Bob gave 1 like to Alice (Song 2).
+        // Max Support = ? Setup says:
+        // Alice shares: Song 1 (Likes: User2, User3), Song 2 (Like: User?) - wait setup said "likeCount: 1". 
+        // Need to check specific likes setup.
+        // Setup:
+        // Song 1 (Alice): Likes [User2, User3]
+        // Song 2 (Alice): Likes [] (Wait, I didn't push to array in setup, just set count?)
+        // Song 3 (Bob): Likes [User1] (Added via updateOne)
+
+        // Use Share.create for Song 2 didn't add array items, so aggregations on 'likes' array might miss it if logic relies on array.
+        // My Service logic relies on unwinding `$likes`.
+        // Song 1: User2 liked, User3 liked.
+        // Song 3: User1 liked.
+        // User1 gave 1 like (to Song 3).
+        // User2 gave 1 like (to Song 1).
+        // User3 gave 1 like (to Song 1).
+        // All gave 1 like. Max is 1. All should score 100.
+        expect(alice.stats.support).toBe(100);
+        expect(bob.stats.support).toBe(100);
+
+        // 4. Variety (Unique Artists)
+        // Alice: Artist A (x2) -> 1 unique
+        // Bob: Artist B -> 1 unique
+        // Max 1. Both 100.
+        expect(alice.stats.variety).toBe(100);
+        expect(bob.stats.variety).toBe(100);
+
+        // 5. Freshness
+        // Both shared "now" or "yesterday". 
+        // Alice: Today (Song 1), Yesterday (Song 2). Max is Today. 
+        // Bob: Today (Song 3).
+        // Diff is 0 days. Score 100.
+        expect(alice.stats.freshness).toBe(100);
+        expect(bob.stats.freshness).toBe(100);
+        expect(charlie.stats.freshness).toBe(0);
     });
 
     it('should calculate superlatives correctly', async () => {

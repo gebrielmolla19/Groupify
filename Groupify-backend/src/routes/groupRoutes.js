@@ -61,7 +61,7 @@ router.post(
 
 // Analytics Routes
 router.get('/:id/analytics/activity', authMiddleware, AnalyticsController.getGroupActivity);
-router.get('/:id/analytics/members', authMiddleware, AnalyticsController.getMemberStats);
+router.get('/:id/analytics/vibes', authMiddleware, AnalyticsController.getMemberVibes);
 router.get('/:id/analytics/superlatives', authMiddleware, AnalyticsController.getSuperlatives);
 
 

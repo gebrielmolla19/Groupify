@@ -1,4 +1,4 @@
-import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, Heart } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, Heart, TrendingUp } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
@@ -253,6 +253,15 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
                 >
                   <List className="w-4 h-4 mr-2" aria-hidden="true" />
                   <span>View Playlist</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-primary/30 hover:bg-primary/10 shrink-0"
+                  onClick={() => onNavigate("analytics", group ? group : undefined)}
+                  aria-label="View group analytics"
+                >
+                  <TrendingUp className="w-4 h-4" aria-hidden="true" />
                 </Button>
                 <Button
                   variant="outline"

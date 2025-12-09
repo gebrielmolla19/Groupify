@@ -11,8 +11,8 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 // Get group activity (waveform)
 router.get('/:id/activity', authMiddleware, AnalyticsController.getGroupActivity);
 
-// Get member stats (solar system)
-router.get('/:id/members', authMiddleware, AnalyticsController.getMemberStats);
+// Get member vibes (radar chart)
+router.get('/:id/vibes', authMiddleware, AnalyticsController.getMemberVibes);
 
 // Get superlatives (hall of fame)
 router.get('/:id/superlatives', authMiddleware, AnalyticsController.getSuperlatives);

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getGroupActivity, getMemberStats, getSuperlatives } from '../lib/api';
+import { getGroupActivity, getMemberVibes, getSuperlatives } from '../lib/api';
 
 interface AnalyticsData {
   activity: any[];
-  members: any[];
+  vibes: any[];
   superlatives: any;
 }
 
@@ -19,13 +19,13 @@ export const useGroupAnalytics = (groupId: string) => {
       setIsLoading(true);
       setError(null);
 
-      const [activity, members, superlatives] = await Promise.all([
+      const [activity, vibes, superlatives] = await Promise.all([
         getGroupActivity(groupId, '7d'),
-        getMemberStats(groupId),
+        getMemberVibes(groupId),
         getSuperlatives(groupId)
       ]);
 
-      setData({ activity, members, superlatives });
+      setData({ activity, vibes, superlatives });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
       setError(errorMessage);

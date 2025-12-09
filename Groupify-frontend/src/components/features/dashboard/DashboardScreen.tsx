@@ -84,7 +84,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
           <SidebarTrigger />
               <div className="flex-1 min-w-0">
@@ -126,7 +126,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
           </header>
 
           {/* Main Content */}
-          <main className="p-4 md:p-6">
+          <main className="p-4 md:p-6 relative z-0">
             {/* Error State */}
             {error && (
               <Card className="border-destructive mb-6">
@@ -162,7 +162,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                   >
                     <div className="relative h-48 overflow-hidden">
                       <GroupThumbnail groupId={group._id} groupName={group.name} />
-                      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent pt-12 z-10">
+                      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent pt-12">
                         <h3 className="text-white text-xl font-semibold mb-1 truncate drop-shadow-md">{group.name}</h3>
                         <p className="text-sm text-zinc-200 line-clamp-1 drop-shadow-sm font-normal">
                           {group.description || "No description"}

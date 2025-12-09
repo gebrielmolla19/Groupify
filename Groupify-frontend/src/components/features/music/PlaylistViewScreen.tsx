@@ -176,6 +176,15 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
               </Select>
               <Button
                 variant="outline"
+                size="icon"
+                className="border-primary/30 hover:bg-primary/10 shrink-0"
+                onClick={() => onNavigate("analytics", group || undefined)}
+                aria-label="View group analytics"
+              >
+                <TrendingUp className="w-4 h-4" aria-hidden="true" />
+              </Button>
+              <Button
+                variant="outline"
                 className="border-primary/30 hover:bg-primary/10 shrink-0"
                 onClick={handleExportToSpotify}
                 disabled={isExporting || shares.length === 0}
