@@ -8,7 +8,7 @@ import { useGroupAnalytics } from "../../../hooks/useGroupAnalytics";
 import ActivityWave from "./ActivityWave";
 import VibeRadar from "./VibeRadar";
 import SuperlativeCard from "./SuperlativeCard";
-import { Sparkles, Activity, Users, ArrowLeft } from "lucide-react";
+import { Sparkles, Activity, ArrowLeft } from "lucide-react";
 
 interface AnalyticsScreenProps {
   group: Group | null;
@@ -16,12 +16,32 @@ interface AnalyticsScreenProps {
 }
 
 export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenProps) {
-  const { data, isLoading, error, activityRange } = useGroupAnalytics(group?._id || '');
+  const { data, isLoading, isActivityLoading, error, activityRange, changeTimeRange } = useGroupAnalytics(group?._id || '');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
   const vibeData = data?.vibes || [];
   const superlatives = data?.superlatives || {};
+
+  // Time range options
+  const timeRanges = [
+    { value: '24h' as const, label: '24h' },
+    { value: '7d' as const, label: '7d' },
+    { value: '30d' as const, label: '30d' },
+    { value: '90d' as const, label: '90d' },
+    { value: 'all' as const, label: 'All' },
+  ];
+
+  const getTimeRangeLabel = () => {
+    switch (activityRange) {
+      case '24h': return 'last 24 hours';
+      case '7d': return 'last 7 days';
+      case '30d': return 'last 30 days';
+      case '90d': return 'last 90 days';
+      case 'all': return 'all time';
+      default: return 'last 30 days';
+    }
+  };
 
   // Show helpful message if no group is selected
   if (!group) {
@@ -138,12 +158,39 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
                 Resonance Frequency
               </h2>
               <span className="text-xs text-muted-foreground">
-                Activity over {activityRange === 'all' ? 'all time' : 'last 30 days'}
+                Activity over {getTimeRangeLabel()}
               </span>
             </div>
-            <Card className="flex-1 bg-black/20 border-white/5 overflow-hidden flex flex-col">
+            
+            {/* Time Range Selector */}
+            <div className="flex items-center gap-2 px-2">
+              <span className="text-xs text-muted-foreground mr-2">Time range:</span>
+              <div className="flex gap-1">
+                {timeRanges.map((range) => (
+                  <Button
+                    key={range.value}
+                    size="sm"
+                    variant={activityRange === range.value ? 'default' : 'outline'}
+                    onClick={() => changeTimeRange(range.value)}
+                    className={
+                      activityRange === range.value
+                        ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
+                        : 'border-primary/30 hover:bg-primary/10 h-7 px-3 text-xs'
+                    }
+                  >
+                    {range.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <Card className="flex-1 bg-black/20 border-white/5 overflow-hidden flex flex-col relative">
+              {isActivityLoading && !isLoading && (
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-20 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              )}
               <CardContent className="flex-1 p-0 flex items-stretch w-full">
-                <ActivityWave data={activityData} isLoading={isLoading} />
+                <ActivityWave data={activityData} isLoading={false} />
               </CardContent>
               {/* Summary Stats below wave */}
               {!isLoading && (

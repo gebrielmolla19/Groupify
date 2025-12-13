@@ -7,35 +7,31 @@ interface AnalyticsData {
   superlatives: any;
 }
 
+export type TimeRange = '24h' | '7d' | '30d' | '90d' | 'all';
+
 export const useGroupAnalytics = (groupId: string) => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activityRange, setActivityRange] = useState<'30d' | 'all'>('30d');
+  const [activityRange, setActivityRange] = useState<TimeRange>('30d');
 
-  const fetchStats = useCallback(async () => {
+  // Initial fetch: load everything
+  const fetchAllStats = useCallback(async () => {
     if (!groupId) return;
 
     try {
       setIsLoading(true);
       setError(null);
 
-      const [vibes, superlatives] = await Promise.all([
+      const [activity, vibes, superlatives] = await Promise.all([
+        getGroupActivity(groupId, '30d'),
         getMemberVibes(groupId),
         getSuperlatives(groupId)
       ]);
 
-      // Activity is time-bucketed and can be sparse; default to 30d and
-      // fallback to all-time if 30d was inactive.
-      let activity = await getGroupActivity(groupId, '30d');
-      if (Array.isArray(activity) && activity.length === 0) {
-        activity = await getGroupActivity(groupId, 'all');
-        setActivityRange('all');
-      } else {
-        setActivityRange('30d');
-      }
-
       setData({ activity, vibes, superlatives });
+      setActivityRange('30d');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
       setError(errorMessage);
@@ -45,15 +41,40 @@ export const useGroupAnalytics = (groupId: string) => {
     }
   }, [groupId]);
 
+  // Fetch only activity data for time range changes
+  const fetchActivity = useCallback(async (range: TimeRange) => {
+    if (!groupId || !data) return;
+
+    try {
+      setIsActivityLoading(true);
+      const activity = await getGroupActivity(groupId, range);
+      
+      setData(prev => prev ? { ...prev, activity } : null);
+      setActivityRange(range);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch activity';
+      setError(errorMessage);
+      console.error('Failed to fetch activity:', err);
+    } finally {
+      setIsActivityLoading(false);
+    }
+  }, [groupId, data]);
+
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    fetchAllStats();
+  }, [groupId]); // Only re-fetch when groupId changes
+
+  const changeTimeRange = useCallback((range: TimeRange) => {
+    fetchActivity(range);
+  }, [fetchActivity]);
 
   return {
     data,
     isLoading,
+    isActivityLoading,
     error,
     activityRange,
-    refetch: fetchStats
+    changeTimeRange,
+    refetch: fetchAllStats
   };
 };
