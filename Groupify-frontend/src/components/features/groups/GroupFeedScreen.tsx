@@ -542,7 +542,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
                                     className="w-6 h-6 border-2 border-background shrink-0"
                                     style={{
                                       marginLeft: index > 0 ? '-8px' : '0',
-                                      zIndex: sortedListeners.length - index
+                                      zIndex: index + 1
                                     }}
                                     title={listenerUser.displayName}
                                   >
