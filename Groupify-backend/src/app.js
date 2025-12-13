@@ -63,24 +63,19 @@ app.use('/api/v1/player', playerRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log(`[Socket.io] User connected: ${socket.id}`);
-
   // Join group room when user connects to a group
   socket.on('joinGroup', (groupId) => {
     socket.join(groupId);
-    console.log(`[Socket.io] User ${socket.id} joined group ${groupId}`);
   });
 
   // Leave group room
   socket.on('leaveGroup', (groupId) => {
     socket.leave(groupId);
-    console.log(`[Socket.io] User ${socket.id} left group ${groupId}`);
   });
 
   // Handle songShared event (already handled in controller, but can add more logic here)
   socket.on('songShared', (data) => {
     // This can be used for additional real-time features
-    console.log(`[Socket.io] Song shared event received:`, data);
   });
 
   // Handle songListened event
@@ -88,13 +83,12 @@ io.on('connection', (socket) => {
     // Emit to all users in the group that a song was listened to
     if (data.groupId) {
       io.to(data.groupId.toString()).emit('songListened', data);
-      console.log(`[Socket.io] Song listened event emitted to group ${data.groupId}`);
     }
   });
 
   // Handle disconnection
   socket.on('disconnect', () => {
-    console.log(`[Socket.io] User disconnected: ${socket.id}`);
+    // User disconnected
   });
 
   // Error handling
@@ -109,7 +103,7 @@ mongoose.connect(config.mongo.uri, {
   useUnifiedTopology: true
 })
   .then(() => {
-    console.log('[MongoDB] Connected to database successfully');
+    // Connected to database successfully
   })
   .catch((error) => {
     console.error('[MongoDB] Connection error:', error.message);
@@ -118,7 +112,7 @@ mongoose.connect(config.mongo.uri, {
 
 // MongoDB connection event handlers
 mongoose.connection.on('disconnected', () => {
-  console.log('[MongoDB] Disconnected from database');
+  // Disconnected from database
 });
 
 mongoose.connection.on('error', (error) => {

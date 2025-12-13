@@ -17,8 +17,6 @@ const userLastChecked = new Map();
  */
 async function checkListeningActivity() {
   try {
-    console.log('[Scheduler] Starting listening activity check...');
-
     // Get all active users
     const users = await User.find({ isActive: true });
 
@@ -76,7 +74,6 @@ async function checkListeningActivity() {
 
               // Emit socket event for real-time updates
               // Note: You'll need to pass the io instance to this function or store it globally
-              console.log(`[Scheduler] User ${user.displayName} listened to ${share.trackName} in group ${share.group}`);
             }
           }
         }
@@ -85,8 +82,6 @@ async function checkListeningActivity() {
         // Continue with other users
       }
     }
-
-    console.log('[Scheduler] Listening activity check completed');
   } catch (error) {
     console.error('[Scheduler] Error in listening activity check:', error.message);
   }
@@ -104,8 +99,6 @@ function startScheduler(io = null) {
     await checkListeningActivity();
   });
 
-  console.log('[Scheduler] Scheduled tasks initialized - checking listening activity every 5 minutes');
-
   // Also run immediately on startup (optional)
   // Uncomment if you want to check on server start
   // checkListeningActivity();
@@ -117,7 +110,6 @@ function startScheduler(io = null) {
 function stopScheduler() {
   // node-cron doesn't have a direct stop method, but tasks can be stopped
   // by storing the task and calling .destroy() if needed
-  console.log('[Scheduler] Scheduled tasks stopped');
 }
 
 module.exports = {

@@ -192,23 +192,6 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
               <CardContent className="flex-1 p-0 flex items-stretch w-full">
                 <ActivityWave data={activityData} isLoading={false} />
               </CardContent>
-              {/* Summary Stats below wave */}
-              {!isLoading && (
-                <div className="grid grid-cols-3 gap-2 p-4 border-t border-white/5 bg-white/5">
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Total Shares</div>
-                    <div className="text-xl font-bold">{activityData.reduce((acc: number, curr: any) => acc + (curr.shares || 0), 0)}</div>
-                  </div>
-                  <div className="text-center border-l border-white/5">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Total Noise</div>
-                    <div className="text-xl font-bold text-primary">{activityData.reduce((acc: number, curr: any) => acc + (curr.activity || 0), 0)}</div>
-                  </div>
-                  <div className="text-center border-l border-white/5">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Peak Day</div>
-                    <div className="text-l font-medium text-muted-foreground">-</div>
-                  </div>
-                </div>
-              )}
             </Card>
           </div>
         </div>

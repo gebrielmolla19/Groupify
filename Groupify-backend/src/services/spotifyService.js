@@ -527,8 +527,6 @@ class SpotifyService {
    */
   static async playTrack(accessToken, deviceId, trackUri) {
     try {
-      console.log(`[Spotify] Attempting to play track ${trackUri} on device ${deviceId}`);
-      
       // First, check if device is available in Spotify's system
       let actualDeviceId = deviceId;
       try {
@@ -537,20 +535,15 @@ class SpotifyService {
         
         if (!targetDevice) {
           console.warn(`[Spotify] Device ${deviceId} not found in available devices list.`);
-          console.log('[Spotify] Searching for Groupify Web Player by name...');
           
           // Fallback: Search for any "Groupify Web Player" device
           targetDevice = devices.find(d => d.name && d.name.includes('Groupify Web Player'));
           
           if (targetDevice) {
-            console.log(`[Spotify] ✅ Found Groupify Web Player: ${targetDevice.name} (${targetDevice.id})`);
             actualDeviceId = targetDevice.id; // Use the found device ID
           } else {
             console.warn('[Spotify] ⚠️ No Groupify Web Player found. Available devices:', devices.map(d => ({ id: d.id, name: d.name, is_active: d.is_active })));
-            console.log('[Spotify] Will attempt to play with original device ID anyway - device might activate on play command');
           }
-        } else {
-          console.log(`[Spotify] ✅ Found device: ${targetDevice.name} (active: ${targetDevice.is_active})`);
         }
       } catch (deviceCheckError) {
         console.warn('[Spotify] Could not check available devices (non-critical):', deviceCheckError.message);
@@ -562,7 +555,6 @@ class SpotifyService {
       /*
       try {
         await this.transferPlayback(accessToken, deviceId);
-        console.log(`[Spotify] Playback transferred to device ${deviceId}`);
         // Wait for the transfer to complete
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (transferError) {
@@ -570,8 +562,6 @@ class SpotifyService {
         // Continue anyway - play command might activate the device
       }
       */
-      
-      console.log(`[Spotify] Skipping transfer - will activate device with play command using device: ${actualDeviceId}`);
       
       // Call play endpoint with device_id - Spotify will start playback on this device
       const response = await axios.put(
@@ -587,7 +577,6 @@ class SpotifyService {
         }
       );
       
-      console.log(`[Spotify] ✅ Track started playing successfully`);
       return response.data;
     } catch (error) {
       // Handle specific Spotify API errors

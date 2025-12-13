@@ -6,6 +6,19 @@ import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/s
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
 
+// Suppress harmless Spotify SDK EMEError (DRM initialization error)
+// This error occurs when Spotify SDK tries to initialize DRM capabilities
+// that aren't available in the browser - it doesn't affect playback functionality
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason?.message?.includes('EMEError') || 
+        event.reason?.message?.includes('No supported keysystem') ||
+        (event.reason?.name === 'EMEError')) {
+      event.preventDefault(); // Suppress the error
+    }
+  });
+}
+
 // Module-level state to ensure singleton player instance
 let globalPlayer: SpotifyPlayer | null = null;
 let globalDeviceId: string | null = null;
@@ -133,10 +146,6 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
 
       // Set up event listeners
       spotifyPlayer.addListener('ready', async ({ device_id }) => {
-        console.log('🎧 Spotify Web Playback SDK ready!');
-        console.log('📱 Device ID:', device_id);
-        console.log('⏰ Device registered at:', new Date().toLocaleTimeString());
-        
         globalDeviceId = device_id;
         deviceReadyTimestamp = Date.now();
         globalIsLoading = false;
@@ -148,13 +157,11 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
         // CRITICAL: Web Playback SDK devices need to be activated
         // Try to activate the device by calling resume (even though nothing is playing)
         // This makes Spotify's backend recognize the device
-        console.log('🔄 Activating Web Playback SDK device...');
         try {
           // Attempt to resume playback (will fail gracefully if nothing is playing)
           await spotifyPlayer.resume();
-          console.log('✅ Device activation attempted via resume()');
         } catch (activateErr) {
-          console.log('ℹ️ Resume failed (expected if no track): ', activateErr);
+          // Resume failed (expected if no track)
         }
 
         // Wait 2 seconds then try to transfer playback to make device active
@@ -163,7 +170,6 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
             transferCalledRef.current = true;
             try {
               await transferPlayback(device_id);
-              console.log('✅ Playback transferred to device - device is now active!');
               toast.success('Spotify player ready! Click any track to play.', { duration: 3000 });
             } catch (err) {
               console.warn('⚠️ Initial transfer failed (device will activate on first play):', err);
@@ -173,8 +179,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
         }, 2000);
       });
 
-      spotifyPlayer.addListener('not_ready', ({ device_id }) => {
-        console.log('Spotify player not ready, device ID:', device_id);
+      spotifyPlayer.addListener('not_ready', () => {
         globalDeviceId = null;
         globalIsPlaying = false;
         globalCurrentTrack = null;
@@ -463,13 +468,10 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       throw new Error('Invalid track URI. Expected format: spotify:track:xxx');
     }
 
-    console.log('🎵 Attempting to play track:', { deviceId, trackUri });
-
     // Check if device was recently registered - wait if too soon
     const timeSinceReady = deviceReadyTimestamp ? Date.now() - deviceReadyTimestamp : Infinity;
     if (timeSinceReady < 5000) {
       const waitTime = 5000 - timeSinceReady;
-      console.log(`⏳ Device registered ${Math.ceil(timeSinceReady/1000)}s ago, waiting ${Math.ceil(waitTime/1000)}s more...`);
       toast.info(`Preparing player... ${Math.ceil(waitTime/1000)}s`, { duration: waitTime });
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
@@ -478,7 +480,6 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       // Use backend API endpoint to play track
       await apiPlayTrack(deviceId, trackUri);
       
-      console.log('✅ Track started playing successfully!');
       toast.success('Track playing!');
       // The player state will update automatically via the player_state_changed event
       

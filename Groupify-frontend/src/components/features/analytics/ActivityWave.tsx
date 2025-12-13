@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { format } from 'date-fns';
+import { Trophy } from 'lucide-react';
 
 interface ActivityData {
     timestamp: string;
@@ -52,6 +53,23 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
         return chartData.reduce((max, d) => Math.max(max, Number(d.activity) || 0), 0);
     }, [chartData]);
 
+    const peakDay = useMemo(() => {
+        if (!chartData?.length) return null;
+        return chartData.reduce((peak, current) => {
+            return (current.activity > peak.activity) ? current : peak;
+        }, chartData[0]);
+    }, [chartData]);
+
+    const totalShares = useMemo(() => {
+        if (!chartData?.length) return 0;
+        return chartData.reduce((sum, d) => sum + (Number(d.shares) || 0), 0);
+    }, [chartData]);
+
+    const totalNoise = useMemo(() => {
+        if (!chartData?.length) return 0;
+        return chartData.reduce((sum, d) => sum + (Number(d.activity) || 0), 0);
+    }, [chartData]);
+
     if (isLoading) {
         return (
             <div className="w-full flex-1 flex flex-col">
@@ -89,8 +107,8 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                     Group Frequency
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 p-4" style={{ minHeight: '250px' }}>
-                <div className="w-full h-full" style={{ minHeight: '200px' }}>
+            <CardContent className="flex-1 p-4 flex gap-4" style={{ minHeight: '250px' }}>
+                <div className="flex-1 h-full" style={{ minHeight: '200px' }}>
                     <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
                             <defs>
@@ -142,8 +160,54 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 }}
                                 animationDuration={1200}
                             />
+                            {peakDay && peakDay.activity > 0 && (
+                                <>
+                                    {/* Pulsing glow effect */}
+                                    <ReferenceDot
+                                        x={peakDay.ts}
+                                        y={peakDay.activity}
+                                        r={12}
+                                        fill="#00FF88"
+                                        fillOpacity={0.2}
+                                        stroke="none"
+                                        isFront={true}
+                                    />
+                                    {/* Main peak dot */}
+                                    <ReferenceDot
+                                        x={peakDay.ts}
+                                        y={peakDay.activity}
+                                        r={6}
+                                        fill="#00FF88"
+                                        stroke="#FFFFFF"
+                                        strokeWidth={2.5}
+                                        isFront={true}
+                                    />
+                                </>
+                            )}
                         </AreaChart>
                     </ResponsiveContainer>
+                </div>
+                {/* Stats Panel on the right */}
+                <div className="flex flex-col gap-4 justify-center px-4 border-l border-white/5 min-w-[140px]">
+                    <div>
+                        <div className="text-muted-foreground uppercase tracking-wider mb-1 text-xs">Total Shares</div>
+                        <div className="text-xl font-bold">{totalShares}</div>
+                    </div>
+                    <div>
+                        <div className="text-muted-foreground uppercase tracking-wider mb-1 text-xs">Total Noise</div>
+                        <div className="text-xl font-bold text-primary">{totalNoise}</div>
+                    </div>
+                    {peakDay && peakDay.activity > 0 && (
+                        <div>
+                            <div className="text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1 text-xs">
+                                <Trophy className="w-3 h-3 text-primary" />
+                                Peak Day
+                            </div>
+                            <div className="text-xl font-bold text-primary">
+                                {format(new Date(peakDay.ts), 'MMM d')}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </div>

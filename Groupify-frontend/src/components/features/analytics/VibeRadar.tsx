@@ -53,32 +53,20 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
     const toggleMember = (userId: string) => {
         const id = String(userId); // Ensure string comparison
         
-        console.log('Toggle member clicked:', { 
-            userId: id, 
-            currentSelected: selectedIds,
-            isCurrentlySelected: selectedIds.includes(id),
-            currentCount: selectedIds.length 
-        });
-        
         if (selectedIds.includes(id)) {
             // Don't allow unselecting the last one
             if (selectedIds.length > 1) {
                 const newSelection = selectedIds.filter(sid => sid !== id);
-                console.log('Deselecting, new selection:', newSelection);
                 setSelectedIds(newSelection);
-            } else {
-                console.log('Cannot deselect - last member');
             }
         } else {
             // Limit to 3 for readability
             if (selectedIds.length < 3) {
                 const newSelection = [...selectedIds, id];
-                console.log('Adding member, new selection:', newSelection);
                 setSelectedIds(newSelection);
             } else {
                 // Shift first out
                 const newSelection = [...selectedIds.slice(1), id];
-                console.log('Max reached, replacing first, new selection:', newSelection);
                 setSelectedIds(newSelection);
             }
         }
@@ -86,7 +74,6 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
 
     const chartData = useMemo(() => {
         if (!data || !data.length || !selectedIds.length) {
-            console.log('VibeRadar: No data or selected IDs', { data: data?.length, selectedIds: selectedIds.length });
             return [];
         }
         

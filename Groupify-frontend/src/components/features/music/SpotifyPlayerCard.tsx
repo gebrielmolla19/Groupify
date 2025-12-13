@@ -47,12 +47,9 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
   // Track when device becomes ready and show a brief "warming up" state
   useEffect(() => {
     if (deviceId && !isLoading) {
-      console.log(`🎧 Spotify Device Ready! Device ID: ${deviceId}`);
-      console.log(`⏰ Activating device with Spotify... Please wait 10 seconds before playing.`);
       setIsDeviceRecentlyReady(true);
       // Clear the flag after 10 seconds
       const timer = setTimeout(() => {
-        console.log('✅ Device activation complete - ready for playback!');
         setIsDeviceRecentlyReady(false);
       }, 10000);
       return () => clearTimeout(timer);

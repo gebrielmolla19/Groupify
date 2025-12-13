@@ -58,19 +58,7 @@ class AuthController {
       // Exchange code for tokens
       let tokenData;
       try {
-        // Log client ID being used (first 10 chars for security)
-        const clientIdPreview = process.env.SPOTIFY_CLIENT_ID
-          ? `${process.env.SPOTIFY_CLIENT_ID.substring(0, 10)}...`
-          : 'NOT SET';
-        console.log('[Auth] Exchanging code for token with client ID:', clientIdPreview);
-
         tokenData = await SpotifyService.exchangeCodeForToken(code);
-
-        console.log('[Auth] Token exchange successful:', {
-          hasAccessToken: !!tokenData.accessToken,
-          hasRefreshToken: !!tokenData.refreshToken,
-          expiresIn: tokenData.expiresIn
-        });
       } catch (error) {
         console.error('[Auth] Token exchange failed:', {
           error: error.message,
@@ -94,13 +82,7 @@ class AuthController {
       // Get user profile from Spotify
       let spotifyProfile;
       try {
-        console.log('[Auth] Fetching user profile from Spotify...');
         spotifyProfile = await SpotifyService.getUserProfile(tokenData.accessToken);
-        console.log('[Auth] User profile fetched successfully:', {
-          spotifyId: spotifyProfile.id,
-          displayName: spotifyProfile.display_name,
-          email: spotifyProfile.email ? 'provided' : 'not provided'
-        });
       } catch (error) {
         console.error('[Auth] Failed to fetch user profile:', {
           error: error.message,
@@ -262,9 +244,6 @@ class AuthController {
   static async logout(req, res, next) {
     try {
       const userId = req.user.displayName;
-
-      // Log the logout event (optional - for analytics)
-      console.log(`[Auth] User ${userId} logged out at ${new Date().toISOString()}`);
 
       // TODO: If implementing token blacklisting, add token to blacklist here
       // await TokenBlacklist.create({ token: req.token, expiresAt: req.tokenExp });
