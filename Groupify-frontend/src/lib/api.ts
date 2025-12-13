@@ -561,51 +561,20 @@ export const exportGroupToPlaylist = async (
 
 /**
  * Transfer playback to a device
- * Note: This is a non-critical operation - if it fails, the device will activate on first play
  */
 export const transferPlayback = async (deviceId: string): Promise<{ success: boolean; message: string; data: { deviceId: string } }> => {
-  const token = getToken();
-  const url = `${API_BASE_URL}/player/transfer`;
+  const response = await fetchWithAuth('/player/transfer', {
+    method: 'PUT',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+  const data = await response.json();
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to transfer playback');
   }
 
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({ device_id: deviceId }),
-    });
-
-    // Handle 404 gracefully - endpoint may not be available, but that's okay
-    if (response.status === 404) {
-      throw new Error('Transfer endpoint not available - device will activate on first play');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.message || 'Failed to transfer playback');
-    }
-
-    return data;
-  } catch (error) {
-    // Re-throw with a user-friendly message for 404s
-    if (error instanceof Error && error.message.includes('404')) {
-      throw new Error('Transfer endpoint not available - device will activate on first play');
-    }
-    throw error;
-  }
+  return data;
 };
 
 /**

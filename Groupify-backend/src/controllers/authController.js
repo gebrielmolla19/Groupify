@@ -243,7 +243,7 @@ class AuthController {
    */
   static async logout(req, res, next) {
     try {
-      const userId = req.user.displayName;
+      const userId = req.userId;
 
       // TODO: If implementing token blacklisting, add token to blacklist here
       // await TokenBlacklist.create({ token: req.token, expiresAt: req.tokenExp });

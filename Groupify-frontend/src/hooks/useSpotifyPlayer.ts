@@ -6,19 +6,6 @@ import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/s
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
 
-// Suppress harmless Spotify SDK EMEError (DRM initialization error)
-// This error occurs when Spotify SDK tries to initialize DRM capabilities
-// that aren't available in the browser - it doesn't affect playback functionality
-if (typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
-    if (event.reason?.message?.includes('EMEError') || 
-        event.reason?.message?.includes('No supported keysystem') ||
-        (event.reason?.name === 'EMEError')) {
-      event.preventDefault(); // Suppress the error
-    }
-  });
-}
-
 // Module-level state to ensure singleton player instance
 let globalPlayer: SpotifyPlayer | null = null;
 let globalDeviceId: string | null = null;

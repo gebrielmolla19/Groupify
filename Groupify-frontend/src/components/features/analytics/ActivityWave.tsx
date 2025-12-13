@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { format } from 'date-fns';
 import { Trophy } from 'lucide-react';
@@ -53,13 +53,6 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
         return chartData.reduce((max, d) => Math.max(max, Number(d.activity) || 0), 0);
     }, [chartData]);
 
-    const peakDay = useMemo(() => {
-        if (!chartData?.length) return null;
-        return chartData.reduce((peak, current) => {
-            return (current.activity > peak.activity) ? current : peak;
-        }, chartData[0]);
-    }, [chartData]);
-
     const totalShares = useMemo(() => {
         if (!chartData?.length) return 0;
         return chartData.reduce((sum, d) => sum + (Number(d.shares) || 0), 0);
@@ -68,6 +61,13 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
     const totalNoise = useMemo(() => {
         if (!chartData?.length) return 0;
         return chartData.reduce((sum, d) => sum + (Number(d.activity) || 0), 0);
+    }, [chartData]);
+
+    const peakDay = useMemo(() => {
+        if (!chartData?.length) return null;
+        return chartData.reduce((peak, current) => {
+            return (current.activity > peak.activity) ? current : peak;
+        }, chartData[0]);
     }, [chartData]);
 
     if (isLoading) {
@@ -160,30 +160,6 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 }}
                                 animationDuration={1200}
                             />
-                            {peakDay && peakDay.activity > 0 && (
-                                <>
-                                    {/* Pulsing glow effect */}
-                                    <ReferenceDot
-                                        x={peakDay.ts}
-                                        y={peakDay.activity}
-                                        r={12}
-                                        fill="#00FF88"
-                                        fillOpacity={0.2}
-                                        stroke="none"
-                                        isFront={true}
-                                    />
-                                    {/* Main peak dot */}
-                                    <ReferenceDot
-                                        x={peakDay.ts}
-                                        y={peakDay.activity}
-                                        r={6}
-                                        fill="#00FF88"
-                                        stroke="#FFFFFF"
-                                        strokeWidth={2.5}
-                                        isFront={true}
-                                    />
-                                </>
-                            )}
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
