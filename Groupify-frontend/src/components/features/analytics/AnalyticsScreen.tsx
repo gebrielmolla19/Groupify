@@ -16,7 +16,7 @@ interface AnalyticsScreenProps {
 }
 
 export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenProps) {
-  const { data, isLoading, error } = useGroupAnalytics(group?._id || '');
+  const { data, isLoading, error, activityRange } = useGroupAnalytics(group?._id || '');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
@@ -137,10 +137,12 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
                 <Activity className="w-5 h-5 text-primary" />
                 Resonance Frequency
               </h2>
-              <span className="text-xs text-muted-foreground">Activity over last 7 days</span>
+              <span className="text-xs text-muted-foreground">
+                Activity over {activityRange === 'all' ? 'all time' : 'last 30 days'}
+              </span>
             </div>
             <Card className="flex-1 bg-black/20 border-white/5 overflow-hidden flex flex-col">
-              <CardContent className="flex-1 p-0 flex items-center">
+              <CardContent className="flex-1 p-0 flex items-stretch w-full">
                 <ActivityWave data={activityData} isLoading={isLoading} />
               </CardContent>
               {/* Summary Stats below wave */}

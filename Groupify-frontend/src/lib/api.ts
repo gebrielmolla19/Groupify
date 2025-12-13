@@ -600,7 +600,10 @@ export const playTrack = async (deviceId: string, trackUri: string): Promise<{ s
 /**
  * Get group activity (waveform)
  */
-export const getGroupActivity = async (groupId: string, timeRange: '24h' | '7d' = '7d'): Promise<any[]> => {
+export const getGroupActivity = async (
+  groupId: string,
+  timeRange: '24h' | '7d' | '30d' | '90d' | 'all' = '30d'
+): Promise<any[]> => {
   const response = await fetchWithAuth(`/analytics/${groupId}/activity?timeRange=${timeRange}`);
   const data = await response.json();
 

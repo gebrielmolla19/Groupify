@@ -14,7 +14,7 @@ class AnalyticsService {
   /**
    * Get aggregated activity for a group (waveform data)
    * @param {string} groupId
-   * @param {string} timeRange - '24h' or '7d'
+   * @param {string} timeRange - '24h' | '7d' | '30d' | '90d' | 'all'
    */
   static async getGroupActivity(groupId, timeRange = '7d') {
     const now = new Date();
@@ -22,7 +22,29 @@ class AnalyticsService {
 
     if (timeRange === '24h') {
       startDate.setHours(now.getHours() - 24);
+    } else if (timeRange === '7d' || !timeRange) {
+      startDate.setDate(now.getDate() - 7);
+    } else if (timeRange === '30d') {
+      startDate.setDate(now.getDate() - 30);
+    } else if (timeRange === '90d') {
+      startDate.setDate(now.getDate() - 90);
+    } else if (timeRange === 'all') {
+      // All-time can be huge; start at earliest share for the group,
+      // but cap to the last 365 days for performance & chart readability.
+      const earliest = await Share.findOne({ group: new mongoose.Types.ObjectId(groupId) })
+        .sort({ createdAt: 1 })
+        .select('createdAt')
+        .lean();
+
+      startDate = earliest?.createdAt ? new Date(earliest.createdAt) : new Date(0);
+
+      const days = (now.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
+      if (days > 365) {
+        startDate = new Date();
+        startDate.setDate(now.getDate() - 365);
+      }
     } else {
+      // Backward-compatible default
       startDate.setDate(now.getDate() - 7);
     }
 
@@ -56,12 +78,39 @@ class AnalyticsService {
       { $sort: { _id: 1 } }
     ]);
 
-    // Map to simplified format for frontend Recharts
-    return shares.map(s => ({
-      timestamp: s._id,
-      shares: s.count,
-      activity: s.count + s.likes + s.listens // Total "Noise"/Amplitude
-    }));
+    // Backfill missing buckets so the waveform always renders a full series
+    // (Recharts can look blank with 1-2 sparse points).
+    const bucketMap = new Map();
+    shares.forEach((s) => {
+      const ts = new Date(s._id).getTime();
+      bucketMap.set(ts, {
+        timestamp: new Date(s._id),
+        shares: s.count,
+        activity: s.count + s.likes + s.listens,
+      });
+    });
+
+    const startMs = new Date(startDate).getTime();
+    const endMs = now.getTime();
+
+    // Align start to bucket boundary
+    const alignedStart = startMs - (startMs % interval);
+    const alignedEnd = endMs - (endMs % interval);
+
+    const series = [];
+    for (let t = alignedStart; t <= alignedEnd; t += interval) {
+      if (bucketMap.has(t)) {
+        series.push(bucketMap.get(t));
+      } else {
+        series.push({
+          timestamp: new Date(t),
+          shares: 0,
+          activity: 0,
+        });
+      }
+    }
+
+    return series;
   }
 
   /**

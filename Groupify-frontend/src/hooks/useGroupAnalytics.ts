@@ -11,6 +11,7 @@ export const useGroupAnalytics = (groupId: string) => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activityRange, setActivityRange] = useState<'30d' | 'all'>('30d');
 
   const fetchStats = useCallback(async () => {
     if (!groupId) return;
@@ -19,11 +20,20 @@ export const useGroupAnalytics = (groupId: string) => {
       setIsLoading(true);
       setError(null);
 
-      const [activity, vibes, superlatives] = await Promise.all([
-        getGroupActivity(groupId, '7d'),
+      const [vibes, superlatives] = await Promise.all([
         getMemberVibes(groupId),
         getSuperlatives(groupId)
       ]);
+
+      // Activity is time-bucketed and can be sparse; default to 30d and
+      // fallback to all-time if 30d was inactive.
+      let activity = await getGroupActivity(groupId, '30d');
+      if (Array.isArray(activity) && activity.length === 0) {
+        activity = await getGroupActivity(groupId, 'all');
+        setActivityRange('all');
+      } else {
+        setActivityRange('30d');
+      }
 
       setData({ activity, vibes, superlatives });
     } catch (err) {
@@ -43,6 +53,7 @@ export const useGroupAnalytics = (groupId: string) => {
     data,
     isLoading,
     error,
+    activityRange,
     refetch: fetchStats
   };
 };

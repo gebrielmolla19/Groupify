@@ -13,7 +13,7 @@ class AnalyticsController {
   static async getGroupActivity(req, res, next) {
     try {
       const { id } = req.params;
-      const { timeRange } = req.query; // '24h' or '7d'
+      const { timeRange } = req.query; // '24h' | '7d' | '30d' | '90d' | 'all'
       const data = await AnalyticsService.getGroupActivity(id, timeRange);
 
       res.json({
