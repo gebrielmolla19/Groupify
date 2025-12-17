@@ -103,6 +103,10 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
 
       // Fetch Spotify access token from backend
       try {
+        // Warm up / validate token early so the SDK can connect reliably.
+        // The SDK will also request tokens via getOAuthToken, but this catches
+        // auth issues sooner and improves error messaging.
+        await getSpotifyAccessToken();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to get Spotify access token';
         console.error('Failed to get Spotify token:', err);

@@ -8,6 +8,9 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  * Handles Spotify playback control endpoints
  */
 
+// Get available devices (protected)
+router.get('/devices', authMiddleware, PlayerController.getAvailableDevices);
+
 // Transfer playback to a device (protected)
 router.put('/transfer', authMiddleware, PlayerController.transferPlayback);
 

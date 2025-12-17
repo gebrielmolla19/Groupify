@@ -4,7 +4,7 @@
  */
 
 import { API_BASE_URL } from './config';
-import { User } from '../types';
+import { User, SpotifyDevice } from '../types';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
 
@@ -593,6 +593,20 @@ export const playTrack = async (deviceId: string, trackUri: string): Promise<{ s
   }
 
   return data;
+};
+
+/**
+ * Get available Spotify Connect devices for the current user
+ */
+export const getSpotifyDevices = async (): Promise<SpotifyDevice[]> => {
+  const response = await fetchWithAuth('/player/devices');
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch Spotify devices');
+  }
+
+  return data.devices || [];
 };
 
 // ==================== ANALYTICS OPERATIONS ====================

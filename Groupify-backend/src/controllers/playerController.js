@@ -8,6 +8,51 @@ const TokenManager = require('../utils/tokenManager');
  */
 class PlayerController {
   /**
+   * Get the user's available Spotify Connect devices
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @param {Function} next - Express next middleware function
+   */
+  static async getAvailableDevices(req, res, next) {
+    try {
+      const userId = req.userId;
+
+      if (!userId) {
+        const error = new Error('User ID not found in request');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      // Get valid Spotify access token (handles refresh if needed)
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+
+      const devices = await SpotifyService.getAvailableDevices(accessToken);
+
+      res.json({
+        success: true,
+        devices
+      });
+    } catch (error) {
+      // If error already has statusCode, pass it through
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      // Log error for debugging
+      console.error('Get available devices error:', {
+        error: error.message,
+        userId: req.userId,
+        timestamp: new Date().toISOString()
+      });
+
+      next(error);
+    }
+  }
+
+  /**
    * Transfer playback to a specific device
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object

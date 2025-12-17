@@ -1,15 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Loader2, Music } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Loader2, Music, MonitorSpeaker, RefreshCw } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Skeleton } from '../../ui/skeleton';
 import { Card, CardContent } from '../../ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../../ui/tooltip';
 import { useSidebar } from '../../ui/sidebar';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
-import { Group } from '../../../types';
+import { Group, SpotifyDevice } from '../../../types';
 import { toast } from 'sonner';
+import { getSpotifyDevices, transferPlayback } from '../../../lib/api';
 
 interface SpotifyPlayerCardProps {
   selectedGroup?: Group | null;
@@ -21,6 +24,75 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
   const { shares: playlistShares } = usePlaylist(playingGroup?._id || '', contextSortBy);
   const { state: sidebarState, isMobile } = useSidebar();
   const [isDeviceRecentlyReady, setIsDeviceRecentlyReady] = useState(false);
+  const [isDevicePopoverOpen, setIsDevicePopoverOpen] = useState(false);
+  const [devices, setDevices] = useState<SpotifyDevice[]>([]);
+  const [isDevicesLoading, setIsDevicesLoading] = useState(false);
+  const [isSwitchingDevice, setIsSwitchingDevice] = useState(false);
+  const [selectedOutputDeviceId, setSelectedOutputDeviceId] = useState<string>('');
+
+  const mergedDevices = useMemo(() => {
+    const normalized = (devices || []).filter((d): d is SpotifyDevice => !!d && typeof d.name === 'string');
+
+    // Include the Web Playback SDK device (from the SDK "ready" event) even if Spotify hasn't
+    // surfaced it in /me/player/devices yet.
+    const hasSdkDeviceInList = !!deviceId && normalized.some(d => d.id === deviceId);
+    const withSdkDevice = !hasSdkDeviceInList && deviceId
+      ? [
+          {
+            id: deviceId,
+            name: 'Groupify Web Player (Browser)',
+            type: 'Web Playback SDK',
+            is_active: false,
+            is_private_session: false,
+            is_restricted: false,
+            volume_percent: null,
+          } satisfies SpotifyDevice,
+          ...normalized,
+        ]
+      : normalized;
+
+    return withSdkDevice;
+  }, [devices, deviceId]);
+
+  const activeDevice = useMemo(() => mergedDevices.find(d => d.is_active), [mergedDevices]);
+
+  const loadDevices = async () => {
+    try {
+      setIsDevicesLoading(true);
+      const list = await getSpotifyDevices();
+      setDevices(list);
+
+      // Default selection: active device, else keep existing, else SDK device if present
+      setSelectedOutputDeviceId(prev => {
+        if (prev) return prev;
+        if (list?.some(d => d.is_active && d.id)) return list.find(d => d.is_active && d.id)?.id || '';
+        if (deviceId) return deviceId;
+        return '';
+      });
+    } catch (err) {
+      console.error('Failed to load Spotify devices:', err);
+      toast.error('Failed to load Spotify devices');
+    } finally {
+      setIsDevicesLoading(false);
+    }
+  };
+
+  const handleSelectDevice = async (nextDeviceId: string) => {
+    if (!nextDeviceId) return;
+    try {
+      setIsSwitchingDevice(true);
+      await transferPlayback(nextDeviceId);
+      setSelectedOutputDeviceId(nextDeviceId);
+
+      const selected = mergedDevices.find(d => d.id === nextDeviceId);
+      toast.success(`Playback device set to ${selected?.name || 'selected device'}`);
+    } catch (err) {
+      console.error('Failed to transfer playback:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to switch playback device');
+    } finally {
+      setIsSwitchingDevice(false);
+    }
+  };
 
   // Calculate sidebar offset based on state
   // Expanded: 16rem (half = 8rem) | Collapsed: 4rem (half = 2rem) | Mobile: 0rem
@@ -55,6 +127,13 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
       return () => clearTimeout(timer);
     }
   }, [deviceId, isLoading]);
+
+  // Load devices when the popover opens (and when SDK deviceId appears)
+  useEffect(() => {
+    if (!isDevicePopoverOpen) return;
+    void loadDevices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDevicePopoverOpen, deviceId]);
 
   // Auto-detect playing group when track is playing and we're viewing a group
   useEffect(() => {
@@ -483,6 +562,82 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                   <p>Next Track</p>
                 </TooltipContent>
               </Tooltip>
+
+              {/* Device Picker */}
+              <Popover open={isDevicePopoverOpen} onOpenChange={setIsDevicePopoverOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-full hover:bg-white/10 text-white"
+                        aria-label="Select playback device"
+                      >
+                        <MonitorSpeaker className="size-5 opacity-90" />
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{activeDevice ? `Device: ${activeDevice.name}` : 'Select playback device'}</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <PopoverContent align="end" className="w-80">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">Playback device</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {activeDevice ? `Active: ${activeDevice.name}` : 'Choose where Spotify plays'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => void loadDevices()}
+                        disabled={isDevicesLoading || isSwitchingDevice}
+                        aria-label="Refresh devices"
+                      >
+                        {isDevicesLoading ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-4" />
+                        )}
+                      </Button>
+                    </div>
+
+                    <Select
+                      value={selectedOutputDeviceId}
+                      onValueChange={(val) => void handleSelectDevice(val)}
+                      disabled={isDevicesLoading || isSwitchingDevice}
+                    >
+                      <SelectTrigger aria-label="Select Spotify playback device">
+                        <SelectValue placeholder={isDevicesLoading ? 'Loading devices…' : 'Select a device'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {mergedDevices
+                          .filter(d => !!d.id)
+                          .map((d) => (
+                            <SelectItem key={d.id as string} value={d.id as string}>
+                              {d.name}{d.is_active ? ' (active)' : ''}
+                            </SelectItem>
+                          ))}
+                        {mergedDevices.filter(d => !!d.id).length === 0 && (
+                          <SelectItem value="__none" disabled>
+                            No devices found
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+
+                    <p className="text-xs text-muted-foreground">
+                      Tip: if your device isn’t listed, open Spotify on that device and play any song once.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
           </div>

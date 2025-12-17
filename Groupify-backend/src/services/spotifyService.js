@@ -442,15 +442,16 @@ class SpotifyService {
    * Transfer playback to a device
    * @param {string} accessToken - Spotify access token
    * @param {string} deviceId - Device ID to transfer playback to
+   * @param {boolean} play - Whether to start/resume playback after transfer (default: false)
    * @returns {Promise<void>} Success if transfer is successful
    */
-  static async transferPlayback(accessToken, deviceId) {
+  static async transferPlayback(accessToken, deviceId, play = false) {
     try {
       const response = await axios.put(
         `${SPOTIFY_API_BASE}/me/player`,
         {
           device_ids: [deviceId],
-          play: false
+          play: Boolean(play)
         },
         {
           headers: {
@@ -526,58 +527,112 @@ class SpotifyService {
    * @returns {Promise<void>} Success if playback starts
    */
   static async playTrack(accessToken, deviceId, trackUri) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    /**
+     * Web Playback SDK devices can take a moment to appear in Spotify's
+     * /me/player/devices list after the SDK emits "ready".
+     * We retry a few times to avoid failing on a stale device_id.
+     */
+    const getDevicesWithRetry = async (attempts = 3, delayMs = 600) => {
+      let lastErr = null;
+      for (let i = 0; i < attempts; i += 1) {
+        try {
+          const devices = await this.getAvailableDevices(accessToken);
+          return devices;
+        } catch (err) {
+          lastErr = err;
+          // Backoff slightly between attempts
+          if (i < attempts - 1) {
+            await sleep(delayMs);
+          }
+        }
+      }
+      // If devices fetch fails consistently, bubble the last error
+      throw lastErr || new Error('Failed to get available devices');
+    };
+
     try {
-      // First, check if device is available in Spotify's system
-      let actualDeviceId = deviceId;
+      // Resolve the best device_id to target.
+      // Priority:
+      // 1) Requested deviceId if present in /devices
+      // 2) Any device matching our web player name
+      // 3) Any currently active device
+      // 4) First available device
+      let devices = [];
       try {
-        const devices = await this.getAvailableDevices(accessToken);
-        let targetDevice = devices.find(d => d.id === deviceId);
-        
-        if (!targetDevice) {
-          console.warn(`[Spotify] Device ${deviceId} not found in available devices list.`);
-          
-          // Fallback: Search for any "Groupify Web Player" device
-          targetDevice = devices.find(d => d.name && d.name.includes('Groupify Web Player'));
-          
-          if (targetDevice) {
-            actualDeviceId = targetDevice.id; // Use the found device ID
-          } else {
-            console.warn('[Spotify] ⚠️ No Groupify Web Player found. Available devices:', devices.map(d => ({ id: d.id, name: d.name, is_active: d.is_active })));
-          }
-        }
+        devices = await getDevicesWithRetry(3, 600);
       } catch (deviceCheckError) {
-        console.warn('[Spotify] Could not check available devices (non-critical):', deviceCheckError.message);
+        // Non-fatal: we can still attempt to play using the provided deviceId
+        console.warn('[Spotify] Could not fetch available devices (will try play directly):', deviceCheckError.message);
       }
-      
-      // Try to transfer playback to activate the device if not active
-      // For Web Playback SDK devices, this usually fails until the device is activated
-      // So we skip it and go straight to the play command
-      /*
+
+      let actualDeviceId = deviceId;
+      let targetDevice = devices.find(d => d.id === deviceId);
+
+      if (!targetDevice && devices.length > 0) {
+        console.warn(`[Spotify] Device ${deviceId} not found in available devices list.`);
+
+        // Fallback: Search for any "Groupify Web Player" device
+        targetDevice = devices.find(d => d.name && d.name.includes('Groupify Web Player'));
+
+        // If still not found, prefer an active device (best UX vs failing)
+        if (!targetDevice) {
+          targetDevice = devices.find(d => d.is_active);
+        }
+
+        // Final fallback: any device
+        if (!targetDevice) {
+          targetDevice = devices[0];
+        }
+
+        if (targetDevice?.id) {
+          actualDeviceId = targetDevice.id;
+        }
+      }
+
+      // If we have device data and still couldn't resolve a device, fail with a clear message.
+      if (devices.length > 0 && (!actualDeviceId || typeof actualDeviceId !== 'string')) {
+        const customError = new Error('No valid Spotify device ID available for playback.');
+        customError.statusCode = 404;
+        throw customError;
+      }
+
+      // Attempt playback. If Spotify reports no active device, transfer then retry once.
+      const playOnce = async () => {
+        const response = await axios.put(
+          `${SPOTIFY_API_BASE}/me/player/play?device_id=${actualDeviceId}`,
+          { uris: [trackUri] },
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        return response.data;
+      };
+
       try {
-        await this.transferPlayback(accessToken, deviceId);
-        // Wait for the transfer to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (transferError) {
-        console.warn('[Spotify] Transfer playback failed (will try play directly):', transferError.message);
-        // Continue anyway - play command might activate the device
-      }
-      */
-      
-      // Call play endpoint with device_id - Spotify will start playback on this device
-      const response = await axios.put(
-        `${SPOTIFY_API_BASE}/me/player/play?device_id=${actualDeviceId}`,
-        {
-          uris: [trackUri]
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
+        return await playOnce();
+      } catch (firstPlayError) {
+        const status = firstPlayError?.response?.status;
+
+        // 404 commonly means "No active device found" for playback endpoints.
+        // Transferring playback can activate the device, especially for Web Playback SDK.
+        if (status === 404) {
+          try {
+            await this.transferPlayback(accessToken, actualDeviceId, true);
+            await sleep(800);
+            return await playOnce();
+          } catch (transferOrRetryError) {
+            // If transfer+retry fails, throw the original play error (handled below)
+            throw firstPlayError;
           }
         }
-      );
-      
-      return response.data;
+
+        throw firstPlayError;
+      }
     } catch (error) {
       // Handle specific Spotify API errors
       if (error.response) {
@@ -592,7 +647,7 @@ class SpotifyService {
         
         if (status === 404) {
           // 404 can mean device not found OR no active device
-          customError.message = 'Device not found or not ready. Please ensure: 1) Spotify player is connected, 2) You have Spotify Premium, 3) Player has finished initializing. Try waiting 10 seconds and try again.';
+          customError.message = 'Device not found or not ready. If using the web player, wait a few seconds for the device to appear, then try again. If it still fails, open the Spotify app and start playing something once to activate Spotify Connect, then retry.';
           customError.statusCode = 404;
           throw customError;
         } else if (status === 403) {
@@ -606,6 +661,12 @@ class SpotifyService {
         } else if (status === 400) {
           customError.message = `Invalid track URI: ${message}`;
           customError.statusCode = 400;
+          throw customError;
+        } else if (status === 429) {
+          const retryAfter = error.response.headers?.['retry-after'];
+          customError.message = `Spotify rate limit exceeded${retryAfter ? `. Retry after ${retryAfter} seconds.` : '.'}`;
+          customError.statusCode = 429;
+          customError.retryAfter = retryAfter;
           throw customError;
         } else {
           customError.message = `Failed to play track: ${message}`;
