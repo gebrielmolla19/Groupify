@@ -300,7 +300,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
 
                 {/* Search Results Dropdown */}
                 {showSearchResults && (searchResults.length > 0 || isSearching) && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[400px] overflow-hidden">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-[10000] max-h-[400px] overflow-hidden">
                     <ScrollArea className="max-h-[400px]">
                       <div className="p-2">
                         {isSearching ? (

@@ -16,7 +16,7 @@ interface AnalyticsScreenProps {
 }
 
 export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenProps) {
-  const { data, isLoading, isActivityLoading, error, activityRange, changeTimeRange } = useGroupAnalytics(group?._id || '');
+  const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, vibesRange, changeTimeRange, changeVibesRange } = useGroupAnalytics(group?._id || '');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
@@ -145,7 +145,13 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
             <Card className="flex-1 bg-black/40 border-white/5 overflow-hidden relative group">
               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
               <CardContent className="h-full flex items-center justify-center p-0">
-                <VibeRadar data={vibeData} isLoading={isLoading} />
+                <VibeRadar 
+                  data={vibeData} 
+                  isLoading={isLoading} 
+                  isVibesLoading={isVibesLoading}
+                  vibesRange={vibesRange}
+                  changeVibesRange={changeVibesRange}
+                />
               </CardContent>
             </Card>
           </div>
@@ -157,9 +163,6 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
                 <Activity className="w-5 h-5 text-primary" />
                 Resonance Frequency
               </h2>
-              <span className="text-xs text-muted-foreground">
-                Activity over {getTimeRangeLabel()}
-              </span>
             </div>
             
             {/* Time Range Selector */}

@@ -2,7 +2,16 @@ import { useState, useMemo, useEffect } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardTitle, CardDescription } from '../../ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
+import { Button } from '../../ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../../ui/dropdown-menu';
+import { Filter, ChevronDown } from 'lucide-react';
 import { cn } from '../../ui/utils';
+import type { TimeRange } from '../../../hooks/useGroupAnalytics';
 
 interface VibeStats {
     activity: number;
@@ -23,6 +32,9 @@ interface MemberVibe {
 interface VibeRadarProps {
     data: MemberVibe[];
     isLoading?: boolean;
+    isVibesLoading?: boolean;
+    vibesRange?: TimeRange;
+    changeVibesRange?: (range: TimeRange) => void;
 }
 
 const AXIS_CONFIG = [
@@ -39,7 +51,76 @@ const COLORS = [
     '#F59E0B', // Bright amber/orange
 ];
 
-export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
+// Enhanced Tooltip Component Factory
+const createCustomTooltip = (allData: MemberVibe[]) => {
+    return ({ active, payload, label }: any) => {
+        if (!active || !payload || !payload.length || !allData) return null;
+
+    const tooltipData = payload.map((item: any) => {
+        const memberId = item.dataKey;
+        const value = item.value;
+        const member = allData.find(m => String(m.userId) === memberId);
+        return { memberId, value, member };
+    }).filter(item => item.member);
+
+    if (tooltipData.length === 0) return null;
+
+    const metricKey = AXIS_CONFIG.find(a => a.label === label)?.key;
+
+    return (
+        <div className="bg-background/95 border border-border p-3 rounded-lg shadow-xl backdrop-blur-md min-w-[200px]">
+            <p className="text-sm font-semibold text-foreground mb-2 border-b border-border pb-1">
+                {label}
+            </p>
+            {tooltipData.map((item: any, index: number) => {
+                if (!item.member) return null;
+                const color = COLORS[index % COLORS.length];
+                const rawValue = item.member.raw;
+                
+                // Calculate ranking
+                const sorted = [...allData].sort((a, b) => 
+                    b.stats[metricKey as keyof VibeStats] - a.stats[metricKey as keyof VibeStats]
+                );
+                const rank = sorted.findIndex(m => String(m.userId) === item.memberId) + 1;
+                const rankText = rank === 1 ? 'Top' : rank <= 3 ? `#${rank}` : '';
+
+                return (
+                    <div key={item.memberId} className="mb-2 last:mb-0">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: color }}
+                            />
+                            <span className="text-sm font-medium" style={{ color }}>
+                                {item.member.displayName}
+                            </span>
+                            {rankText && (
+                                <span className="text-xs text-muted-foreground">
+                                    {rankText}
+                                </span>
+                            )}
+                        </div>
+                        <div className="text-xs text-muted-foreground ml-4">
+                            <div>Score: {item.value}/100</div>
+                            {metricKey === 'activity' && rawValue?.shares !== undefined && (
+                                <div>Shares: {rawValue.shares}</div>
+                            )}
+                            {metricKey === 'popularity' && rawValue?.avgLikesReceived !== undefined && (
+                                <div>Avg Likes: {rawValue.avgLikesReceived}</div>
+                            )}
+                            {metricKey === 'support' && rawValue?.likesGiven !== undefined && (
+                                <div>Likes Given: {rawValue.likesGiven}</div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+    };
+};
+
+export default function VibeRadar({ data, isLoading, isVibesLoading = false, vibesRange = 'all', changeVibesRange }: VibeRadarProps) {
     // Default to showing top 2 members
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -93,6 +174,28 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
         return result;
     }, [data, selectedIds]);
 
+    // Create tooltip component with access to current data
+    const CustomTooltipComponent = useMemo(() => {
+        if (!data || data.length === 0) return () => null;
+        return createCustomTooltip(data);
+    }, [data]);
+
+    // Quick filter functions
+    const applyQuickFilter = (metric: keyof VibeStats) => {
+        if (!data || data.length === 0) return;
+        const sorted = [...data].sort((a, b) => b.stats[metric] - a.stats[metric]);
+        const topMembers = sorted.slice(0, 3).map(m => String(m.userId));
+        setSelectedIds(topMembers);
+    };
+
+    const timeRanges: { value: TimeRange; label: string }[] = [
+        { value: '24h', label: '24h' },
+        { value: '7d', label: '7d' },
+        { value: '30d', label: '30d' },
+        { value: '90d', label: '90d' },
+        { value: 'all', label: 'All' },
+    ];
+
     if (isLoading) {
         return (
             <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5 h-[500px] flex items-center justify-center">
@@ -116,13 +219,75 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
         <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5 overflow-hidden flex flex-col lg:flex-row h-auto lg:h-[500px]">
             {/* Controls / Legend */}
             <div className="p-6 lg:w-1/3 flex flex-col border-b lg:border-b-0 lg:border-r border-white/5 gap-4 overflow-y-auto">
+                {/* Header */}
                 <div>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 mb-1">
                         <span className="text-2xl">📡</span> Vibe Radar
                     </CardTitle>
-                    <CardDescription className="mt-1">
+                    <CardDescription className="text-xs">
                         Compare member personalities across 5 dimensions.
                     </CardDescription>
+                </div>
+
+                {/* Controls Row */}
+                <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/5">
+                    {/* Time Range Filter */}
+                    {changeVibesRange && (
+                        <div className="flex items-center gap-2 flex-1">
+                            <span className="text-xs text-muted-foreground mr-2">Time range:</span>
+                            <div className="flex gap-1">
+                                {timeRanges.map((range) => (
+                                    <Button
+                                        key={range.value}
+                                        variant={vibesRange === range.value ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => changeVibesRange(range.value)}
+                                        disabled={isVibesLoading}
+                                        className={cn(
+                                            "text-xs h-7 px-3",
+                                            vibesRange === range.value 
+                                                ? "bg-primary hover:bg-primary/90 text-black" 
+                                                : "border-primary/30 hover:bg-primary/10"
+                                        )}
+                                    >
+                                        {range.label}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Quick Filters Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7 px-2.5 gap-1.5 bg-background/80 backdrop-blur-sm border-white/10 shrink-0"
+                            >
+                                <Filter className="w-3 h-3" />
+                                <span className="hidden sm:inline">Filters</span>
+                                <ChevronDown className="w-3 h-3" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => applyQuickFilter('activity')}>
+                                Most Active
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => applyQuickFilter('popularity')}>
+                                Most Popular
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => applyQuickFilter('support')}>
+                                Most Supportive
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => applyQuickFilter('variety')}>
+                                Most Varied
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => applyQuickFilter('freshness')}>
+                                Most Fresh
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 <div className="space-y-3 mt-2">
@@ -185,6 +350,16 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
 
             {/* Chart Area */}
             <div className="flex-1 p-4 flex flex-col relative min-h-[400px]">
+                {/* Loading Overlay */}
+                {isVibesLoading && (
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-20 flex items-center justify-center rounded-lg">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                            <p className="text-xs text-muted-foreground">Updating vibes...</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Color Legend */}
                 {selectedIds.length > 0 && (
                     <div className="mb-4 flex flex-wrap gap-3">
@@ -214,7 +389,7 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
                         <p className="text-muted-foreground">Select members to compare</p>
                     </div>
                 ) : (
-                    <div className="flex-1 w-full min-h-[400px] rounded-lg relative bg-black/20 border border-white/5">
+                    <div className="flex-1 w-full min-h-[400px] rounded-lg relative bg-black/20 border border-white/5 transition-opacity duration-300">
                         <div style={{ width: '100%', height: '400px', position: 'relative' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart 
@@ -259,15 +434,7 @@ export default function VibeRadar({ data, isLoading }: VibeRadarProps) {
                                 />
                             );
                         })}
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: 'rgba(0,0,0,0.8)',
-                                            borderColor: 'rgba(255,255,255,0.1)',
-                                            backdropFilter: 'blur(8px)',
-                                            color: '#fff'
-                                        }}
-                                        itemStyle={{ fontSize: 12 }}
-                                    />
+                                    <Tooltip content={<CustomTooltipComponent />} />
                                 </RadarChart>
                             </ResponsiveContainer>
                         </div>

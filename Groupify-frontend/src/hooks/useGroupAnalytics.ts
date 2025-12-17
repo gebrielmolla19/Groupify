@@ -13,8 +13,10 @@ export const useGroupAnalytics = (groupId: string) => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
+  const [isVibesLoading, setIsVibesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activityRange, setActivityRange] = useState<TimeRange>('30d');
+  const [vibesRange, setVibesRange] = useState<TimeRange>('all');
   
   // Use ref to track the groupId that the current data belongs to
   const dataGroupIdRef = useRef<string | null>(null);
@@ -27,6 +29,7 @@ export const useGroupAnalytics = (groupId: string) => {
       setIsLoading(true);
       setError(null);
       setActivityRange('30d');
+      setVibesRange('all');
     }
   }, [groupId]);
 
@@ -42,7 +45,7 @@ export const useGroupAnalytics = (groupId: string) => {
 
       const [activity, vibes, superlatives] = await Promise.all([
         getGroupActivity(fetchGroupId, '30d'),
-        getMemberVibes(fetchGroupId),
+        getMemberVibes(fetchGroupId, 'all'),
         getSuperlatives(fetchGroupId)
       ]);
 
@@ -51,6 +54,7 @@ export const useGroupAnalytics = (groupId: string) => {
         setData({ activity, vibes, superlatives });
         dataGroupIdRef.current = fetchGroupId;
         setActivityRange('30d');
+        setVibesRange('all');
       }
     } catch (err) {
       // Only set error if groupId hasn't changed
@@ -106,17 +110,60 @@ export const useGroupAnalytics = (groupId: string) => {
     fetchAllStats();
   }, [groupId]); // Re-fetch when groupId changes
 
+  // Fetch only vibes data for time range changes
+  const fetchVibes = useCallback(async (range: TimeRange) => {
+    // Don't proceed if:
+    // 1. No groupId
+    // 2. Currently loading initial data (data might be stale)
+    // 3. No data exists yet (initial load not complete)
+    // 4. Data belongs to a different group (stale data)
+    if (!groupId || isLoading || !data || dataGroupIdRef.current !== groupId) {
+      return;
+    }
+
+    const fetchGroupId = groupId; // Capture groupId at fetch start
+
+    try {
+      setIsVibesLoading(true);
+      const vibes = await getMemberVibes(fetchGroupId, range);
+      
+      // Only update if groupId hasn't changed during the fetch and data still belongs to this group
+      if (fetchGroupId === groupId && dataGroupIdRef.current === groupId) {
+        setData(prev => prev ? { ...prev, vibes } : null);
+        setVibesRange(range);
+      }
+    } catch (err) {
+      // Only set error if groupId hasn't changed
+      if (fetchGroupId === groupId) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch vibes';
+        setError(errorMessage);
+        console.error('Failed to fetch vibes:', err);
+      }
+    } finally {
+      if (fetchGroupId === groupId) {
+        setIsVibesLoading(false);
+      }
+    }
+  }, [groupId, data, isLoading]);
+
   const changeTimeRange = useCallback((range: TimeRange) => {
     fetchActivity(range);
   }, [fetchActivity]);
+
+  const changeVibesRange = useCallback((range: TimeRange) => {
+    fetchVibes(range);
+  }, [fetchVibes]);
 
   return {
     data,
     isLoading,
     isActivityLoading,
+    isVibesLoading,
     error,
     activityRange,
+    vibesRange,
     changeTimeRange,
+    changeVibesRange,
     refetch: fetchAllStats
   };
 };

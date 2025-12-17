@@ -27,12 +27,13 @@ class AnalyticsController {
 
   /**
    * Get member vibes (Vibe Radar)
-   * GET /api/v1/groups/:id/analytics/vibes
+   * GET /api/v1/groups/:id/analytics/vibes?timeRange=30d
    */
   static async getMemberVibes(req, res, next) {
     try {
       const { id } = req.params;
-      const data = await AnalyticsService.getMemberVibes(id);
+      const { timeRange } = req.query; // '24h' | '7d' | '30d' | '90d' | 'all'
+      const data = await AnalyticsService.getMemberVibes(id, timeRange || 'all');
 
       res.json({
         success: true,

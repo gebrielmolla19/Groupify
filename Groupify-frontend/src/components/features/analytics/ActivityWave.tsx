@@ -1,8 +1,23 @@
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { format } from 'date-fns';
 import { Trophy } from 'lucide-react';
+
+// Format date in UTC to avoid timezone issues with daily buckets
+// This ensures that 2025-12-13T00:00:00.000Z displays as "Dec 13" regardless of local timezone
+const formatDateUTC = (date: Date, formatStr: string) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = date.getUTCDate();
+    const month = months[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    
+    if (formatStr === 'MMM d') {
+        return `${month} ${day}`;
+    } else if (formatStr === 'MMM d, yyyy') {
+        return `${month} ${day}, ${year}`;
+    }
+    return `${month} ${day}`;
+};
 
 interface ActivityData {
     timestamp: string;
@@ -21,7 +36,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         return (
             <div className="bg-background/95 border border-border p-3 rounded-lg shadow-xl backdrop-blur-md">
                 <p className="text-sm font-medium text-foreground mb-1">
-                    {format(date, 'MMM d, yyyy')}
+                    {formatDateUTC(date, 'MMM d, yyyy')}
                 </p>
                 <p className="text-xs text-primary font-semibold">
                     Activity: {payload[0].value}
@@ -128,7 +143,7 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 scale="time"
                                 domain={['dataMin', 'dataMax']}
                                 tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }}
-                                tickFormatter={(ts) => format(new Date(ts), 'MMM d')}
+                                tickFormatter={(ts) => formatDateUTC(new Date(ts), 'MMM d')}
                                 stroke="rgba(255,255,255,0.15)"
                                 axisLine={{ strokeWidth: 1 }}
                                 tickCount={6}
@@ -180,7 +195,7 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 Peak Day
                             </div>
                             <div className="text-xl font-bold text-primary">
-                                {format(new Date(peakDay.ts), 'MMM d')}
+                                {formatDateUTC(new Date(peakDay.ts), 'MMM d')}
                             </div>
                         </div>
                     )}

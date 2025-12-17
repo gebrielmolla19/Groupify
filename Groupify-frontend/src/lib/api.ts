@@ -616,9 +616,12 @@ export const getGroupActivity = async (
 
 /**
  * Get member vibes (radar chart)
+ * @param groupId - Group ID
+ * @param timeRange - Optional time range filter ('24h' | '7d' | '30d' | '90d' | 'all')
  */
-export const getMemberVibes = async (groupId: string): Promise<any[]> => {
-  const response = await fetchWithAuth(`/analytics/${groupId}/vibes`);
+export const getMemberVibes = async (groupId: string, timeRange?: string): Promise<any[]> => {
+  const url = timeRange ? `/analytics/${groupId}/vibes?timeRange=${timeRange}` : `/analytics/${groupId}/vibes`;
+  const response = await fetchWithAuth(url);
   const data = await response.json();
 
   if (!data.success) {
