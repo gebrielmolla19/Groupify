@@ -498,6 +498,36 @@ class SpotifyService {
   }
 
   /**
+   * Get current playback state (what's playing on any device)
+   * @param {string} accessToken - Spotify access token
+   * @returns {Promise<Object|null>} Current playback state or null if nothing playing
+   */
+  static async getCurrentPlayback(accessToken) {
+    try {
+      const response = await axios.get(
+        `${SPOTIFY_API_BASE}/me/player`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      // 204 means no active playback - this is normal, not an error
+      if (error.response?.status === 204) {
+        return null;
+      }
+      // 404 also means no active device/playback
+      if (error.response?.status === 404) {
+        return null;
+      }
+      console.error('[Spotify] Failed to get current playback:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Get available devices
    * @param {string} accessToken - Spotify access token
    * @returns {Promise<Array>} List of available devices

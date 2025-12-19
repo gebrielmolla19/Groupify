@@ -60,7 +60,7 @@ class PlayerController {
    */
   static async transferPlayback(req, res, next) {
     try {
-      const { device_id } = req.body;
+      const { device_id, play } = req.body;
 
       // Validate device_id is provided
       if (!device_id || typeof device_id !== 'string' || device_id.trim() === '') {
@@ -81,8 +81,8 @@ class PlayerController {
       // Get valid Spotify access token (handles refresh if needed)
       const accessToken = await TokenManager.getValidAccessToken(userId);
 
-      // Transfer playback to device
-      await SpotifyService.transferPlayback(accessToken, device_id.trim());
+      // Transfer playback to device (with optional play parameter)
+      await SpotifyService.transferPlayback(accessToken, device_id.trim(), Boolean(play));
 
       // Update user's current device ID
       const user = await User.findById(userId);
@@ -97,7 +97,7 @@ class PlayerController {
 
       res.json({
         success: true,
-        message: 'Playback transferred successfully',
+        message: play ? 'Playback transferred and resumed' : 'Playback transferred successfully',
         data: {
           deviceId: device_id.trim()
         }
@@ -120,6 +120,51 @@ class PlayerController {
       });
 
       // Pass to error middleware
+      next(error);
+    }
+  }
+
+  /**
+   * Get current playback state (what's playing on any device)
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @param {Function} next - Express next middleware function
+   */
+  static async getCurrentPlayback(req, res, next) {
+    try {
+      const userId = req.userId;
+
+      if (!userId) {
+        const error = new Error('User ID not found in request');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      // Get valid Spotify access token (handles refresh if needed)
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+
+      const playback = await SpotifyService.getCurrentPlayback(accessToken);
+
+      res.json({
+        success: true,
+        playback: playback || null // null means nothing is playing
+      });
+    } catch (error) {
+      // If error already has statusCode, pass it through
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      // Log error for debugging
+      console.error('Get current playback error:', {
+        error: error.message,
+        userId: req.userId,
+        timestamp: new Date().toISOString()
+      });
+
       next(error);
     }
   }

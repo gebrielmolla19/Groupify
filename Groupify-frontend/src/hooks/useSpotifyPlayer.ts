@@ -15,7 +15,7 @@ let globalPosition = 0;
 let globalDuration = 0;
 let globalIsLoading = true;
 let globalError: string | null = null;
-let deviceReadyTimestamp: number | null = null;
+let globalDeviceReadyTimestamp: number | null = null;
 
 // Module-level refs to prevent multiple initializations
 const scriptLoadedRef = { current: false };
@@ -45,6 +45,7 @@ export interface UseSpotifyPlayerReturn {
   duration: number;
   isLoading: boolean;
   error: string | null;
+  deviceReadyTimestamp: number | null;
   playTrack: (trackUri: string) => Promise<void>;
   onTrackComplete?: (trackUri: string) => void;
   setOnTrackComplete?: (callback?: (trackUri: string) => void) => void;
@@ -66,6 +67,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
   const [duration, setDuration] = useState(globalDuration);
   const [isLoading, setIsLoading] = useState(globalIsLoading);
   const [error, setError] = useState<string | null>(globalError);
+  const [deviceReadyTimestamp, setDeviceReadyTimestamp] = useState<number | null>(globalDeviceReadyTimestamp);
   const [onTrackComplete, setOnTrackComplete] = useState<((trackUri: string) => void) | undefined>(globalOnTrackComplete);
 
   // Subscribe to global state changes
@@ -79,6 +81,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       setDuration(globalDuration);
       setIsLoading(globalIsLoading);
       setError(globalError);
+      setDeviceReadyTimestamp(globalDeviceReadyTimestamp);
       setOnTrackComplete(globalOnTrackComplete);
     };
     
@@ -138,11 +141,12 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       // Set up event listeners
       spotifyPlayer.addListener('ready', async ({ device_id }) => {
         globalDeviceId = device_id;
-        deviceReadyTimestamp = Date.now();
+        globalDeviceReadyTimestamp = Date.now();
         globalIsLoading = false;
         playerInitializedRef.current = true;
         setDeviceId(device_id);
         setIsLoading(false);
+        setDeviceReadyTimestamp(globalDeviceReadyTimestamp);
         notifyListeners();
 
         // CRITICAL: Web Playback SDK devices need to be activated
@@ -172,10 +176,12 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
 
       spotifyPlayer.addListener('not_ready', () => {
         globalDeviceId = null;
+        globalDeviceReadyTimestamp = null;
         globalIsPlaying = false;
         globalCurrentTrack = null;
         globalPosition = 0;
         setDeviceId(null);
+        setDeviceReadyTimestamp(null);
         setIsPlaying(false);
         setCurrentTrack(null);
         setPosition(0);
@@ -460,7 +466,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
     }
 
     // Check if device was recently registered - wait if too soon
-    const timeSinceReady = deviceReadyTimestamp ? Date.now() - deviceReadyTimestamp : Infinity;
+    const timeSinceReady = globalDeviceReadyTimestamp ? Date.now() - globalDeviceReadyTimestamp : Infinity;
     if (timeSinceReady < 5000) {
       const waitTime = 5000 - timeSinceReady;
       toast.info(`Preparing player... ${Math.ceil(waitTime/1000)}s`, { duration: waitTime });
@@ -506,6 +512,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
     duration,
     isLoading,
     error,
+    deviceReadyTimestamp,
     playTrack,
     onTrackComplete,
     setOnTrackComplete: setTrackCompleteCallback,

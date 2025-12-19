@@ -14,6 +14,7 @@ import { Toaster } from "./components/ui/sonner";
 import SpotifyPlayerCard from "./components/features/music/SpotifyPlayerCard";
 import AppSidebar from "./components/layout/AppSidebar";
 import { Group, ScreenName } from "./types";
+import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
 
 interface AppWithPlayerProps {
   currentScreen: ScreenName;
@@ -50,6 +51,9 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>("login");
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const { isAuthenticated, isLoading } = useUser();
+  
+  // Global playback tracking - works across all screens
+  useGlobalPlaybackTracking();
 
   // Apply dark mode by default
   useEffect(() => {

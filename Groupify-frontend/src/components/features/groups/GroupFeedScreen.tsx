@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useGroupFeed } from "../../../hooks/useGroupFeed";
 import { useSpotifySearch } from "../../../hooks/useSpotifySearch";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
+import { useCurrentPlayback } from "../../../hooks/useCurrentPlayback";
 import { useUser } from "../../../contexts/UserContext";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import SpotifyPlayerCard from "../music/SpotifyPlayerCard";
@@ -46,6 +47,153 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
 
   // Track which share is currently playing (map track URI to share ID)
   const playingShareRef = useRef<Map<string, string>>(new Map());
+  
+  // Poll for playback on other devices to auto-track listens
+  const { playback: remotePlayback, lastTrackId } = useCurrentPlayback(
+    !!group?._id, // Only poll when viewing a group
+    5000 // Poll every 5 seconds (less frequent to avoid rate limits)
+  );
+  
+  // Track remote playback for auto-marking as listened
+  const remotePlaybackRef = useRef<{
+    trackId: string | null;
+    startTime: number | null;
+    shareId: string | null;
+  }>({ trackId: null, startTime: null, shareId: null });
+  
+  // Compute hasListened map BEFORE the useEffect that uses it
+  const hasListened = useMemo(() => {
+    const listenerMap: Record<string, boolean> = {};
+    shares.forEach(share => {
+      const listened = share.listeners.some(
+        listener => listener.user._id === user?._id || listener.user.id === user?.id
+      );
+      listenerMap[share._id] = listened;
+    });
+    return listenerMap;
+  }, [shares, user]);
+  
+  // Auto-detect and track plays from other devices
+  useEffect(() => {
+    if (!group?._id || !shares.length) return;
+    
+    // If no playback data, skip (but don't reset tracking - might be temporary)
+    if (!remotePlayback) return;
+    
+    const currentTrackId = remotePlayback.item?.id;
+    const wasPlaying = remotePlayback.is_playing;
+    const prevTrackId = remotePlaybackRef.current.trackId;
+    const progressMs = remotePlayback.progress_ms || 0;
+    const durationMs = remotePlayback.item?.duration_ms || 0;
+    
+    // Find if current track is in the group's shares
+    const matchingShare = currentTrackId ? shares.find(s => s.spotifyTrackId === currentTrackId) : null;
+    
+    // Check if current track is near completion (within last 5 seconds)
+    const isNearEnd = durationMs > 0 && progressMs > 0 && (durationMs - progressMs) < 5000;
+    const isAtEnd = durationMs > 0 && progressMs >= durationMs - 1000; // Within 1 second of end
+    
+    // Track started playing (new track or resumed)
+    if (wasPlaying && currentTrackId && currentTrackId !== prevTrackId) {
+      if (matchingShare) {
+        // Check if user hasn't already listened
+        const alreadyListened = hasListened[matchingShare._id];
+        
+        if (!alreadyListened) {
+          remotePlaybackRef.current = {
+            trackId: currentTrackId,
+            startTime: Date.now(),
+            shareId: matchingShare._id
+          };
+          
+          console.log(`[Auto-track] Detected playback: ${matchingShare.trackName} on ${remotePlayback.device?.name || 'another device'}`);
+        }
+      }
+    }
+    
+    // Track completed naturally (reached the end)
+    if (isAtEnd && currentTrackId && matchingShare && remotePlaybackRef.current.shareId === matchingShare._id) {
+      const shareId = remotePlaybackRef.current.shareId;
+      const alreadyListened = hasListened[shareId];
+      
+      if (!alreadyListened && shareId) {
+        markListened(shareId)
+          .then(() => {
+            toast.success('Track auto-marked as listened');
+          })
+          .catch((err) => {
+            console.error('Failed to auto-mark track as listened:', err);
+          });
+        
+        // Reset tracking after marking
+        remotePlaybackRef.current = { trackId: null, startTime: null, shareId: null };
+        return; // Early return to avoid double-processing
+      }
+    }
+    
+    // Track stopped playing (paused)
+    if (!wasPlaying && prevTrackId && remotePlaybackRef.current.shareId && currentTrackId === prevTrackId) {
+      const timePlayed = remotePlaybackRef.current.startTime 
+        ? Date.now() - remotePlaybackRef.current.startTime 
+        : 0;
+      
+      // Only auto-mark if played for at least 30 seconds OR if near the end (80%+)
+      const progressPercent = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
+      const shouldMark = timePlayed >= 30000 || progressPercent >= 80;
+      
+      if (shouldMark) {
+        const shareId = remotePlaybackRef.current.shareId;
+        const alreadyListened = hasListened[shareId];
+        
+        if (!alreadyListened) {
+          markListened(shareId)
+            .then(() => {
+              toast.success('Track auto-marked as listened');
+            })
+            .catch((err) => {
+              console.error('Failed to auto-mark track as listened:', err);
+            });
+        }
+      }
+      
+      // Reset tracking
+      remotePlaybackRef.current = { trackId: null, startTime: null, shareId: null };
+    }
+    
+    // Track changed to a different track
+    if (currentTrackId && currentTrackId !== prevTrackId && prevTrackId && remotePlaybackRef.current.shareId) {
+      const timePlayed = remotePlaybackRef.current.startTime 
+        ? Date.now() - remotePlaybackRef.current.startTime 
+        : 0;
+      
+      // Auto-mark previous track if played for at least 30 seconds
+      if (timePlayed >= 30000) {
+        const shareId = remotePlaybackRef.current.shareId;
+        const alreadyListened = hasListened[shareId];
+        
+        if (!alreadyListened) {
+          markListened(shareId)
+            .then(() => {
+              toast.success('Track auto-marked as listened');
+            })
+            .catch((err) => {
+              console.error('Failed to auto-mark track as listened:', err);
+            });
+        }
+      }
+      
+      // Reset for new track
+      remotePlaybackRef.current = { trackId: null, startTime: null, shareId: null };
+    }
+    
+    // Update current track ID
+    if (currentTrackId && currentTrackId !== prevTrackId) {
+      // Only update if we're not already tracking this track
+      if (!remotePlaybackRef.current.trackId || remotePlaybackRef.current.trackId !== currentTrackId) {
+        remotePlaybackRef.current.trackId = currentTrackId;
+      }
+    }
+  }, [remotePlayback, group?._id, shares, hasListened, markListened]);
 
   // Debounce search
   useEffect(() => {
@@ -94,17 +242,6 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
       setIsSharing(null);
     }
   };
-
-  const hasListened = useMemo(() => {
-    const listenerMap: Record<string, boolean> = {};
-    shares.forEach(share => {
-      const listened = share.listeners.some(
-        listener => listener.user._id === user?._id || listener.user.id === user?.id
-      );
-      listenerMap[share._id] = listened;
-    });
-    return listenerMap;
-  }, [shares, user]);
 
   const handleMarkListened = async (shareId: string) => {
     if (hasListened[shareId]) return; // Already listened

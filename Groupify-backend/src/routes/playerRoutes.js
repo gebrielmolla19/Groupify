@@ -11,6 +11,9 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 // Get available devices (protected)
 router.get('/devices', authMiddleware, PlayerController.getAvailableDevices);
 
+// Get current playback state (protected)
+router.get('/playback', authMiddleware, PlayerController.getCurrentPlayback);
+
 // Transfer playback to a device (protected)
 router.put('/transfer', authMiddleware, PlayerController.transferPlayback);
 

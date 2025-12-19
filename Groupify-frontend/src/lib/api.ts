@@ -561,11 +561,13 @@ export const exportGroupToPlaylist = async (
 
 /**
  * Transfer playback to a device
+ * @param deviceId - Device ID to transfer to
+ * @param play - Whether to start/resume playback after transfer (default: false)
  */
-export const transferPlayback = async (deviceId: string): Promise<{ success: boolean; message: string; data: { deviceId: string } }> => {
+export const transferPlayback = async (deviceId: string, play: boolean = false): Promise<{ success: boolean; message: string; data: { deviceId: string } }> => {
   const response = await fetchWithAuth('/player/transfer', {
     method: 'PUT',
-    body: JSON.stringify({ device_id: deviceId }),
+    body: JSON.stringify({ device_id: deviceId, play }),
   });
 
   const data = await response.json();
@@ -607,6 +609,36 @@ export const getSpotifyDevices = async (): Promise<SpotifyDevice[]> => {
   }
 
   return data.devices || [];
+};
+
+/**
+ * Get current playback state (what's playing on any device)
+ */
+export const getCurrentPlayback = async (): Promise<{
+  device: SpotifyDevice | null;
+  item: {
+    id: string;
+    name: string;
+    artists: Array<{ name: string; id: string }>;
+    album: {
+      name: string;
+      images: Array<{ url: string; height: number; width: number }>;
+    };
+    duration_ms: number;
+    external_urls: { spotify: string };
+  } | null;
+  is_playing: boolean;
+  progress_ms: number;
+  timestamp: number;
+} | null> => {
+  const response = await fetchWithAuth('/player/playback');
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch current playback');
+  }
+
+  return data.playback;
 };
 
 // ==================== ANALYTICS OPERATIONS ====================

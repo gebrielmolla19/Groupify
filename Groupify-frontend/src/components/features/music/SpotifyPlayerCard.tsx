@@ -8,6 +8,7 @@ import { useSidebar } from '../../ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
+import { useCurrentPlayback } from "../../../hooks/useCurrentPlayback";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
 import { Group, SpotifyDevice } from '../../../types';
@@ -19,11 +20,45 @@ interface SpotifyPlayerCardProps {
 }
 
 export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardProps) {
-  const { player, currentTrack, isPlaying, isLoading, error, deviceId, playTrack } = useSpotifyPlayer();
+  const { player, currentTrack, isPlaying, isLoading, error, deviceId, deviceReadyTimestamp, playTrack } = useSpotifyPlayer();
   const { playingGroup, setPlayingGroup, sortBy: contextSortBy } = usePlayingGroup();
   const { shares: playlistShares } = usePlaylist(playingGroup?._id || '', contextSortBy);
   const { state: sidebarState, isMobile } = useSidebar();
-  const [isDeviceRecentlyReady, setIsDeviceRecentlyReady] = useState(false);
+  
+  // Poll for playback on other devices (only if Web SDK player isn't showing a track)
+  // This lets us detect when user plays on phone/desktop app
+  const { playback: remotePlayback } = useCurrentPlayback(
+    !currentTrack && !!deviceId, // Only poll if web player isn't active
+    3000 // Poll every 3 seconds
+  );
+  
+  // Determine which track/device to show: Web SDK takes priority, fallback to remote playback
+  const displayTrack = currentTrack || (remotePlayback?.item ? {
+    uri: `spotify:track:${remotePlayback.item.id}`,
+    id: remotePlayback.item.id,
+    name: remotePlayback.item.name,
+    artists: remotePlayback.item.artists.map(a => ({ name: a.name, uri: `spotify:artist:${a.id}` })),
+    album: {
+      name: remotePlayback.item.album.name,
+      uri: `spotify:album:${remotePlayback.item.album.images[0]?.url || ''}`,
+      images: remotePlayback.item.album.images.map(img => ({
+        url: img.url,
+        height: img.height,
+        width: img.width
+      }))
+    }
+  } : null);
+  
+  const displayIsPlaying = currentTrack ? isPlaying : (remotePlayback?.is_playing ?? false);
+  const activeDeviceName = remotePlayback?.device?.name || (deviceId ? 'Groupify Web Player' : null);
+  
+  // Check if device was recently initialized (within last 10 seconds)
+  // This persists across component remounts since deviceReadyTimestamp is module-level
+  const isDeviceRecentlyReady = useMemo(() => {
+    if (!deviceReadyTimestamp || !deviceId) return false;
+    const timeSinceReady = Date.now() - deviceReadyTimestamp;
+    return timeSinceReady < 10000; // 10 seconds
+  }, [deviceReadyTimestamp, deviceId]);
   const [isDevicePopoverOpen, setIsDevicePopoverOpen] = useState(false);
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [isDevicesLoading, setIsDevicesLoading] = useState(false);
@@ -81,11 +116,19 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
     if (!nextDeviceId) return;
     try {
       setIsSwitchingDevice(true);
-      await transferPlayback(nextDeviceId);
+      
+      // Check if something is currently playing (from Web SDK or remote device)
+      const shouldResume = isPlaying || (remotePlayback?.is_playing ?? false);
+      
+      // Transfer playback and resume if something was playing
+      await transferPlayback(nextDeviceId, shouldResume);
       setSelectedOutputDeviceId(nextDeviceId);
 
       const selected = mergedDevices.find(d => d.id === nextDeviceId);
-      toast.success(`Playback device set to ${selected?.name || 'selected device'}`);
+      const message = shouldResume 
+        ? `Playback transferred to ${selected?.name || 'selected device'} and resumed`
+        : `Playback device set to ${selected?.name || 'selected device'}`;
+      toast.success(message);
     } catch (err) {
       console.error('Failed to transfer playback:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to switch playback device');
@@ -115,18 +158,6 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
 
   // Also load the selected group's playlist to check if current track belongs to it
   const { shares: selectedGroupShares } = usePlaylist(selectedGroup?._id || '', contextSortBy);
-
-  // Track when device becomes ready and show a brief "warming up" state
-  useEffect(() => {
-    if (deviceId && !isLoading) {
-      setIsDeviceRecentlyReady(true);
-      // Clear the flag after 10 seconds
-      const timer = setTimeout(() => {
-        setIsDeviceRecentlyReady(false);
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [deviceId, isLoading]);
 
   // Load devices when the popover opens (and when SDK deviceId appears)
   useEffect(() => {
@@ -359,8 +390,8 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
     );
   }
 
-  // No track playing state
-  if (!currentTrack) {
+  // No track playing state (neither Web SDK nor remote device)
+  if (!displayTrack) {
     return (
       <TooltipProvider>
         <div
@@ -379,7 +410,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                   {isDeviceRecentlyReady ? 'Player Activating...' : 'Ready to Play'}
                 </p>
                 <p className="text-xs text-zinc-400 truncate">
-                  {isDeviceRecentlyReady ? 'Please wait 10 seconds...' : 'Click a track to start'}
+                  {isDeviceRecentlyReady ? 'Please wait 10 seconds...' : activeDeviceName ? `Playing on ${activeDeviceName}` : 'Click a track to start'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -446,9 +477,34 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
     );
   }
 
-  // Main player state - track is playing
-  const albumImage = currentTrack.album.images?.[0]?.url || currentTrack.album.images?.[1]?.url;
-  const artists = currentTrack.artists.map((artist) => artist.name).join(', ');
+  // Main player state - track is playing (from Web SDK or remote device)
+  // Safety check: ensure displayTrack exists before accessing properties
+  if (!displayTrack) {
+    // This shouldn't happen due to the check above, but handle it gracefully
+    return (
+      <TooltipProvider>
+        <div className="shadow-2xl" style={playerStyle} data-testid="spotify-player-global">
+          <Card className="rounded-full border border-zinc-800 shadow-xl overflow-hidden backdrop-blur-xl bg-black/80">
+            <CardContent className="px-6 py-2">
+              <div className="flex items-center gap-4 h-16 overflow-hidden">
+                <div className="size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
+                  <Music className="size-6 text-zinc-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white">Ready to Play</p>
+                  <p className="text-xs text-zinc-400 truncate">Click a track to start</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  const albumImage = displayTrack.album.images?.[0]?.url || displayTrack.album.images?.[1]?.url;
+  const artists = displayTrack.artists.map((artist) => artist.name).join(', ');
+  const isRemotePlayback = !currentTrack && !!remotePlayback;
 
   // Main player
   return (
@@ -466,7 +522,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
               {albumImage ? (
                 <img
                   src={albumImage}
-                  alt={currentTrack.album.name}
+                  alt={displayTrack.album.name || 'Album artwork'}
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -481,11 +537,11 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
               <Tooltip>
                 <TooltipTrigger asChild>
                   <h3 className="text-sm font-semibold text-white truncate cursor-default">
-                    {currentTrack.name}
+                    {displayTrack.name}
                   </h3>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{currentTrack.name}</p>
+                  <p>{displayTrack.name}</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -493,10 +549,13 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                 <TooltipTrigger asChild>
                   <p className="text-xs text-white/70 truncate cursor-default hover:text-white transition-colors">
                     {artists}
+                    {isRemotePlayback && activeDeviceName && (
+                      <span className="text-white/50"> • {activeDeviceName}</span>
+                    )}
                   </p>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{artists}</p>
+                  <p>{artists}{isRemotePlayback && activeDeviceName ? ` • Playing on ${activeDeviceName}` : ''}</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -509,15 +568,15 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                     variant="ghost"
                     size="icon"
                     onClick={handlePreviousTrack}
-                    disabled={isControlling}
-                    className="h-10 w-10 rounded-full hover:bg-white/10 text-white"
+                    disabled={isControlling || isRemotePlayback}
+                    className="h-10 w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50"
                     aria-label="Previous track"
                   >
                     <SkipBack className="size-5 fill-current opacity-90" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Previous Track</p>
+                  <p>{isRemotePlayback ? 'Control on your device' : 'Previous Track'}</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -527,13 +586,13 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                     variant="ghost"
                     size="icon"
                     onClick={handlePlayPause}
-                    disabled={isControlling}
-                    className="h-12 w-12 rounded-full !bg-white !text-black hover:!bg-white/90 shadow-lg hover:scale-105 transition-all"
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                    disabled={isControlling || isRemotePlayback}
+                    className="h-12 w-12 rounded-full !bg-white !text-black hover:!bg-white/90 shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+                    aria-label={displayIsPlaying ? 'Pause' : 'Play'}
                   >
                     {isControlling ? (
                       <Loader2 className="size-6 animate-spin" />
-                    ) : isPlaying ? (
+                    ) : displayIsPlaying ? (
                       <Pause className="size-6 fill-current" />
                     ) : (
                       <Play className="size-6 fill-current pl-0.5" />
@@ -541,7 +600,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{isPlaying ? 'Pause' : 'Play'}</p>
+                  <p>{isRemotePlayback ? 'Control playback on your device' : (displayIsPlaying ? 'Pause' : 'Play')}</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -551,15 +610,15 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                     variant="ghost"
                     size="icon"
                     onClick={handleNextTrack}
-                    disabled={isControlling}
-                    className="h-10 w-10 rounded-full hover:bg-white/10 text-white"
+                    disabled={isControlling || isRemotePlayback}
+                    className="h-10 w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50"
                     aria-label="Next track"
                   >
                     <SkipForward className="size-5 fill-current opacity-90" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Next Track</p>
+                  <p>{isRemotePlayback ? 'Control on your device' : 'Next Track'}</p>
                 </TooltipContent>
               </Tooltip>
 
