@@ -4,7 +4,8 @@ import {
   getGroupFeed as apiGetGroupFeed,
   shareSong as apiShareSong,
   markAsListened as apiMarkAsListened,
-  toggleLike as apiToggleLike
+  toggleLike as apiToggleLike,
+  removeShare as apiRemoveShare
 } from '../lib/api';
 import { toast } from 'sonner';
 import { logger } from '../utils/logger';
@@ -112,6 +113,19 @@ export const useGroupFeed = (groupId: string) => {
     }
   }, []);
 
+  const removeShare = useCallback(async (shareId: string) => {
+    try {
+      await apiRemoveShare(shareId);
+      setShares(prev => prev.filter(share => share._id !== shareId));
+      setTotal(prev => prev - 1);
+      toast.success('Track removed from group');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to remove song';
+      toast.error(errorMessage);
+      throw err;
+    }
+  }, []);
+
   useEffect(() => {
     fetchFeed();
 
@@ -135,7 +149,22 @@ export const useGroupFeed = (groupId: string) => {
     };
 
     window.addEventListener('trackListened', handleGlobalListened);
-    return () => window.removeEventListener('trackListened', handleGlobalListened);
+    
+    // Listen for global track removed events to sync UI across hooks
+    const handleGlobalRemoved = (event: any) => {
+      const { groupId: eventGroupId, shareId } = event.detail;
+      if (eventGroupId === groupId) {
+        setShares(prev => prev.filter(share => share._id !== shareId));
+        setTotal(prev => prev - 1);
+      }
+    };
+
+    window.addEventListener('trackRemoved', handleGlobalRemoved);
+
+    return () => {
+      window.removeEventListener('trackListened', handleGlobalListened);
+      window.removeEventListener('trackRemoved', handleGlobalRemoved);
+    };
   }, [fetchFeed, groupId]);
 
   return {
@@ -146,6 +175,7 @@ export const useGroupFeed = (groupId: string) => {
     shareTrack,
     markListened,
     toggleLike,
+    removeShare,
     refetch: fetchFeed
   };
 };

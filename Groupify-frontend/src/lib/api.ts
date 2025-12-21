@@ -5,6 +5,7 @@
 
 import { API_BASE_URL } from './config';
 import { User, SpotifyDevice } from '../types';
+import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
 
@@ -524,6 +525,23 @@ export const toggleLike = async (shareId: string): Promise<import('../types').Sh
     ...data.share,
     id: data.share._id
   };
+};
+
+/**
+ * Remove a share from a group
+ */
+export const removeShare = async (shareId: string): Promise<{ success: boolean; message: string }> => {
+  const response = await fetchWithAuth(`/shares/${shareId}`, {
+    method: 'DELETE',
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to remove song');
+  }
+
+  return { success: true, message: data.message };
 };
 
 // ==================== SPOTIFY OPERATIONS ====================

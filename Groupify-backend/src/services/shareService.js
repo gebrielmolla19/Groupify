@@ -221,6 +221,38 @@ class ShareService {
 
     return populatedShare;
   }
+
+  /**
+   * Remove a share from a group
+   * @param {string} shareId - Share ID
+   * @param {string} userId - User ID requesting removal
+   * @returns {Promise<boolean>} Success status
+   * @throws {Error} If share not found or user unauthorized
+   */
+  static async removeShare(shareId, userId) {
+    const share = await Share.findById(shareId)
+      .populate('group', 'createdBy');
+
+    if (!share) {
+      const error = new Error('Share not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Authorization: User must be the one who shared OR the group creator
+    const isSharer = share.sharedBy.toString() === userId.toString();
+    const isGroupCreator = share.group.createdBy.toString() === userId.toString();
+
+    if (!isSharer && !isGroupCreator) {
+      const error = new Error('You are not authorized to remove this song');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const groupId = share.group._id;
+    await Share.findByIdAndDelete(shareId);
+    return { success: true, groupId };
+  }
 }
 
 module.exports = ShareService;

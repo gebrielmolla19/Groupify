@@ -48,4 +48,12 @@ router.put(
   ShareController.toggleLike
 );
 
+// Remove a share from a group
+router.delete(
+  '/:shareId',
+  authMiddleware,
+  validate(shareIdSchema, 'params'),
+  ShareController.removeShare
+);
+
 module.exports = router;

@@ -1,4 +1,4 @@
-import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, Heart, TrendingUp } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, Heart, TrendingUp, Trash2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
@@ -6,6 +6,7 @@ import { Card, CardContent } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
 import { ScrollArea } from "../../ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../../ui/alert-dialog";
 import { Share, SpotifyTrack } from "../../../types";
 import { toast } from "sonner";
 import { useGroupFeed } from "../../../hooks/useGroupFeed";
@@ -34,7 +35,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike } = useGroupFeed(groupId || '');
+  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -45,6 +46,7 @@ export default function GroupFeedScreen() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSharing, setIsSharing] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Track which share is currently playing (map track URI to share ID)
@@ -126,6 +128,17 @@ export default function GroupFeedScreen() {
     } catch (err) {
       // Error handled in hook
       logger.error('Failed to toggle like:', err);
+    }
+  };
+
+  const handleRemoveShare = async (shareId: string) => {
+    try {
+      setIsRemoving(shareId);
+      await removeShare(shareId);
+    } catch (err) {
+      logger.error('Failed to remove share:', err);
+    } finally {
+      setIsRemoving(null);
     }
   };
 
@@ -519,6 +532,44 @@ export default function GroupFeedScreen() {
                               {share.likeCount || 0}
                             </span>
                           </div>
+
+                          {/* Remove Button (Owner or Sharer only) */}
+                          {(share.sharedBy._id === user?._id || share.sharedBy.id === user?.id || group?.createdBy?._id === user?._id || group?.createdBy?.id === user?.id) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                  disabled={isRemoving === share._id}
+                                  aria-label="Remove from group"
+                                >
+                                  {isRemoving === share._id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remove song from group?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will remove "{share.trackName}" from the group feed. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleRemoveShare(share._id)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                  >
+                                    Remove
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
 
                         {/* Listener Avatars - Bottom Right Corner */}

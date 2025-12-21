@@ -108,6 +108,32 @@ class ShareController {
       next(error);
     }
   }
+
+  /**
+   * Remove a share from a group
+   */
+  static async removeShare(req, res, next) {
+    try {
+      const { shareId } = req.params;
+      
+      const result = await ShareService.removeShare(shareId, req.userId);
+
+      // Emit socket event for real-time updates
+      if (req.app.get('io') && result.groupId) {
+        req.app.get('io').to(result.groupId.toString()).emit('songRemoved', {
+          shareId,
+          groupId: result.groupId
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Song removed from group'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = ShareController;
