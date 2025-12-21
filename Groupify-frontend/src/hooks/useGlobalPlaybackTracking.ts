@@ -23,8 +23,9 @@ export const useGlobalPlaybackTracking = () => {
   const remotePlaybackRef = useRef<{
     trackId: string | null;
     startTime: number | null;
+    durationMs: number;
     shareIds: Array<{ shareId: string; groupId: string }>; // Track all matching shares
-  }>({ trackId: null, startTime: null, shareIds: [] });
+  }>({ trackId: null, startTime: null, durationMs: 0, shareIds: [] });
 
   // Cache for group shares to avoid repeated API calls
   // Cache includes timestamp for expiration (5 minutes)
@@ -109,8 +110,6 @@ export const useGlobalPlaybackTracking = () => {
       // OPTIMIZATION: Fetch all groups in parallel instead of sequentially
       const findMatchingShares = async () => {
         try {
-          const matchingShares: Array<{ shareId: string; groupId: string; trackName: string; groupName: string }> = [];
-          
           logger.info(`🔍 Searching for track "${remotePlayback.item?.name}" (${currentTrackId}) across ${groups.length} group(s)...`);
           
           // Fetch shares for all groups in parallel
@@ -147,6 +146,7 @@ export const useGlobalPlaybackTracking = () => {
             remotePlaybackRef.current = {
               trackId: currentTrackId,
               startTime: existingStartTime || Date.now(),
+              durationMs: durationMs,
               shareIds: validMatches.map(m => ({ shareId: m.shareId, groupId: m.groupId }))
             };
             
@@ -181,7 +181,13 @@ export const useGlobalPlaybackTracking = () => {
         const markPromises = shareIds.map(async ({ shareId, groupId }) => {
           groupIds.add(groupId);
           try {
-            await markAsListened(shareId);
+            const updatedShare = await markAsListened(shareId);
+            
+            // Dispatch global event so UI components can update immediately
+            window.dispatchEvent(new CustomEvent('trackListened', {
+              detail: { groupId, shareId, updatedShare }
+            }));
+            
             return { success: true, shareId };
           } catch (err) {
             // If already listened, that's fine - treat as success
@@ -209,7 +215,7 @@ export const useGlobalPlaybackTracking = () => {
       void markAllShares();
       
       // Reset tracking
-      remotePlaybackRef.current = { trackId: null, startTime: null, shareIds: [] };
+      remotePlaybackRef.current = { trackId: null, startTime: null, durationMs: 0, shareIds: [] };
       return;
     }
 
@@ -220,7 +226,12 @@ export const useGlobalPlaybackTracking = () => {
         : 0;
       
       const progressPercent = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
-      const shouldMark = timePlayed >= 30000 || progressPercent >= 80;
+      // Mark if played for at least 80% of duration OR if progress is at 80%
+      const threshold = remotePlaybackRef.current.durationMs > 0 
+        ? remotePlaybackRef.current.durationMs * 0.8 
+        : 30000; // Fallback to 30s if duration unknown
+        
+      const shouldMark = timePlayed >= threshold || progressPercent >= 80;
       
       if (shouldMark) {
         logger.info(`⏸️ Track paused after sufficient playtime - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
@@ -233,8 +244,14 @@ export const useGlobalPlaybackTracking = () => {
           const markPromises = shareIds.map(async ({ shareId, groupId }) => {
             groupIds.add(groupId);
             try {
-              await markAsListened(shareId);
+              const updatedShare = await markAsListened(shareId);
               logger.info(`Marked share ${shareId} as listened`);
+              
+              // Dispatch global event so UI components can update immediately
+              window.dispatchEvent(new CustomEvent('trackListened', {
+                detail: { groupId, shareId, updatedShare }
+              }));
+              
               return { success: true, shareId };
             } catch (err) {
               // If already listened, that's fine - just log
@@ -262,7 +279,7 @@ export const useGlobalPlaybackTracking = () => {
       }
       
       // Reset tracking
-      remotePlaybackRef.current = { trackId: null, startTime: null, shareIds: [] };
+      remotePlaybackRef.current = { trackId: null, startTime: null, durationMs: 0, shareIds: [] };
     }
 
     // Track changed to a different track
@@ -271,7 +288,12 @@ export const useGlobalPlaybackTracking = () => {
         ? Date.now() - remotePlaybackRef.current.startTime 
         : 0;
       
-      if (timePlayed >= 30000) {
+      // Auto-mark previous track if played for at least 80% of duration
+      const threshold = remotePlaybackRef.current.durationMs > 0 
+        ? remotePlaybackRef.current.durationMs * 0.8 
+        : 30000;
+
+      if (timePlayed >= threshold) {
         logger.info(`🔄 Track changed after sufficient playtime - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
         // Mark ALL matching shares as listened (OPTIMIZATION: parallelize API calls)
         const markAllShares = async () => {
@@ -282,8 +304,14 @@ export const useGlobalPlaybackTracking = () => {
           const markPromises = shareIds.map(async ({ shareId, groupId }) => {
             groupIds.add(groupId);
             try {
-              await markAsListened(shareId);
+              const updatedShare = await markAsListened(shareId);
               logger.info(`Marked share ${shareId} as listened`);
+              
+              // Dispatch global event so UI components can update immediately
+              window.dispatchEvent(new CustomEvent('trackListened', {
+                detail: { groupId, shareId, updatedShare }
+              }));
+              
               return { success: true, shareId };
             } catch (err) {
               // If already listened, that's fine - just log
@@ -311,12 +339,13 @@ export const useGlobalPlaybackTracking = () => {
       }
       
       // Reset for new track
-      remotePlaybackRef.current = { trackId: null, startTime: null, shareIds: [] };
+      remotePlaybackRef.current = { trackId: null, startTime: null, durationMs: 0, shareIds: [] };
     }
 
     // Update current track ID
     if (currentTrackId && currentTrackId !== prevTrackId) {
       remotePlaybackRef.current.trackId = currentTrackId;
+      remotePlaybackRef.current.durationMs = durationMs; // Also update duration
     }
     
     // Periodic check: If track is playing but we haven't found matching shares yet,
@@ -333,8 +362,6 @@ export const useGlobalPlaybackTracking = () => {
           try {
             // Clear cache to force fresh fetch
             sharesCacheRef.current.clear();
-            
-            const matchingShares: Array<{ shareId: string; groupId: string; trackName: string; groupName: string }> = [];
             
             const sharePromises = groups.map(async (group) => {
               try {
@@ -362,6 +389,7 @@ export const useGlobalPlaybackTracking = () => {
               remotePlaybackRef.current = {
                 trackId: currentTrackId,
                 startTime: Date.now(),
+                durationMs: durationMs,
                 shareIds: validMatches.map(m => ({ shareId: m.shareId, groupId: m.groupId }))
               };
               
@@ -377,5 +405,6 @@ export const useGlobalPlaybackTracking = () => {
     }
   }, [remotePlayback, user, groups]);
 };
+
 
 

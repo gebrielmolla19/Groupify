@@ -69,6 +69,24 @@ export const usePlaylist = (groupId: string, externalSortBy?: SortOption) => {
     };
 
     fetchPlaylist();
+
+    // Listen for global track listened events to sync UI across hooks
+    const handleGlobalListened = (event: any) => {
+      const { shareId, updatedShare } = event.detail;
+      
+      if (updatedShare) {
+        setShares(prev =>
+          prev.map(share =>
+            share._id === shareId ? updatedShare : share
+          )
+        );
+      } else {
+        fetchPlaylist();
+      }
+    };
+
+    window.addEventListener('trackListened', handleGlobalListened);
+    return () => window.removeEventListener('trackListened', handleGlobalListened);
   }, [groupId]);
 
   // Sort shares based on selected option

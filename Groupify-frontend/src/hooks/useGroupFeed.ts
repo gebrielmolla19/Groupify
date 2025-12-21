@@ -66,6 +66,12 @@ export const useGroupFeed = (groupId: string) => {
       );
       logger.info('Track marked as listened:', { shareId, trackName: updatedShare.trackName });
       toast.success('Marked as listened');
+
+      // Dispatch global event for other listeners
+      window.dispatchEvent(new CustomEvent('trackListened', {
+        detail: { groupId, shareId, updatedShare }
+      }));
+
       return updatedShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to mark as listened';
@@ -108,7 +114,29 @@ export const useGroupFeed = (groupId: string) => {
 
   useEffect(() => {
     fetchFeed();
-  }, [fetchFeed]);
+
+    // Listen for global track listened events to sync UI across hooks
+    const handleGlobalListened = (event: any) => {
+      const { groupId: eventGroupId, shareId, updatedShare } = event.detail;
+      
+      if (eventGroupId === groupId) {
+        if (updatedShare) {
+          // If we have the updated share data, update it directly in the state
+          setShares(prev =>
+            prev.map(share =>
+              share._id === shareId ? updatedShare : share
+            )
+          );
+        } else {
+          // Otherwise refetch the whole feed to be safe
+          fetchFeed();
+        }
+      }
+    };
+
+    window.addEventListener('trackListened', handleGlobalListened);
+    return () => window.removeEventListener('trackListened', handleGlobalListened);
+  }, [fetchFeed, groupId]);
 
   return {
     shares,
