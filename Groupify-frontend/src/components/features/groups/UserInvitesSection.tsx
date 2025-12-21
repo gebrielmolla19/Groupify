@@ -1,11 +1,12 @@
-import { Invite } from '../types';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Skeleton } from './ui/skeleton';
+import { Invite } from '../../../types';
+import { Button } from '../../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
+import { Skeleton } from '../../ui/skeleton';
 import { UserPlus, CheckCircle2, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { logger } from '../utils/logger';
+import { logger } from '../../../utils/logger';
+import { useNavigate } from 'react-router-dom';
 
 interface UserInvitesSectionProps {
   invites: Invite[];
@@ -13,7 +14,6 @@ interface UserInvitesSectionProps {
   onDeclineInvite: (groupId: string, inviteId: string) => Promise<void>;
   isLoading: boolean;
   error?: string | null;
-  onNavigateToGroup?: (group: any) => void;
 }
 
 export default function UserInvitesSection({
@@ -22,8 +22,9 @@ export default function UserInvitesSection({
   onDeclineInvite,
   isLoading,
   error,
-  onNavigateToGroup,
 }: UserInvitesSectionProps) {
+  const navigate = useNavigate();
+
   const handleAccept = async (invite: Invite) => {
     try {
       const groupId = typeof invite.group === 'string' 
@@ -32,9 +33,9 @@ export default function UserInvitesSection({
       
       const updatedGroup = await onAcceptInvite(groupId, invite._id);
       
-      // Navigate to the group if callback provided
-      if (onNavigateToGroup && updatedGroup) {
-        onNavigateToGroup(updatedGroup);
+      // Navigate to the group
+      if (updatedGroup) {
+        navigate(`/groups/${updatedGroup._id}`);
       }
     } catch (error) {
       // Error is already handled by the hook (toast notification)
@@ -198,4 +199,3 @@ export default function UserInvitesSection({
     </Card>
   );
 }
-

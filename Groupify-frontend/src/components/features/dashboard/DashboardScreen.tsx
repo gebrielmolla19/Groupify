@@ -8,17 +8,16 @@ import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
 import InvitesDropdown from "../groups/InvitesDropdown";
 import GroupThumbnail from "../groups/GroupThumbnail";
-import { NavigateFunction, Group } from "../../../types";
+import { Group } from "../../../types";
 import { useGroups } from "../../../hooks/useGroups";
 import { useUserInvites } from "../../../hooks/useUserInvites";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { logger } from "../../../utils/logger";
 
-interface DashboardScreenProps {
-  onNavigate: NavigateFunction;
-}
-
-export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
+export default function DashboardScreen() {
+  const navigate = useNavigate();
   const { groups, isLoading, error, createGroup, joinGroupByCode } = useGroups();
   const {
     invites: userInvites,
@@ -34,7 +33,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const handleNavigateToGroup = (group: Group) => {
-    onNavigate('group-feed', group);
+    navigate(`/groups/${group._id}`);
   };
 
   const handleOpenCreateDialog = () => {
@@ -50,7 +49,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
       setIsJoining(true);
       const joinedGroup = await joinGroupByCode(inviteCode);
       // Navigate to group feed with the joined group
-      onNavigate('group-feed', joinedGroup);
+      navigate(`/groups/${joinedGroup._id}`);
     } catch (error) {
       // Error is already handled by the hook (toast notification)
       throw error;
@@ -101,7 +100,6 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                   onDeclineInvite={declineInvite}
                   isLoading={isLoadingInvites}
                   error={invitesError}
-                  onNavigateToGroup={handleNavigateToGroup}
                 />
                 <Button
                   variant="outline"
@@ -159,7 +157,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                   <Card
                     key={group._id}
                     className="group cursor-pointer overflow-hidden border-border hover:border-primary/50 transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,136,0.1)] hover:-translate-y-1"
-                    onClick={() => onNavigate("group-feed", group)}
+                    onClick={() => handleNavigateToGroup(group)}
                   >
                     <div className="relative h-48 overflow-hidden">
                       <GroupThumbnail groupId={group._id} groupName={group.name} />

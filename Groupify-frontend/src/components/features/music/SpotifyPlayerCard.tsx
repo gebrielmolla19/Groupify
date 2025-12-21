@@ -11,21 +11,24 @@ import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { useCurrentPlayback } from "../../../hooks/useCurrentPlayback";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
-import { Group, SpotifyDevice } from '../../../types';
+import { SpotifyDevice } from '../../../types';
 import { toast } from 'sonner';
 import { getSpotifyDevices, transferPlayback } from '../../../lib/api';
 import { logger } from '../../../utils/logger';
+import { useParams } from 'react-router-dom';
+import { useGroups } from '../../../hooks/useGroups';
 
-interface SpotifyPlayerCardProps {
-  selectedGroup?: Group | null;
-}
-
-export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardProps) {
+export default function SpotifyPlayerCard() {
+  const { groupId } = useParams<{ groupId: string }>();
+  const { groups } = useGroups();
   const { player, currentTrack, isPlaying, isLoading, error, deviceId, deviceReadyTimestamp, playTrack } = useSpotifyPlayer();
   const { playingGroup, setPlayingGroup, sortBy: contextSortBy } = usePlayingGroup();
   const { shares: playlistShares } = usePlaylist(playingGroup?._id || '', contextSortBy);
   const { state: sidebarState, isMobile } = useSidebar();
   
+  // Find the group currently being viewed
+  const viewedGroup = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
+
   // Poll for playback on other devices (only if Web SDK player isn't showing a track)
   // This lets us detect when user plays on phone/desktop app
   const { playback: remotePlayback } = useCurrentPlayback(
@@ -157,8 +160,8 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
     zIndex: 9999
   };
 
-  // Also load the selected group's playlist to check if current track belongs to it
-  const { shares: selectedGroupShares } = usePlaylist(selectedGroup?._id || '', contextSortBy);
+  // Also load the viewed group's playlist to check if current track belongs to it
+  const { shares: viewedGroupShares } = usePlaylist(viewedGroup?._id || '', contextSortBy);
 
   // Load devices when the popover opens (and when SDK deviceId appears)
   useEffect(() => {
@@ -169,23 +172,23 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
 
   // Auto-detect playing group when track is playing and we're viewing a group
   useEffect(() => {
-    if (currentTrack && selectedGroup && selectedGroupShares.length > 0) {
-      // Check if current track belongs to the selected group
+    if (currentTrack && viewedGroup && viewedGroupShares.length > 0) {
+      // Check if current track belongs to the viewed group
       const currentTrackId = currentTrack.uri?.replace('spotify:track:', '');
       if (currentTrackId) {
-        // Check if track exists in the selected group's playlist
-        const trackInGroup = selectedGroupShares.some(
+        // Check if track exists in the viewed group's playlist
+        const trackInGroup = viewedGroupShares.some(
           share => share.spotifyTrackId === currentTrackId
         );
 
-        // If track is in the selected group, set it as playing group
+        // If track is in the viewed group, set it as playing group
         // This handles both initial load and when navigating between groups
-        if (trackInGroup && playingGroup?._id !== selectedGroup._id) {
-          setPlayingGroup(selectedGroup);
+        if (trackInGroup && playingGroup?._id !== viewedGroup._id) {
+          setPlayingGroup(viewedGroup);
         }
       }
     }
-  }, [currentTrack, selectedGroup, playingGroup, setPlayingGroup, selectedGroupShares]);
+  }, [currentTrack, viewedGroup, playingGroup, setPlayingGroup, viewedGroupShares]);
   const [isControlling, setIsControlling] = useState(false);
 
   const handlePlayPause = async () => {
@@ -431,7 +434,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
                     <p>Previous Track</p>
                   </TooltipContent>
                 </Tooltip>
-
+1
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -707,4 +710,3 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
     </TooltipProvider>
   );
 }
-

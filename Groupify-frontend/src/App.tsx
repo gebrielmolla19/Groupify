@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
 import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
@@ -13,161 +14,87 @@ import AuthCallbackScreen from "./components/features/auth/AuthCallbackScreen";
 import { Toaster } from "./components/ui/sonner";
 import SpotifyPlayerCard from "./components/features/music/SpotifyPlayerCard";
 import AppSidebar from "./components/layout/AppSidebar";
-import { Group, ScreenName } from "./types";
+import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
-import { logger } from "./utils/logger";
 
-interface AppWithPlayerProps {
-  currentScreen: ScreenName;
-  selectedGroup: Group | null;
-  onNavigate: (screen: ScreenName, group?: Group) => void;
-}
-
-function AppWithPlayer({ currentScreen, selectedGroup, onNavigate }: AppWithPlayerProps) {
-  return (
-    <div className="pb-24 w-full">
-      {currentScreen === "dashboard" && (
-        <DashboardScreen onNavigate={onNavigate} />
-      )}
-      {currentScreen === "group-feed" && (
-        <GroupFeedScreen group={selectedGroup} onNavigate={onNavigate} />
-      )}
-      {currentScreen === "group-settings" && (
-        <GroupSettingsScreen group={selectedGroup} onNavigate={onNavigate} />
-      )}
-      {currentScreen === "playlist" && (
-        <PlaylistViewScreen group={selectedGroup} onNavigate={onNavigate} />
-      )}
-      {currentScreen === "analytics" && (
-        <AnalyticsScreen group={selectedGroup} onNavigate={onNavigate} />
-      )}
-      {currentScreen === "profile" && (
-        <ProfileScreen onNavigate={onNavigate} />
-      )}
-    </div>
-  );
-}
-
-function AppContent() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenName>("login");
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const { isAuthenticated, isLoading } = useUser();
+/**
+ * Main Layout component for authenticated routes
+ */
+function AuthenticatedLayout() {
+  const location = useLocation();
+  const { isLoading } = useUser();
   
   // Global playback tracking - works across all screens
   useGlobalPlaybackTracking();
 
+  // Determine if we should show the floating player
+  // Hide player on profile screen, group-feed (has its own player), group-settings, and analytics
+  const showPlayer = !isLoading && 
+    !location.pathname.includes('/profile') && 
+    !location.pathname.match(/\/groups\/[^/]+$/) && // group-feed
+    !location.pathname.includes('/settings') && 
+    !location.pathname.includes('/analytics');
+
+  return (
+    <PlayingGroupProvider>
+      <div className="min-h-screen bg-background">
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <div className="pb-24 w-full">
+              <Routes>
+                <Route path="/" element={<DashboardScreen />} />
+                <Route path="/profile" element={<ProfileScreen />} />
+                <Route path="/groups/:groupId" element={<GroupFeedScreen />} />
+                <Route path="/groups/:groupId/settings" element={<GroupSettingsScreen />} />
+                <Route path="/groups/:groupId/playlist" element={<PlaylistViewScreen />} />
+                <Route path="/groups/:groupId/analytics" element={<AnalyticsScreen />} />
+                {/* Fallback for authenticated users */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+          </SidebarInset>
+          
+          {/* Persistent Spotify Player */}
+          {showPlayer && <SpotifyPlayerCard />}
+        </SidebarProvider>
+      </div>
+    </PlayingGroupProvider>
+  );
+}
+
+function AppContent() {
   // Apply dark mode by default
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
 
-  // Check if we're on the auth callback route
-  useEffect(() => {
-    if (window.location.pathname === '/auth/callback') {
-      setCurrentScreen('auth-callback');
-    }
-  }, []);
-
-  // Try to restore screen state from sessionStorage on mount
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      const savedScreen = sessionStorage.getItem('currentScreen') as ScreenName | null;
-      const savedGroupId = sessionStorage.getItem('selectedGroupId');
-
-      if (savedScreen && savedScreen !== 'login' && savedScreen !== 'auth-callback') {
-        setCurrentScreen(savedScreen);
-
-        // If we have a saved group ID, try to fetch the group
-        if (savedGroupId && (savedScreen === 'playlist' || savedScreen === 'group-feed' || savedScreen === 'group-settings')) {
-          // Note: We'd need to fetch the group here, but for now just restore the screen
-          // The group will need to be passed via navigation
-        }
-      }
-    }
-  }, [isAuthenticated, isLoading]);
-
-  // Auto-redirect based on authentication state
-  useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated && currentScreen === "login") {
-        setCurrentScreen("dashboard");
-      } else if (!isAuthenticated && currentScreen !== "login" && currentScreen !== "auth-callback") {
-        setCurrentScreen("login");
-      }
-    }
-  }, [isAuthenticated, isLoading, currentScreen]);
-
-  const handleNavigate = (screen: ScreenName, group?: Group) => {
-    logger.debug('Navigation:', { from: currentScreen, to: screen, groupId: group?._id });
-    setCurrentScreen(screen);
-    if (group) {
-      setSelectedGroup(group);
-      // Save to sessionStorage for refresh persistence
-      sessionStorage.setItem('selectedGroupId', group._id);
-    } else {
-      sessionStorage.removeItem('selectedGroupId');
-    }
-    // Save current screen to sessionStorage
-    sessionStorage.setItem('currentScreen', screen);
-  };
-
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="space-y-4 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-      {!isAuthenticated && currentScreen === "login" && (
-        <div className="min-h-screen bg-background">
-          <LoginScreen />
-        </div>
-      )}
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/login" element={<LoginScreen />} />
+      <Route path="/auth/callback" element={<AuthCallbackScreen />} />
       
-      {currentScreen === "auth-callback" && (
-        <div className="min-h-screen bg-background">
-          <AuthCallbackScreen onNavigate={handleNavigate} />
-        </div>
-      )}
-      
-      {isAuthenticated && (
-        <PlayingGroupProvider>
-          <div className="min-h-screen bg-background">
-            <SidebarProvider>
-              <AppSidebar currentScreen={currentScreen} onNavigate={handleNavigate} />
-              <SidebarInset>
-                <AppWithPlayer
-                  currentScreen={currentScreen}
-                  selectedGroup={selectedGroup}
-                  onNavigate={handleNavigate}
-                />
-              </SidebarInset>
-              
-              {/* Persistent Spotify Player - Inside SidebarProvider but outside SidebarInset */}
-              {/* Hide player on profile screen, group-feed (has its own player), group-settings, and analytics */}
-              {currentScreen !== "profile" && currentScreen !== "group-feed" && currentScreen !== "group-settings" && currentScreen !== "analytics" && (
-                <SpotifyPlayerCard selectedGroup={selectedGroup} />
-              )}
-            </SidebarProvider>
-          </div>
-        </PlayingGroupProvider>
-      )}
-    </>
+      {/* Protected Routes */}
+      <Route 
+        path="/*" 
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout />
+          </ProtectedRoute>
+        } 
+      />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
-    <UserProvider>
-      <AppContent />
-      <Toaster />
-    </UserProvider>
+    <BrowserRouter>
+      <UserProvider>
+        <AppContent />
+        <Toaster />
+      </UserProvider>
+    </BrowserRouter>
   );
 }

@@ -7,13 +7,11 @@ import { useEffect, useState, useRef } from 'react';
 import { useUser } from "../../../contexts/UserContext";
 import { toast } from 'sonner';
 import { logger } from '../../../utils/logger';
+import { useNavigate } from 'react-router-dom';
 
-interface AuthCallbackScreenProps {
-  onNavigate: (screen: 'dashboard') => void;
-}
-
-export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenProps) {
+export default function AuthCallbackScreen() {
   const { login } = useUser();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const hasProcessedCallback = useRef(false);
 
@@ -59,7 +57,7 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
         window.history.replaceState({}, document.title, '/');
 
         // Navigate to dashboard
-        onNavigate('dashboard');
+        navigate('/');
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to complete authentication';
         setError(errorMsg);
@@ -68,7 +66,7 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
     };
 
     handleCallback();
-  }, [login, onNavigate]);
+  }, [login, navigate]);
 
   if (error) {
     return (
@@ -82,7 +80,7 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
             <h2 className="text-xl font-semibold text-destructive mb-2">Authentication Error</h2>
             <p className="text-muted-foreground mb-4">{error}</p>
             <button
-              onClick={() => window.location.href = '/'}
+              onClick={() => navigate('/login')}
               className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
               aria-label="Return to login page"
             >
@@ -108,4 +106,3 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
     </div>
   );
 }
-

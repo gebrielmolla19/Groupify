@@ -1,22 +1,25 @@
-
 import { Card, CardContent } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
-import { Group, NavigateFunction } from "../../../types";
 import { useGroupAnalytics } from "../../../hooks/useGroupAnalytics";
 import ActivityWave from "./ActivityWave";
 import VibeRadar from "./VibeRadar";
 import SuperlativeCard from "./SuperlativeCard";
 import { Sparkles, Activity, ArrowLeft } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useGroups } from "../../../hooks/useGroups";
+import { useMemo } from "react";
 
-interface AnalyticsScreenProps {
-  group: Group | null;
-  onNavigate: NavigateFunction;
-}
-
-export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenProps) {
-  const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, activityMode, vibesRange, changeTimeRange, changeActivityMode, changeVibesRange } = useGroupAnalytics(group?._id || '');
+export default function AnalyticsScreen() {
+  const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
+  const { groups } = useGroups();
+  
+  // Find the group from the groups list
+  const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
+  
+  const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, activityMode, vibesRange, changeTimeRange, changeActivityMode, changeVibesRange } = useGroupAnalytics(groupId || '');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
@@ -34,7 +37,7 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
 
 
   // Show helpful message if no group is selected
-  if (!group) {
+  if (!groupId) {
     return (
       <>
         {/* Ambient Background Gradient */}
@@ -47,7 +50,7 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onNavigate("dashboard")}
+              onClick={() => navigate("/")}
               className="hover:bg-primary/10 shrink-0"
               aria-label="Back to dashboard"
             >
@@ -71,7 +74,7 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
                 Please select a group from your dashboard to view analytics
               </p>
               <Button
-                onClick={() => onNavigate("dashboard")}
+                onClick={() => navigate("/")}
                 className="bg-primary hover:bg-primary/90 text-black"
               >
                 Go to Dashboard
@@ -95,7 +98,7 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onNavigate("group-feed", group ? group : undefined)}
+            onClick={() => navigate(`/groups/${groupId}`)}
             className="hover:bg-primary/10 shrink-0"
             aria-label="Back to group feed"
           >

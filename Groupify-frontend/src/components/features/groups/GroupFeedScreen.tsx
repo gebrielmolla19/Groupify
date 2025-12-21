@@ -6,7 +6,7 @@ import { Card, CardContent } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
 import { ScrollArea } from "../../ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
-import { Group, NavigateFunction, Share, SpotifyTrack } from "../../../types";
+import { Share, SpotifyTrack } from "../../../types";
 import { toast } from "sonner";
 import { useGroupFeed } from "../../../hooks/useGroupFeed";
 import { useSpotifySearch } from "../../../hooks/useSpotifySearch";
@@ -16,28 +16,30 @@ import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import SpotifyPlayerCard from "../music/SpotifyPlayerCard";
 import { formatDistanceToNow } from "date-fns";
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useGroups } from "../../../hooks/useGroups";
 
 import { useGroupInvites } from "../../../hooks/useGroupInvites";
 import InviteFriendDialog from "./InviteFriendDialog";
 import InvitesList from "./InvitesList";
 import { logger } from "../../../utils/logger";
 
-interface GroupFeedScreenProps {
-  group: Group | null;
-  onNavigate: NavigateFunction;
-}
-
-export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenProps) {
+export default function GroupFeedScreen() {
+  const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
   const { user } = useUser();
   const { setPlayingGroup } = usePlayingGroup();
-  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike } = useGroupFeed(group?._id || '');
+  const { groups } = useGroups();
+  
+  // Find the group from the groups list
+  const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
+  
+  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
   const { invites, isLoading: isLoadingInvites, fetchInvites, sendInvite, acceptInvite, declineInvite } = useGroupInvites();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-
-
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -92,7 +94,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
   }, []);
 
   const handleShareTrack = async (track: SpotifyTrack) => {
-    if (!group?._id || isSharing) return;
+    if (!groupId || isSharing) return;
 
     try {
       setIsSharing(track.id);
@@ -221,10 +223,10 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
 
   // Fetch invites when group changes
   useEffect(() => {
-    if (group?._id) {
-      fetchInvites(group._id);
+    if (groupId) {
+      fetchInvites(groupId);
     }
-  }, [group?._id, fetchInvites]);
+  }, [groupId, fetchInvites]);
 
   return (
     <>
@@ -235,7 +237,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => onNavigate("dashboard")}
+                  onClick={() => navigate("/")}
                   className="hover:bg-primary/10 shrink-0"
                   aria-label="Back to dashboard"
                 >
@@ -250,7 +252,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
                 <Button
                   variant="outline"
                   className="border-primary/30 hover:bg-primary/10 hidden md:flex shrink-0"
-                  onClick={() => onNavigate("playlist", group ? group : undefined)}
+                  onClick={() => navigate(`/groups/${groupId}/playlist`)}
                   aria-label="View group playlist"
                 >
                   <List className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -260,7 +262,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
                   variant="outline"
                   size="icon"
                   className="border-primary/30 hover:bg-primary/10 shrink-0"
-                  onClick={() => onNavigate("analytics", group ? group : undefined)}
+                  onClick={() => navigate(`/groups/${groupId}/analytics`)}
                   aria-label="View group analytics"
                 >
                   <TrendingUp className="w-4 h-4" aria-hidden="true" />
@@ -269,7 +271,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
                   variant="outline"
                   size="icon"
                   className="border-primary/30 hover:bg-primary/10 shrink-0"
-                  onClick={() => onNavigate("group-settings", group ? group : undefined)}
+                  onClick={() => navigate(`/groups/${groupId}/settings`)}
                   aria-label="Group settings"
                 >
                   <Settings className="w-4 h-4" aria-hidden="true" />
@@ -596,28 +598,27 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
 
       {/* Spotify Player - Floating Glass Bar */}
       <SpotifyPlayerCard
-        key={`group-feed-player-${group?._id || 'no-group'}`}
-        selectedGroup={group}
+        key={`group-feed-player-${groupId || 'no-group'}`}
       />
 
       {/* Invite Dialog */}
-      {group && (
+      {groupId && (
         <InviteFriendDialog
           open={isInviteDialogOpen}
           onOpenChange={setIsInviteDialogOpen}
-          groupId={group._id}
+          groupId={groupId}
           onSendInvite={sendInvite}
           isSubmitting={isLoadingInvites}
         />
       )}
 
       {/* Invites List - Show in a sidebar or section */}
-      {group && (
+      {groupId && (
         <div className="hidden lg:block fixed right-0 top-0 bottom-0 w-80 border-l border-border bg-card overflow-y-auto z-20" style={{ marginTop: '73px' }}>
           <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Group Invites</h2>
             <InvitesList
-              groupId={group._id}
+              groupId={groupId}
               invites={invites}
               onAcceptInvite={acceptInvite}
               onDeclineInvite={declineInvite}

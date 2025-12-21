@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Settings, Trash2, LogOut, ArrowLeft } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -28,27 +28,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../ui/alert-dialog";
-import { Group, NavigateFunction } from "../../../types";
 import { useGroupSettings } from "../../../hooks/useGroupSettings";
 import { useUser } from "../../../contexts/UserContext";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { useGroups } from "../../../hooks/useGroups";
 import { logger } from "../../../utils/logger";
+import { useParams, useNavigate } from "react-router-dom";
 
-interface GroupSettingsScreenProps {
-  group: Group | null;
-  onNavigate: NavigateFunction;
-}
-
-export default function GroupSettingsScreen({ group, onNavigate }: GroupSettingsScreenProps) {
+export default function GroupSettingsScreen() {
+  const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
   const { user } = useUser();
   const { setPlayingGroup } = usePlayingGroup();
-  const { fetchGroups } = useGroups();
+  const { groups, fetchGroups } = useGroups();
+  
+  // Find the group from the groups list
+  const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   const ownerId = group?.createdBy?._id || group?.createdBy?.id;
-  const groupId = group?._id || '';
   
   const { settings, isLoading, error, fetchSettings, updateSettings, removeMember, deleteGroup, leaveGroup, isOwner } = useGroupSettings(
-    groupId,
+    groupId || '',
     ownerId
   );
 
@@ -60,8 +59,6 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
-
-  // Removed verbose debug logging for dialog state - these were temporary debugging logs
 
   // Load settings on mount
   useEffect(() => {
@@ -145,8 +142,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
       setIsDeleteDialogOpen(false);
       
       // Navigate to dashboard and clear selected group
-      // Pass undefined as group to clear the selection
-      onNavigate('dashboard');
+      navigate('/');
     } catch (err) {
       // Error is already handled by the hook (toast notification)
       // Re-throw to keep dialog open
@@ -170,8 +166,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
     await fetchGroups();
     
     // Navigate to dashboard after successfully leaving
-    // Pass undefined as group to clear the selection
-    onNavigate('dashboard');
+    navigate('/');
   };
 
   const getInitials = (name: string): string => {
@@ -192,7 +187,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onNavigate("group-feed", group ? group : undefined)}
+            onClick={() => navigate(`/groups/${groupId}`)}
             className="hover:bg-primary/10 shrink-0"
             aria-label="Back to group feed"
           >
@@ -548,4 +543,3 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
     </>
   );
 }
-

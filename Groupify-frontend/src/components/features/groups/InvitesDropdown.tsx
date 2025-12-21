@@ -8,6 +8,8 @@ import { Separator } from '../../ui/separator';
 import { Badge } from '../../ui/badge';
 import { UserPlus, CheckCircle2, XCircle, Bell } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { logger } from '../../../utils/logger';
 
 interface InvitesDropdownProps {
   invites: Invite[];
@@ -15,7 +17,6 @@ interface InvitesDropdownProps {
   onDeclineInvite: (groupId: string, inviteId: string) => Promise<void>;
   isLoading: boolean;
   error?: string | null;
-  onNavigateToGroup?: (group: any) => void;
 }
 
 export default function InvitesDropdown({
@@ -24,8 +25,9 @@ export default function InvitesDropdown({
   onDeclineInvite,
   isLoading,
   error,
-  onNavigateToGroup,
 }: InvitesDropdownProps) {
+  const navigate = useNavigate();
+
   const handleAccept = async (invite: Invite) => {
     try {
       const groupId = typeof invite.group === 'string'
@@ -34,9 +36,9 @@ export default function InvitesDropdown({
 
       const updatedGroup = await onAcceptInvite(groupId, invite._id);
 
-      // Navigate to the group if callback provided
-      if (onNavigateToGroup && updatedGroup) {
-        onNavigateToGroup(updatedGroup);
+      // Navigate to the group
+      if (updatedGroup) {
+        navigate(`/groups/${updatedGroup._id}`);
       }
     } catch (error) {
       // Error is already handled by the hook (toast notification)
@@ -196,4 +198,3 @@ export default function InvitesDropdown({
     </Popover>
   );
 }
-

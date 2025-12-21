@@ -1,6 +1,5 @@
 import {
   Home,
-  TrendingUp,
   User,
   Music,
   LogOut,
@@ -20,22 +19,19 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import { ScreenName, NavigateFunction } from "../../types";
 import { useUser } from "../../contexts/UserContext";
 import { toast } from "sonner";
+import { useNavigate, useLocation } from "react-router-dom";
 
-interface AppSidebarProps {
-  currentScreen: ScreenName;
-  onNavigate: NavigateFunction;
-}
-
-export default function AppSidebar({ currentScreen, onNavigate }: AppSidebarProps) {
+export default function AppSidebar() {
   const { user, logout } = useUser();
   const { state } = useSidebar();
+  const navigate = useNavigate();
+  const location = useLocation();
   const isCollapsed = state === "collapsed";
   
   const menuItems = [
-    { id: "dashboard", label: "Groups", icon: Home },
+    { path: "/", label: "Groups", icon: Home },
   ];
 
   // Get user initials for avatar fallback
@@ -51,7 +47,7 @@ export default function AppSidebar({ currentScreen, onNavigate }: AppSidebarProp
   const handleLogout = () => {
     logout();
     toast.success("Logged out successfully");
-    onNavigate('login');
+    navigate('/login');
   };
 
   return (
@@ -80,11 +76,11 @@ export default function AppSidebar({ currentScreen, onNavigate }: AppSidebarProp
             <SidebarMenu className={isCollapsed ? "!gap-1 items-center" : ""}>
               {menuItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = currentScreen === item.id;
+                const isActive = location.pathname === item.path;
                 return (
-                  <SidebarMenuItem key={item.id} className={isCollapsed ? "flex justify-center" : ""}>
+                  <SidebarMenuItem key={item.path} className={isCollapsed ? "flex justify-center" : ""}>
                     <SidebarMenuButton
-                      onClick={() => onNavigate(item.id as ScreenName)}
+                      onClick={() => navigate(item.path)}
                       isActive={isActive}
                       tooltip={item.label}
                       className={`${isActive ? "bg-primary/10 text-primary" : ""} ${
@@ -112,8 +108,8 @@ export default function AppSidebar({ currentScreen, onNavigate }: AppSidebarProp
         <button
                 className={`flex items-center gap-2 md:gap-3 mb-2 p-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors ${
                   isCollapsed ? "w-full justify-center" : "w-full text-left"
-                }`}
-          onClick={() => onNavigate('profile')}
+                } ${location.pathname === '/profile' ? "bg-primary/10" : ""}`}
+          onClick={() => navigate('/profile')}
           aria-label="View profile"
         >
           <Avatar className={`border border-primary/30 shrink-0 transition-all duration-200 ${
@@ -127,10 +123,12 @@ export default function AppSidebar({ currentScreen, onNavigate }: AppSidebarProp
                 <div className={`flex-1 min-w-0 transition-opacity duration-200 ${
                   isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
                 }`}>
-            <p className="text-xs md:text-sm font-medium truncate">{user?.displayName || 'User'}</p>
+            <p className={`text-xs md:text-sm font-medium truncate ${location.pathname === '/profile' ? "text-primary" : ""}`}>
+              {user?.displayName || 'User'}
+            </p>
           </div>
                 {!isCollapsed && (
-          <User className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
+          <User className={`w-4 h-4 shrink-0 ${location.pathname === '/profile' ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
                 )}
         </button>
             </TooltipTrigger>

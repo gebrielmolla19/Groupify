@@ -19,19 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { Group, NavigateFunction, Share } from "../../../types";
+import { Share } from "../../../types";
 import { usePlaylist } from "../../../hooks/usePlaylist";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { exportGroupToPlaylist } from "../../../lib/api";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { logger } from "../../../utils/logger";
-
-interface PlaylistViewScreenProps {
-  group: Group | null;
-  onNavigate: NavigateFunction;
-}
+import { useParams, useNavigate } from "react-router-dom";
+import { useGroups } from "../../../hooks/useGroups";
 
 // Format duration from milliseconds to MM:SS
 const formatDuration = (ms: number): string => {
@@ -41,8 +38,15 @@ const formatDuration = (ms: number): string => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
-export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewScreenProps) {
-  const { shares, isLoading, error, sortBy, setSortBy, stats } = usePlaylist(group?._id || '');
+export default function PlaylistViewScreen() {
+  const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
+  const { groups } = useGroups();
+  
+  // Find the group from the groups list
+  const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
+  
+  const { shares, isLoading, error, sortBy, setSortBy, stats } = usePlaylist(groupId || '');
   const { playTrack, deviceId, isLoading: isPlayerLoading } = useSpotifyPlayer();
   const { setPlayingGroup, setSortBy: setContextSortBy } = usePlayingGroup();
 
@@ -52,6 +56,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
       setContextSortBy(sortBy);
     }
   }, [sortBy, group, setContextSortBy]);
+  
   const [isExporting, setIsExporting] = useState(false);
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
 
@@ -87,7 +92,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
   };
 
   const handleExportToSpotify = async () => {
-    if (!group?._id) return;
+    if (!groupId) return;
 
     if (shares.length === 0) {
       toast.error('No tracks to export');
@@ -97,12 +102,12 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
     try {
       setIsExporting(true);
       const playlist = await exportGroupToPlaylist(
-        group._id,
-        `${group.name} - Groupify Playlist`,
+        groupId,
+        `${group?.name || 'Group'} - Groupify Playlist`,
         false
       );
 
-      logger.info('Playlist exported to Spotify:', { groupId: group._id, playlistId: playlist.id });
+      logger.info('Playlist exported to Spotify:', { groupId, playlistId: playlist.id });
       toast.success('Playlist exported to Spotify!');
 
       // Open the playlist in Spotify
@@ -152,7 +157,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onNavigate("group-feed", group || undefined)}
+                onClick={() => navigate(`/groups/${groupId}`)}
                 className="hover:bg-primary/10 shrink-0"
                 aria-label="Back to group feed"
               >
@@ -180,7 +185,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
                 variant="outline"
                 size="icon"
                 className="border-primary/30 hover:bg-primary/10 shrink-0"
-                onClick={() => onNavigate("analytics", group || undefined)}
+                onClick={() => navigate(`/groups/${groupId}/analytics`)}
                 aria-label="View group analytics"
               >
                 <TrendingUp className="w-4 h-4" aria-hidden="true" />
@@ -410,7 +415,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
                 </p>
                 <Button
                   variant="outline"
-                  onClick={() => onNavigate("group-feed", group || undefined)}
+                  onClick={() => navigate(`/groups/${groupId}`)}
                   className="border-primary/30 hover:bg-primary/10"
                 >
                   Go to Group Feed

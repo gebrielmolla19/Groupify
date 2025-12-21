@@ -123,10 +123,3 @@ export interface GroupSettings {
     profileImage?: string | null;
   }>;
 }
-
-export type ScreenName = "login" | "dashboard" | "group-feed" | "playlist" | "analytics" | "profile" | "auth-callback" | "join-group" | "group-settings";
-
-export interface NavigateFunction {
-  (screen: ScreenName, group?: Group): void;
-}
-

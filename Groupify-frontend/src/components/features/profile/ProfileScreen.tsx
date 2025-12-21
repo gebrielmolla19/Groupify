@@ -9,18 +9,16 @@ import { Input } from "../../ui/input";
 import { Separator } from "../../ui/separator";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Badge } from "../../ui/badge";
-import { NavigateFunction, UserStats } from "../../../types";
+import { UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile } from "../../../lib/api";
 import { toast } from "sonner";
 import { Skeleton } from "../../ui/skeleton";
 import { logger } from "../../../utils/logger";
+import { useNavigate } from "react-router-dom";
 
-interface ProfileScreenProps {
-  onNavigate: NavigateFunction;
-}
-
-export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
+export default function ProfileScreen() {
+  const navigate = useNavigate();
   const { user, logout, fetchUser } = useUser();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -93,7 +91,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
   const handleLogout = () => {
     logout();
     toast.success("Logged out successfully");
-    onNavigate('login');
+    navigate('/login');
   };
   return (
       <>
@@ -356,6 +354,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                   className="w-full border-destructive/50 hover:bg-destructive/20 text-destructive-foreground"
                   onClick={handleLogout}
                 >
+                  <LogOut className="w-4 h-4 mr-2" />
                   Disconnect Spotify
                 </Button>
               </CardContent>
