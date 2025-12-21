@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Trash2, LogOut } from "lucide-react";
+import { Settings, Trash2, LogOut, ArrowLeft } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
@@ -189,14 +189,23 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
           <SidebarTrigger />
-            <div className="flex-1 min-w-0">
-              <h1 className="truncate">Group Settings</h1>
-              <p className="text-sm text-muted-foreground truncate">
-                Manage group name, description, and members
-              </p>
-            </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onNavigate("group-feed", group ? group : undefined)}
+            className="hover:bg-primary/10 shrink-0"
+            aria-label="Back to group feed"
+          >
+            <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate">Group Settings</h1>
+            <p className="text-sm text-muted-foreground truncate">
+              Manage group name, description, and members
+            </p>
           </div>
-        </header>
+        </div>
+      </header>
 
         {/* Main Content */}
         <main className="p-4 md:p-6 max-w-4xl">
@@ -360,10 +369,9 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                 </CardContent>
               </Card>
 
-              {/* Danger Zone */}
               <Card className="border-destructive/50">
                 <CardHeader>
-                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                  <CardTitle className="text-destructive">Group Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {isOwner ? (
@@ -376,7 +384,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                         onClick={() => {
                           setIsDeleteDialogOpen(true);
                         }}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all"
                         disabled={isLoading}
                       >
                         <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -393,7 +401,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                         onClick={() => {
                           setIsLeaveDialogOpen(true);
                         }}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all"
                         disabled={isLoading}
                       >
                         <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />

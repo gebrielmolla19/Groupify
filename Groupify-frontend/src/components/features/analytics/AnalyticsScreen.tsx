@@ -41,7 +41,7 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
         <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background z-0" />
 
         {/* Header */}
-        <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
+        <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-16 items-center gap-4 px-4 md:px-6">
             <SidebarTrigger />
             <Button
@@ -89,7 +89,7 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background z-0" />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
+      <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
           <SidebarTrigger />
           <Button

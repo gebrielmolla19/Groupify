@@ -9,9 +9,9 @@ import { Input } from "../../ui/input";
 import { Separator } from "../../ui/separator";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Badge } from "../../ui/badge";
-import { NavigateFunction } from "../../../types";
+import { NavigateFunction, UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
-import { getUserStats, updateUserProfile, UserStats } from "../../../lib/api";
+import { getUserStats, updateUserProfile } from "../../../lib/api";
 import { toast } from "sonner";
 import { Skeleton } from "../../ui/skeleton";
 import { logger } from "../../../utils/logger";
@@ -332,7 +332,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
               </CardContent>
             </Card>
 
-            {/* Danger Zone */}
             <Card className="border-destructive/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive-foreground">
