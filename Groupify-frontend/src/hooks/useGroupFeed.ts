@@ -25,8 +25,16 @@ export const useGroupFeed = (groupId: string) => {
       setTotal(data.total);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch group feed';
-      setError(errorMessage);
-      console.error('Failed to fetch group feed:', err);
+      // Handle deleted group gracefully (404 errors)
+      if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+        console.log('Group not found, clearing feed');
+        setShares([]);
+        setTotal(0);
+        setError(null);
+      } else {
+        setError(errorMessage);
+        console.error('Failed to fetch group feed:', err);
+      }
     } finally {
       setIsLoading(false);
     }

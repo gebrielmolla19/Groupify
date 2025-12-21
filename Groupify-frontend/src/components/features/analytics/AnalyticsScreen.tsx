@@ -16,7 +16,7 @@ interface AnalyticsScreenProps {
 }
 
 export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenProps) {
-  const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, vibesRange, changeTimeRange, changeVibesRange } = useGroupAnalytics(group?._id || '');
+  const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, activityMode, vibesRange, changeTimeRange, changeActivityMode, changeVibesRange } = useGroupAnalytics(group?._id || '');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
@@ -32,16 +32,6 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
     { value: 'all' as const, label: 'All' },
   ];
 
-  const getTimeRangeLabel = () => {
-    switch (activityRange) {
-      case '24h': return 'last 24 hours';
-      case '7d': return 'last 7 days';
-      case '30d': return 'last 30 days';
-      case '90d': return 'last 90 days';
-      case 'all': return 'all time';
-      default: return 'last 30 days';
-    }
-  };
 
   // Show helpful message if no group is selected
   if (!group) {
@@ -165,25 +155,60 @@ export default function AnalyticsScreen({ group, onNavigate }: AnalyticsScreenPr
               </h2>
             </div>
             
-            {/* Time Range Selector */}
-            <div className="flex items-center gap-2 px-2">
-              <span className="text-xs text-muted-foreground mr-2">Time range:</span>
-              <div className="flex gap-1">
-                {timeRanges.map((range) => (
+            {/* Time Range Selector and Mode Toggle */}
+            <div className="flex items-center justify-between gap-4 px-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground mr-2">Time range:</span>
+                <div className="flex gap-1">
+                  {timeRanges.map((range) => (
+                    <Button
+                      key={range.value}
+                      size="sm"
+                      variant={activityRange === range.value ? 'default' : 'outline'}
+                      onClick={() => changeTimeRange(range.value)}
+                      className={
+                        activityRange === range.value
+                          ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
+                          : 'border-primary/30 hover:bg-primary/10 h-7 px-3 text-xs'
+                      }
+                    >
+                      {range.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">View:</span>
+                <div className="flex gap-1 border border-white/10 rounded-md p-0.5">
                   <Button
-                    key={range.value}
                     size="sm"
-                    variant={activityRange === range.value ? 'default' : 'outline'}
-                    onClick={() => changeTimeRange(range.value)}
+                    variant="ghost"
+                    onClick={() => changeActivityMode('shares')}
+                    disabled={isActivityLoading}
                     className={
-                      activityRange === range.value
+                      activityMode === 'shares'
                         ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
-                        : 'border-primary/30 hover:bg-primary/10 h-7 px-3 text-xs'
+                        : 'hover:bg-white/5 h-7 px-3 text-xs text-muted-foreground'
                     }
                   >
-                    {range.label}
+                    Shares Posted
                   </Button>
-                ))}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => changeActivityMode('engagement')}
+                    disabled={isActivityLoading}
+                    className={
+                      activityMode === 'engagement'
+                        ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
+                        : 'hover:bg-white/5 h-7 px-3 text-xs text-muted-foreground'
+                    }
+                  >
+                    Engagement
+                  </Button>
+                </div>
               </div>
             </div>
             <Card className="flex-1 bg-black/20 border-white/5 overflow-hidden flex flex-col relative">

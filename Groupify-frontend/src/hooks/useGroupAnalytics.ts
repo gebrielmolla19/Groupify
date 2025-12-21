@@ -8,6 +8,7 @@ interface AnalyticsData {
 }
 
 export type TimeRange = '24h' | '7d' | '30d' | '90d' | 'all';
+export type ActivityMode = 'shares' | 'engagement';
 
 export const useGroupAnalytics = (groupId: string) => {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -16,6 +17,7 @@ export const useGroupAnalytics = (groupId: string) => {
   const [isVibesLoading, setIsVibesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activityRange, setActivityRange] = useState<TimeRange>('30d');
+  const [activityMode, setActivityMode] = useState<ActivityMode>('shares');
   const [vibesRange, setVibesRange] = useState<TimeRange>('all');
   
   // Use ref to track the groupId that the current data belongs to
@@ -44,14 +46,14 @@ export const useGroupAnalytics = (groupId: string) => {
       setError(null);
 
       const [activity, vibes, superlatives] = await Promise.all([
-        getGroupActivity(fetchGroupId, '30d'),
+        getGroupActivity(fetchGroupId, '30d', 'shares'),
         getMemberVibes(fetchGroupId, 'all'),
         getSuperlatives(fetchGroupId)
       ]);
 
       // Only set data if groupId hasn't changed during the fetch
       if (fetchGroupId === groupId) {
-        setData({ activity, vibes, superlatives });
+      setData({ activity, vibes, superlatives });
         dataGroupIdRef.current = fetchGroupId;
         setActivityRange('30d');
         setVibesRange('all');
@@ -59,19 +61,19 @@ export const useGroupAnalytics = (groupId: string) => {
     } catch (err) {
       // Only set error if groupId hasn't changed
       if (fetchGroupId === groupId) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
-        setError(errorMessage);
-        console.error('Failed to fetch analytics:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
+      setError(errorMessage);
+      console.error('Failed to fetch analytics:', err);
       }
     } finally {
       if (fetchGroupId === groupId) {
-        setIsLoading(false);
+      setIsLoading(false);
       }
     }
   }, [groupId]);
 
-  // Fetch only activity data for time range changes
-  const fetchActivity = useCallback(async (range: TimeRange) => {
+  // Fetch only activity data for time range or mode changes
+  const fetchActivity = useCallback(async (range: TimeRange, mode: ActivityMode = activityMode) => {
     // Don't proceed if:
     // 1. No groupId
     // 2. Currently loading initial data (data might be stale)
@@ -85,12 +87,13 @@ export const useGroupAnalytics = (groupId: string) => {
 
     try {
       setIsActivityLoading(true);
-      const activity = await getGroupActivity(fetchGroupId, range);
+      const activity = await getGroupActivity(fetchGroupId, range, mode);
       
       // Only update if groupId hasn't changed during the fetch and data still belongs to this group
       if (fetchGroupId === groupId && dataGroupIdRef.current === groupId) {
         setData(prev => prev ? { ...prev, activity } : null);
         setActivityRange(range);
+        setActivityMode(mode);
       }
     } catch (err) {
       // Only set error if groupId hasn't changed
@@ -104,7 +107,7 @@ export const useGroupAnalytics = (groupId: string) => {
         setIsActivityLoading(false);
       }
     }
-  }, [groupId, data, isLoading]);
+  }, [groupId, data, isLoading, activityMode]);
 
   useEffect(() => {
     fetchAllStats();
@@ -147,8 +150,12 @@ export const useGroupAnalytics = (groupId: string) => {
   }, [groupId, data, isLoading]);
 
   const changeTimeRange = useCallback((range: TimeRange) => {
-    fetchActivity(range);
-  }, [fetchActivity]);
+    fetchActivity(range, activityMode);
+  }, [fetchActivity, activityMode]);
+
+  const changeActivityMode = useCallback((mode: ActivityMode) => {
+    fetchActivity(activityRange, mode);
+  }, [fetchActivity, activityRange]);
 
   const changeVibesRange = useCallback((range: TimeRange) => {
     fetchVibes(range);
@@ -161,8 +168,10 @@ export const useGroupAnalytics = (groupId: string) => {
     isVibesLoading,
     error,
     activityRange,
+    activityMode,
     vibesRange,
     changeTimeRange,
+    changeActivityMode,
     changeVibesRange,
     refetch: fetchAllStats
   };

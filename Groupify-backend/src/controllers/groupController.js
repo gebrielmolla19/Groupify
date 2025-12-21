@@ -167,6 +167,27 @@ class GroupController {
       next(error);
     }
   }
+
+  /**
+   * Delete a group (owner only)
+   */
+  static async deleteGroup(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await GroupService.deleteGroup(id, req.userId);
+
+      res.json({
+        success: true,
+        message: result.message,
+        data: {
+          groupId: result.groupId,
+          groupName: result.groupName
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = GroupController;

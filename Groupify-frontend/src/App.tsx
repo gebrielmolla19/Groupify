@@ -149,8 +149,8 @@ function AppContent() {
               </SidebarInset>
               
               {/* Persistent Spotify Player - Inside SidebarProvider but outside SidebarInset */}
-              {/* Hide player on profile screen, group-feed (has its own player), and group-settings */}
-              {currentScreen !== "profile" && currentScreen !== "group-feed" && currentScreen !== "group-settings" && (
+              {/* Hide player on profile screen, group-feed (has its own player), group-settings, and analytics */}
+              {currentScreen !== "profile" && currentScreen !== "group-feed" && currentScreen !== "group-settings" && currentScreen !== "analytics" && (
                 <SpotifyPlayerCard selectedGroup={selectedGroup} />
               )}
             </SidebarProvider>

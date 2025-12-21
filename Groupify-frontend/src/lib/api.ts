@@ -56,7 +56,13 @@ export const fetchWithAuth = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    const errorMessage = error.message || `HTTP error! status: ${response.status}`;
+    
+    // Create error with status code for better handling
+    const apiError = new Error(errorMessage);
+    (apiError as any).status = response.status;
+    (apiError as any).statusCode = response.status;
+    throw apiError;
   }
 
   return response;
@@ -295,6 +301,27 @@ export const leaveGroup = async (groupId: string): Promise<{ message: string }> 
   }
 
   return { message: data.message };
+};
+
+/**
+ * Delete group (owner only)
+ */
+export const deleteGroup = async (groupId: string): Promise<{ message: string; groupId: string; groupName: string }> => {
+  const response = await fetchWithAuth(`/groups/${groupId}`, {
+    method: 'DELETE',
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to delete group');
+  }
+
+  return {
+    message: data.message,
+    groupId: data.data.groupId,
+    groupName: data.data.groupName
+  };
 };
 
 // ==================== INVITE OPERATIONS ====================
@@ -648,9 +675,10 @@ export const getCurrentPlayback = async (): Promise<{
  */
 export const getGroupActivity = async (
   groupId: string,
-  timeRange: '24h' | '7d' | '30d' | '90d' | 'all' = '30d'
+  timeRange: '24h' | '7d' | '30d' | '90d' | 'all' = '30d',
+  mode: 'shares' | 'engagement' = 'shares'
 ): Promise<any[]> => {
-  const response = await fetchWithAuth(`/analytics/${groupId}/activity?timeRange=${timeRange}`);
+  const response = await fetchWithAuth(`/analytics/${groupId}/activity?timeRange=${timeRange}&mode=${mode}`);
   const data = await response.json();
 
   if (!data.success) {

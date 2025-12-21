@@ -8,13 +8,13 @@ class AnalyticsController {
 
   /**
    * Get group activity (waveform data)
-   * GET /api/v1/groups/:id/analytics/activity
+   * GET /api/v1/groups/:id/analytics/activity?timeRange=30d&mode=engagement
    */
   static async getGroupActivity(req, res, next) {
     try {
       const { id } = req.params;
-      const { timeRange } = req.query; // '24h' | '7d' | '30d' | '90d' | 'all'
-      const data = await AnalyticsService.getGroupActivity(id, timeRange);
+      const { timeRange, mode } = req.query; // mode: 'shares' | 'engagement' (default: 'shares')
+      const data = await AnalyticsService.getGroupActivity(id, timeRange, mode);
 
       res.json({
         success: true,

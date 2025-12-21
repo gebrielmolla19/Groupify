@@ -59,6 +59,14 @@ router.post(
   GroupController.leaveGroup
 );
 
+// Delete a group (owner only)
+router.delete(
+  '/:id',
+  authMiddleware,
+  validate(groupIdSchema, 'params'),
+  GroupController.deleteGroup
+);
+
 // Analytics Routes
 router.get('/:id/analytics/activity', authMiddleware, AnalyticsController.getGroupActivity);
 router.get('/:id/analytics/vibes', authMiddleware, AnalyticsController.getMemberVibes);

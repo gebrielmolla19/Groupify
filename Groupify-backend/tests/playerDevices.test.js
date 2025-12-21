@@ -52,3 +52,5 @@ describe('Player Devices Endpoint', () => {
     expect(res.body.devices[0].id).toBe('dev1');
   });
 });
+
+

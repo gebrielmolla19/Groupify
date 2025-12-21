@@ -3,7 +3,9 @@ import { GroupSettings } from '../types';
 import {
   getGroupSettings as apiGetGroupSettings,
   updateGroupSettings as apiUpdateGroupSettings,
-  removeGroupMember as apiRemoveGroupMember
+  removeGroupMember as apiRemoveGroupMember,
+  deleteGroup as apiDeleteGroup,
+  leaveGroup as apiLeaveGroup
 } from '../lib/api';
 import { toast } from 'sonner';
 import { useUser } from '../contexts/UserContext';
@@ -70,6 +72,40 @@ export const useGroupSettings = (groupId: string, ownerId?: string) => {
     }
   }, [groupId, fetchSettings]);
 
+  const deleteGroup = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const result = await apiDeleteGroup(groupId);
+      toast.success(result.message || 'Group deleted successfully');
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete group';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [groupId]);
+
+  const leaveGroup = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const result = await apiLeaveGroup(groupId);
+      toast.success(result.message || 'Left group successfully');
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to leave group';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [groupId]);
+
   return {
     settings,
     isLoading,
@@ -77,6 +113,8 @@ export const useGroupSettings = (groupId: string, ownerId?: string) => {
     fetchSettings,
     updateSettings,
     removeMember,
+    deleteGroup,
+    leaveGroup,
     isOwner
   };
 };

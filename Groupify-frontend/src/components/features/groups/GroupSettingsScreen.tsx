@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Trash2 } from "lucide-react";
+import { Settings, Trash2, LogOut } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
@@ -18,9 +18,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../ui/alert-dialog";
 import { Group, NavigateFunction } from "../../../types";
 import { useGroupSettings } from "../../../hooks/useGroupSettings";
 import { useUser } from "../../../contexts/UserContext";
+import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
+import { useGroups } from "../../../hooks/useGroups";
 
 interface GroupSettingsScreenProps {
   group: Group | null;
@@ -29,13 +41,27 @@ interface GroupSettingsScreenProps {
 
 export default function GroupSettingsScreen({ group, onNavigate }: GroupSettingsScreenProps) {
   const { user } = useUser();
+  const { setPlayingGroup } = usePlayingGroup();
+  const { fetchGroups } = useGroups();
   const ownerId = group?.createdBy?._id || group?.createdBy?.id;
   const groupId = group?._id || '';
   
-  const { settings, isLoading, error, fetchSettings, updateSettings, removeMember, isOwner } = useGroupSettings(
+  const { settings, isLoading, error, fetchSettings, updateSettings, removeMember, deleteGroup, leaveGroup, isOwner } = useGroupSettings(
     groupId,
     ownerId
   );
+
+  // Debug logging for ownership check
+  useEffect(() => {
+    if (group && user) {
+      console.log('[GroupSettings] Ownership check:', {
+        userId: user._id,
+        ownerId: ownerId,
+        isOwner: isOwner,
+        groupId: groupId
+      });
+    }
+  }, [group, user, ownerId, isOwner, groupId]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -43,6 +69,28 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
   const [isSaving, setIsSaving] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+
+  // Debug logging for dialog state (must be after useState declarations)
+  useEffect(() => {
+    console.log('[GroupSettings] Delete dialog state changed:', isDeleteDialogOpen);
+    // Check if dialog is in DOM when state is true
+    if (isDeleteDialogOpen) {
+      setTimeout(() => {
+        const dialog = document.querySelector('[data-slot="alert-dialog-content"]');
+        console.log('[GroupSettings] Dialog in DOM:', !!dialog, dialog);
+        if (dialog) {
+          console.log('[GroupSettings] Dialog styles:', window.getComputedStyle(dialog));
+          console.log('[GroupSettings] Dialog parent:', dialog.parentElement);
+        }
+      }, 100);
+    }
+  }, [isDeleteDialogOpen]);
+
+  useEffect(() => {
+    console.log('[GroupSettings] Leave dialog state changed:', isLeaveDialogOpen);
+  }, [isLeaveDialogOpen]);
 
   // Load settings on mount
   useEffect(() => {
@@ -102,6 +150,49 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
       // Don't close dialog on error so user can retry
       throw err;
     }
+  };
+
+  const handleDeleteGroup = async () => {
+    try {
+      const deletedGroupId = groupId;
+      await deleteGroup();
+      
+      // Clear playing group if it's the deleted group
+      if (group && group._id === deletedGroupId) {
+        setPlayingGroup(null);
+      }
+      
+      // Refresh groups list to remove deleted group
+      await fetchGroups();
+      
+      // Close dialog first, then navigate
+      setIsDeleteDialogOpen(false);
+      
+      // Navigate to dashboard and clear selected group
+      // Pass undefined as group to clear the selection
+      onNavigate('dashboard');
+    } catch (err) {
+      // Error is already handled by the hook (toast notification)
+      // Re-throw to keep dialog open
+      throw err;
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    const leftGroupId = groupId;
+    await leaveGroup();
+    
+    // Clear playing group if it's the group we left
+    if (group && group._id === leftGroupId) {
+      setPlayingGroup(null);
+    }
+    
+    // Refresh groups list to remove the group we left
+    await fetchGroups();
+    
+    // Navigate to dashboard after successfully leaving
+    // Pass undefined as group to clear the selection
+    onNavigate('dashboard');
   };
 
   const getInitials = (name: string): string => {
@@ -289,6 +380,52 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-destructive/50">
+                <CardHeader>
+                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isOwner ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        As the group owner, you can permanently delete this group. This action cannot be undone and will remove all members from the group.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          console.log('[GroupSettings] Delete button clicked, opening dialog');
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        className="w-full sm:w-auto"
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                        Delete Group
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Only the group owner can delete this group. As a member, you can leave the group and rejoin later using the invite code.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          console.log('[GroupSettings] Leave button clicked, opening dialog');
+                          setIsLeaveDialogOpen(true);
+                        }}
+                        className="w-full sm:w-auto"
+                        disabled={isLoading}
+                      >
+                        <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
+                        Leave Group
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -335,6 +472,101 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
               </DialogContent>
             </Dialog>
           )}
+
+          {/* Delete Group Dialog - Always render, control visibility with open prop */}
+          <AlertDialog 
+            open={isDeleteDialogOpen} 
+            onOpenChange={(open) => {
+              console.log('[Delete Dialog] onOpenChange called:', open, 'isLoading:', isLoading, 'current state:', isDeleteDialogOpen);
+              // Always update state - we'll handle preventing close in the onClick handler
+              setIsDeleteDialogOpen(open);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Group</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete <strong>{settings?.name}</strong>? This action cannot be undone. All members will be removed from the group and all group data will be permanently deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async (e) => {
+                    // Prevent default close behavior - we'll close manually on success
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      console.log('[Delete Group] Starting delete operation...');
+                      await handleDeleteGroup();
+                      console.log('[Delete Group] Delete successful');
+                      // handleDeleteGroup now handles closing the dialog and navigation
+                    } catch (err) {
+                      // Error is handled by handleDeleteGroup and hook (toast notification)
+                      // Dialog stays open so user can retry
+                      console.error('[Delete Group] Delete failed:', err);
+                      // Don't close dialog on error
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isLoading ? 'Deleting...' : 'Delete Group'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Leave Group Dialog */}
+          <AlertDialog 
+            open={isLeaveDialogOpen} 
+            onOpenChange={(open) => {
+              console.log('[Leave Dialog] onOpenChange called:', open, 'isLoading:', isLoading, 'current state:', isLeaveDialogOpen);
+              // If trying to close during loading, prevent it
+              if (!open && isLoading) {
+                console.log('[Leave Dialog] Preventing close during loading');
+                return;
+              }
+              // Otherwise, update state normally
+              console.log('[Leave Dialog] Updating state to:', open);
+              setIsLeaveDialogOpen(open);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave Group</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to leave <strong>{settings?.name}</strong>? You can rejoin later using the invite code.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async (e) => {
+                    // Prevent default close behavior - we'll close manually on success
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      console.log('[Leave Group] Starting leave operation...');
+                      await handleLeaveGroup();
+                      console.log('[Leave Group] Leave successful, closing dialog');
+                      // Only close on success
+                      setIsLeaveDialogOpen(false);
+                    } catch (err) {
+                      // Error is handled by handleLeaveGroup and hook (toast notification)
+                      // Dialog stays open so user can retry
+                      console.error('[Leave Group] Leave failed:', err);
+                      // Don't close dialog on error
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isLoading ? 'Leaving...' : 'Leave Group'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </main>
     </>
   );

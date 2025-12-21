@@ -2,6 +2,7 @@ const Group = require('../models/Group');
 const User = require('../models/User');
 const Invite = require('../models/Invite');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 /**
  * Group Service
@@ -42,20 +43,67 @@ class GroupService {
   }
 
   /**
-   * Get all groups for a user
+   * Get all groups for a user, sorted by when they joined/created them (most recent first)
    * @param {string} userId - User ID
-   * @returns {Promise<Array>} Array of groups
+   * @returns {Promise<Array>} Array of groups sorted by join/creation time
    */
   static async getUserGroups(userId) {
+    // Get all groups the user is a member of
     const groups = await Group.find({
       members: userId,
       isActive: true
     })
       .populate('createdBy', 'displayName profileImage spotifyId')
       .populate('members', 'displayName profileImage spotifyId')
-      .sort({ createdAt: -1 });
+      .lean();
 
-    return groups;
+    // Get all accepted invites for this user to determine join dates
+    const acceptedInvites = await Invite.find({
+      invitedUser: userId,
+      status: 'accepted'
+    })
+      .select('group updatedAt createdAt')
+      .lean();
+
+    // Create a map of groupId -> join date (from invite)
+    const joinDateMap = new Map();
+    acceptedInvites.forEach(invite => {
+      const groupId = invite.group.toString();
+      // Use updatedAt (when invite was accepted) or createdAt if they're the same
+      const joinDate = invite.updatedAt > invite.createdAt 
+        ? invite.updatedAt 
+        : invite.createdAt;
+      joinDateMap.set(groupId, joinDate);
+    });
+
+    // Add join date to each group and sort
+    const groupsWithJoinDate = groups.map(group => {
+      const groupId = group._id.toString();
+      let joinDate;
+
+      // If user is the creator, use group creation date
+      if (group.createdBy.toString() === userId.toString()) {
+        joinDate = group.createdAt;
+      } else {
+        // Otherwise, use the invite acceptance date
+        joinDate = joinDateMap.get(groupId) || group.createdAt; // Fallback to group creation if no invite found
+      }
+
+      return {
+        ...group,
+        _joinDate: joinDate // Add join date for sorting
+      };
+    });
+
+    // Sort by join date (most recent first)
+    groupsWithJoinDate.sort((a, b) => {
+      const dateA = new Date(a._joinDate).getTime();
+      const dateB = new Date(b._joinDate).getTime();
+      return dateB - dateA; // Descending order (newest first)
+    });
+
+    // Remove the temporary _joinDate field before returning
+    return groupsWithJoinDate.map(({ _joinDate, ...group }) => group);
   }
 
   /**
@@ -347,6 +395,51 @@ class GroupService {
       message: 'Member removed successfully',
       groupId: group._id.toString(),
       memberId: memberId
+    };
+  }
+
+  /**
+   * Delete a group (owner only)
+   * Soft deletes by setting isActive to false
+   * Also removes group from all members' groups array
+   * @param {string} groupId - Group ID to delete
+   * @param {string} ownerId - Owner/creator user ID
+   * @returns {Promise<Object>} Success message
+   * @throws {Error} If group not found or user is not owner
+   */
+  static async deleteGroup(groupId, ownerId) {
+    const group = await Group.findOne({
+      _id: groupId,
+      isActive: true
+    });
+
+    if (!group) {
+      const error = new Error('Group not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Verify user is the owner
+    if (group.createdBy.toString() !== ownerId.toString()) {
+      const error = new Error('Only the group owner can delete the group');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Soft delete: set isActive to false
+    group.isActive = false;
+    await group.save();
+
+    // Remove group from all members' groups array
+    await User.updateMany(
+      { groups: groupId },
+      { $pull: { groups: groupId } }
+    );
+
+    return {
+      message: 'Group deleted successfully',
+      groupId: group._id.toString(),
+      groupName: group.name
     };
   }
 }

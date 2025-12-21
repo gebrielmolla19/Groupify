@@ -3,14 +3,17 @@ import { Invite, Group } from '../types';
 import {
   getUserInvites as apiGetUserInvites,
   acceptInvite as apiAcceptInvite,
-  declineInvite as apiDeclineInvite
+  declineInvite as apiDeclineInvite,
+  getToken
 } from '../lib/api';
 import { toast } from 'sonner';
+import { useUser } from '../contexts/UserContext';
 
 /**
  * Hook to manage user's pending invites across all groups
  */
 export const useUserInvites = () => {
+  const { isAuthenticated } = useUser();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,20 +22,35 @@ export const useUserInvites = () => {
    * Fetch all pending invites for the current user
    */
   const fetchInvites = useCallback(async () => {
+    // Don't fetch if user is not authenticated
+    if (!isAuthenticated || !getToken()) {
+      setIsLoading(false);
+      setInvites([]);
+      setError(null);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
       const fetchedInvites = await apiGetUserInvites();
       setInvites(fetchedInvites);
     } catch (err) {
+      // Handle "no token" errors gracefully (user is logged out)
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch invites';
-      setError(errorMessage);
-      console.error('Failed to fetch user invites:', err);
+      if (errorMessage.includes('token') || errorMessage.includes('authentication') || (err as any)?.status === 401) {
+        // User is logged out, clear invites silently
+        setInvites([]);
+        setError(null);
+      } else {
+        setError(errorMessage);
+        console.error('Failed to fetch user invites:', err);
+      }
       // Don't show toast on initial load to avoid spam
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   /**
    * Accept an invite
@@ -85,6 +103,15 @@ export const useUserInvites = () => {
   useEffect(() => {
     fetchInvites();
   }, [fetchInvites]);
+
+  // Clear invites when user logs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setInvites([]);
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
   return {
     invites,

@@ -88,9 +88,10 @@ export default function InvitesDropdown({
         </div>
       </PopoverTrigger>
       <PopoverContent
-        className="w-96 p-0"
-        align="end"
+        className="w-[calc(100vw-2rem)] sm:w-96 max-w-md p-0"
+        align="center"
         sideOffset={8}
+        side="bottom"
       >
         <div className="flex flex-col max-h-[600px]">
           {/* Header */}

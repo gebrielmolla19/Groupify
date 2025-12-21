@@ -15,8 +15,11 @@ class AnalyticsService {
    * Get aggregated activity for a group (waveform data)
    * @param {string} groupId
    * @param {string} timeRange - '24h' | '7d' | '30d' | '90d' | 'all'
+   * @param {string} mode - 'shares' | 'engagement' (default: 'shares')
+   *   - 'shares': Bucket by when shares were posted (Share.createdAt)
+   *   - 'engagement': Bucket by when likes/listens happened (likes.likedAt, listeners.listenedAt)
    */
-  static async getGroupActivity(groupId, timeRange = '7d') {
+  static async getGroupActivity(groupId, timeRange = '7d', mode = 'shares') {
     const now = new Date();
     let startDate = new Date();
 
@@ -78,62 +81,219 @@ class AnalyticsService {
     // MongoDB aggregation requires careful date math.
     const interval = timeRange === '24h' ? 3600 * 1000 : 24 * 3600 * 1000; // ms
 
-    // For daily buckets, align to midnight UTC
-    // For hourly buckets, align to the hour
-    const bucketExpression = timeRange === '24h' 
-      ? {
-          $toDate: {
-            $subtract: [
-              { $toLong: "$createdAt" },
-              { $mod: [{ $toLong: "$createdAt" }, interval] }
-            ]
-          }
-        }
-      : {
-          // For daily buckets, align to midnight UTC
-          $dateFromParts: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-            day: { $dayOfMonth: "$createdAt" },
-            hour: 0,
-            minute: 0,
-            second: 0,
-            timezone: "UTC"
-          }
-        };
+    let shares;
 
-    // For daily buckets, ensure we include all of today by using end of today as upper bound
-    // For hourly buckets, just use startDate as lower bound
-    const matchFilter = {
-      group: new mongoose.Types.ObjectId(groupId),
-      createdAt: { $gte: startDate }
-    };
-    
-    // For daily buckets, also ensure we include data up to end of today
-    if (timeRange !== '24h') {
-      const endOfTodayUTC = new Date(Date.UTC(
+    if (mode === 'engagement') {
+      // Engagement mode: Bucket by when likes/listens actually happened
+      // We need to unwind likes and listeners, then bucket by their timestamps
+      
+      // For engagement mode, we need to:
+      // 1. Unwind likes and listeners
+      // 2. Create events for each like/listen with their timestamps
+      // 3. Also include shares themselves (bucket by createdAt)
+      const endOfTodayUTC = timeRange !== '24h' ? new Date(Date.UTC(
         now.getUTCFullYear(),
         now.getUTCMonth(),
-        now.getUTCDate() + 1, // Next day at midnight = end of today
+        now.getUTCDate() + 1,
         0, 0, 0, 0
-      ));
-      matchFilter.createdAt.$lt = endOfTodayUTC;
-    }
+      )) : null;
 
-    const shares = await Share.aggregate([
-      {
-        $match: matchFilter
-      },
-      {
-        $group: {
-          _id: bucketExpression,
-          count: { $sum: 1 },
-          likes: { $sum: "$likeCount" },
-          listens: { $sum: "$listenCount" }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+      // For engagement mode, we need to:
+      // 1. Include shares that have engagement in the time range (even if share is older)
+      // 2. Unwind likes and listeners
+      // 3. Filter by likedAt/listenedAt timestamps
+      // 4. Bucket by those timestamps
+      
+      const dateFilter = timeRange !== '24h' && endOfTodayUTC
+        ? { $gte: startDate, $lt: endOfTodayUTC }
+        : { $gte: startDate };
+
+      // Match shares that either:
+      // - Were created in the time range, OR
+      // - Have likes/listens in the time range
+      const matchFilter = {
+        group: new mongoose.Types.ObjectId(groupId),
+        $or: [
+          { createdAt: dateFilter },
+          { 'likes.likedAt': dateFilter },
+          { 'listeners.listenedAt': dateFilter }
+        ]
+      };
+
+      shares = await Share.aggregate([
+        { $match: matchFilter },
+        {
+          $facet: {
+            // Shares posted in this period
+            shareBuckets: [
+              { $match: { createdAt: dateFilter } },
+              {
+                $group: {
+                  _id: timeRange === '24h' 
+                    ? {
+                        $toDate: {
+                          $subtract: [
+                            { $toLong: "$createdAt" },
+                            { $mod: [{ $toLong: "$createdAt" }, interval] }
+                          ]
+                        }
+                      }
+                    : {
+                        $dateFromParts: {
+                          year: { $year: "$createdAt" },
+                          month: { $month: "$createdAt" },
+                          day: { $dayOfMonth: "$createdAt" },
+                          hour: 0,
+                          minute: 0,
+                          second: 0,
+                          timezone: "UTC"
+                        }
+                      },
+                  count: { $sum: 1 }
+                }
+              }
+            ],
+            // Likes given in this period
+            likeBuckets: [
+              { $unwind: "$likes" },
+              { $match: { 'likes.likedAt': dateFilter } },
+              {
+                $group: {
+                  _id: timeRange === '24h' 
+                    ? {
+                        $toDate: {
+                          $subtract: [
+                            { $toLong: "$likes.likedAt" },
+                            { $mod: [{ $toLong: "$likes.likedAt" }, interval] }
+                          ]
+                        }
+                      }
+                    : {
+                        $dateFromParts: {
+                          year: { $year: "$likes.likedAt" },
+                          month: { $month: "$likes.likedAt" },
+                          day: { $dayOfMonth: "$likes.likedAt" },
+                          hour: 0,
+                          minute: 0,
+                          second: 0,
+                          timezone: "UTC"
+                        }
+                      },
+                  count: { $sum: 1 }
+                }
+              }
+            ],
+            // Listens in this period
+            listenBuckets: [
+              { $unwind: "$listeners" },
+              { $match: { 'listeners.listenedAt': dateFilter } },
+              {
+                $group: {
+                  _id: timeRange === '24h' 
+                    ? {
+                        $toDate: {
+                          $subtract: [
+                            { $toLong: "$listeners.listenedAt" },
+                            { $mod: [{ $toLong: "$listeners.listenedAt" }, interval] }
+                          ]
+                        }
+                      }
+                    : {
+                        $dateFromParts: {
+                          year: { $year: "$listeners.listenedAt" },
+                          month: { $month: "$listeners.listenedAt" },
+                          day: { $dayOfMonth: "$listeners.listenedAt" },
+                          hour: 0,
+                          minute: 0,
+                          second: 0,
+                          timezone: "UTC"
+                        }
+                      },
+                  count: { $sum: 1 }
+                }
+              }
+            ]
+          }
+        },
+        {
+          $project: {
+            allBuckets: {
+              $concatArrays: [
+                { $map: { input: "$shareBuckets", as: "b", in: { _id: "$$b._id", type: "share", count: "$$b.count" } } },
+                { $map: { input: "$likeBuckets", as: "b", in: { _id: "$$b._id", type: "like", count: "$$b.count" } } },
+                { $map: { input: "$listenBuckets", as: "b", in: { _id: "$$b._id", type: "listen", count: "$$b.count" } } }
+              ]
+            }
+          }
+        },
+        { $unwind: "$allBuckets" },
+        {
+          $group: {
+            _id: "$allBuckets._id",
+            shares: {
+              $sum: { $cond: [{ $eq: ["$allBuckets.type", "share"] }, "$allBuckets.count", 0] }
+            },
+            likes: {
+              $sum: { $cond: [{ $eq: ["$allBuckets.type", "like"] }, "$allBuckets.count", 0] }
+            },
+            listens: {
+              $sum: { $cond: [{ $eq: ["$allBuckets.type", "listen"] }, "$allBuckets.count", 0] }
+            }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+    } else {
+      // Shares mode: Bucket by when shares were posted (current behavior)
+      const bucketExpression = timeRange === '24h' 
+        ? {
+            $toDate: {
+              $subtract: [
+                { $toLong: "$createdAt" },
+                { $mod: [{ $toLong: "$createdAt" }, interval] }
+              ]
+            }
+          }
+        : {
+            $dateFromParts: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+              day: { $dayOfMonth: "$createdAt" },
+              hour: 0,
+              minute: 0,
+              second: 0,
+              timezone: "UTC"
+            }
+          };
+
+      const matchFilter = {
+        group: new mongoose.Types.ObjectId(groupId),
+        createdAt: { $gte: startDate }
+      };
+      
+      if (timeRange !== '24h') {
+        const endOfTodayUTC = new Date(Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() + 1,
+          0, 0, 0, 0
+        ));
+        matchFilter.createdAt.$lt = endOfTodayUTC;
+      }
+
+      shares = await Share.aggregate([
+        { $match: matchFilter },
+        {
+          $group: {
+            _id: bucketExpression,
+            count: { $sum: 1 },
+            likes: { $sum: "$likeCount" },
+            listens: { $sum: "$listenCount" }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+    }
 
     // Backfill missing buckets so the waveform always renders a full series
     // (Recharts can look blank with 1-2 sparse points).
@@ -153,10 +313,18 @@ class AnalyticsService {
         ));
         ts = normalized.getTime();
       }
+      
+      // Normalize field names: shares mode uses 'count', engagement mode uses 'shares'
+      const shareCount = s.shares !== undefined ? s.shares : (s.count || 0);
+      const likeCount = s.likes || 0;
+      const listenCount = s.listens || 0;
+      
       bucketMap.set(ts, {
         timestamp: timeRange !== '24h' ? new Date(ts) : bucketDate,
-        shares: s.count,
-        activity: s.count + s.likes + s.listens,
+        shares: shareCount,
+        likes: likeCount,
+        listens: listenCount,
+        activity: shareCount + likeCount + listenCount,
       });
     });
 
@@ -246,30 +414,72 @@ class AnalyticsService {
     }
 
     // Build match filter with date range
-    const matchFilter = { group: gid };
+    // For Activity/Variety/Freshness: filter by share createdAt
+    // For Popularity (Option A): count likes where likedAt is in range (on any share by this member)
+    // For Support: filter likes by likedAt (when they gave likes)
+    
+    const shareMatchFilter = { group: gid };
     if (timeRange !== 'all' || startDate.getTime() > 0) {
-      matchFilter.createdAt = { $gte: startDate };
+      shareMatchFilter.createdAt = { $gte: startDate };
     }
 
-    // 1. Aggregation for Shared By Me (Activity, Popularity, Variety, Freshness)
+    // 1. Aggregation for Shared By Me (Activity, Variety, Freshness)
+    // These are based on when shares were created
     const shareStats = await Share.aggregate([
-      { $match: matchFilter },
+      { $match: shareMatchFilter },
       {
         $group: {
           _id: "$sharedBy",
           shareCount: { $sum: 1 }, // Activity
-          totalLikesReceived: { $sum: "$likeCount" }, // Popularity (Numerator)
           uniqueArtists: { $addToSet: "$artistName" }, // Variety
           lastSharedAt: { $max: "$createdAt" } // Freshness
         }
       }
     ]);
 
-    // 2. Aggregation for Likes Given (Support)
-    // Note: We need to filter likes by the time range of when the share was created
-    const likeStats = await Share.aggregate([
-      { $match: matchFilter },
+    // 2. Aggregation for Popularity (Option A: engagement during window)
+    // Count likes received where likedAt is in the time range
+    // Include all shares by members, but only count likes that happened in the time range
+    const dateFilter = timeRange !== 'all' 
+      ? (timeRange === '24h' 
+          ? { $gte: startDate }
+          : {
+              $gte: startDate,
+              $lt: new Date(Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                now.getUTCDate() + 1,
+                0, 0, 0, 0
+              ))
+            })
+      : { $exists: true };
+
+    const popularityStats = await Share.aggregate([
+      { $match: { group: gid } }, // All shares in group
       { $unwind: "$likes" },
+      { $match: { 'likes.likedAt': dateFilter } },
+      {
+        $group: {
+          _id: "$sharedBy",
+          likesReceivedInWindow: { $sum: 1 },
+          shareIds: { $addToSet: "$_id" } // Track which shares got likes
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          likesReceivedInWindow: 1,
+          shareCountInWindow: { $size: "$shareIds" }
+        }
+      }
+    ]);
+
+    // 3. Aggregation for Likes Given (Support)
+    // Filter likes by likedAt (when they gave likes) - engagement during window
+    const likeStats = await Share.aggregate([
+      { $match: { group: gid } }, // All shares in group
+      { $unwind: "$likes" },
+      { $match: { 'likes.likedAt': dateFilter } },
       { $group: { _id: "$likes.user", likesGiven: { $sum: 1 } } }
     ]);
 
@@ -278,9 +488,23 @@ class AnalyticsService {
     shareStats.forEach(s => {
       statsMap[s._id.toString()] = {
         ...s,
-        avgLikesReceived: s.shareCount > 0 ? (s.totalLikesReceived / s.shareCount) : 0,
-        varietyCount: s.uniqueArtists.length
+        varietyCount: s.uniqueArtists.length,
+        avgLikesReceived: 0 // Initialize to 0, will be updated by popularity stats if applicable
       };
+    });
+
+    // Merge popularity stats (Option A: engagement during window)
+    popularityStats.forEach(p => {
+      const userId = p._id.toString();
+      if (!statsMap[userId]) {
+        statsMap[userId] = { shareCount: 0, varietyCount: 0, lastSharedAt: null, avgLikesReceived: 0 };
+      }
+      statsMap[userId].likesReceivedInWindow = p.likesReceivedInWindow || 0;
+      statsMap[userId].shareCountInWindow = p.shareCountInWindow || 0;
+      // Calculate average: likes received in window / shares that got likes in window
+      statsMap[userId].avgLikesReceived = p.shareCountInWindow > 0 
+        ? (p.likesReceivedInWindow / p.shareCountInWindow) 
+        : 0;
     });
 
     const supportMap = {};
@@ -311,8 +535,13 @@ class AnalyticsService {
 
     return group.members.map(member => {
       const mid = member._id.toString();
-      const s = statsMap[mid] || { shareCount: 0, avgLikesReceived: 0, varietyCount: 0, lastSharedAt: null };
+      const s = statsMap[mid] || { shareCount: 0, varietyCount: 0, lastSharedAt: null };
       const likesGiven = supportMap[mid] || 0;
+      
+      // Ensure avgLikesReceived is always a number
+      const avgLikesReceived = (s.avgLikesReceived !== undefined && s.avgLikesReceived !== null) 
+        ? Number(s.avgLikesReceived) 
+        : 0;
 
       // Calculate Scores (0-100)
 
@@ -320,7 +549,7 @@ class AnalyticsService {
       const activityScore = maxActivity > 0 ? Math.round((s.shareCount / maxActivity) * 100) : 0;
 
       // Popularity: Avg likes per share vs max
-      const popularityScore = maxPopularity > 0 ? Math.round((s.avgLikesReceived / maxPopularity) * 100) : 0;
+      const popularityScore = maxPopularity > 0 ? Math.round((avgLikesReceived / maxPopularity) * 100) : 0;
 
       // Support: Likes given vs max
       const supportScore = maxSupport > 0 ? Math.round((likesGiven / maxSupport) * 100) : 0;
@@ -349,9 +578,9 @@ class AnalyticsService {
           freshness: freshnessScore
         },
         raw: {
-          shares: s.shareCount,
+          shares: s.shareCount || 0,
           likesGiven,
-          avgLikesReceived: s.avgLikesReceived.toFixed(1)
+          avgLikesReceived: avgLikesReceived.toFixed(1)
         }
       };
     }).sort((a, b) => b.stats.activity - a.stats.activity); // Sort by activity for default view

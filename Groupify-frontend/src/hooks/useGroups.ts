@@ -5,29 +5,47 @@ import {
   createGroup as apiCreateGroup,
   joinGroupByCode as apiJoinGroupByCode,
   joinGroup as apiJoinGroup,
-  leaveGroup as apiLeaveGroup
+  leaveGroup as apiLeaveGroup,
+  getToken
 } from '../lib/api';
 import { toast } from 'sonner';
+import { useUser } from '../contexts/UserContext';
 
 export const useGroups = () => {
+  const { isAuthenticated } = useUser();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchGroups = useCallback(async () => {
+    // Don't fetch if user is not authenticated
+    if (!isAuthenticated || !getToken()) {
+      setIsLoading(false);
+      setGroups([]);
+      setError(null);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
       const fetchedGroups = await apiGetUserGroups();
       setGroups(fetchedGroups);
     } catch (err) {
+      // Handle "no token" errors gracefully (user is logged out)
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch groups';
-      setError(errorMessage);
-      console.error('Failed to fetch groups:', err);
+      if (errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('401')) {
+        // User is logged out, clear groups silently
+        setGroups([]);
+        setError(null);
+      } else {
+        setError(errorMessage);
+        console.error('Failed to fetch groups:', err);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   const createGroup = useCallback(async (data: { name: string; description?: string }) => {
     try {
@@ -83,6 +101,15 @@ export const useGroups = () => {
   useEffect(() => {
     fetchGroups();
   }, [fetchGroups]);
+
+  // Clear groups when user logs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setGroups([]);
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
   return {
     groups,

@@ -70,7 +70,15 @@ export const useGlobalPlaybackTracking = () => {
         return shares;
       }
     } catch (err) {
-      console.error(`[Global Auto-track] Failed to fetch shares for group ${groupId}:`, err);
+      // Handle deleted group gracefully - don't log as error
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+        console.log(`[Global Auto-track] Group ${groupId} not found (likely deleted), skipping`);
+        // Remove from cache if it exists
+        sharesCacheRef.current.delete(groupId);
+      } else {
+        console.error(`[Global Auto-track] Failed to fetch shares for group ${groupId}:`, err);
+      }
     }
 
     return [];
@@ -391,3 +399,5 @@ export const useGlobalPlaybackTracking = () => {
     }
   }, [remotePlayback, user, groups]);
 };
+
+
