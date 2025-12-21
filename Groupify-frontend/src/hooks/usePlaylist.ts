@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Share } from '../types';
 import { getGroupFeed as apiGetGroupFeed } from '../lib/api';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 export type SortOption = 'most-listened' | 'recently-added' | 'alphabetical' | 'shared-by';
 
@@ -54,12 +55,12 @@ export const usePlaylist = (groupId: string, externalSortBy?: SortOption) => {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch playlist';
         // Handle deleted group gracefully (404 errors)
         if (errorMessage.includes('not found') || errorMessage.includes('404')) {
-          console.log('Group not found, clearing playlist');
+          logger.debug('Group not found, clearing playlist');
           setShares([]);
           setError(null);
         } else {
           setError(errorMessage);
-          console.error('Failed to fetch playlist:', err);
+          logger.error('Failed to fetch playlist:', err);
           toast.error(errorMessage);
         }
       } finally {

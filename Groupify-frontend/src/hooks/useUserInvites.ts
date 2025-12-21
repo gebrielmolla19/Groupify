@@ -8,6 +8,7 @@ import {
 } from '../lib/api';
 import { toast } from 'sonner';
 import { useUser } from '../contexts/UserContext';
+import { logger } from '../utils/logger';
 
 /**
  * Hook to manage user's pending invites across all groups
@@ -44,7 +45,7 @@ export const useUserInvites = () => {
         setError(null);
       } else {
         setError(errorMessage);
-        console.error('Failed to fetch user invites:', err);
+        logger.error('Failed to fetch user invites:', err);
       }
       // Don't show toast on initial load to avoid spam
     } finally {

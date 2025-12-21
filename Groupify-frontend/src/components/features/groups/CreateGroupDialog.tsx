@@ -12,6 +12,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Label } from '../../ui/label';
+import { logger } from '../../../utils/logger';
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -71,7 +72,7 @@ export default function CreateGroupDialog({
       onOpenChange(false);
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to create group:', error);
+      logger.error('Failed to create group:', error);
     } finally {
       setIsSubmitting(false);
     }

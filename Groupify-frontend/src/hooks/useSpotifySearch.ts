@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks } from '../lib/api';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 export const useSpotifySearch = () => {
   const [results, setResults] = useState<SpotifyTrack[]>([]);
@@ -23,7 +24,7 @@ export const useSpotifySearch = () => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to search tracks';
       setError(errorMessage);
       toast.error(errorMessage);
-      console.error('Failed to search tracks:', err);
+      logger.error('Failed to search tracks:', err);
     } finally {
       setIsSearching(false);
     }

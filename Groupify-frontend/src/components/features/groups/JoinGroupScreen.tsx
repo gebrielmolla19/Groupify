@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import AppSidebar from './AppSidebar';
 import { NavigateFunction, Group } from '../types';
 import { useGroups } from '../hooks/useGroups';
+import { logger } from '../utils/logger';
 
 interface JoinGroupScreenProps {
   onNavigate: NavigateFunction;
@@ -43,7 +44,7 @@ export default function JoinGroupScreen({ onNavigate }: JoinGroupScreenProps) {
       // Error is already handled by the hook (toast notification)
       const errorMessage = err instanceof Error ? err.message : 'Failed to join group';
       setError(errorMessage);
-      console.error('Failed to join group:', err);
+      logger.error('Failed to join group:', err);
     } finally {
       setIsSubmitting(false);
     }

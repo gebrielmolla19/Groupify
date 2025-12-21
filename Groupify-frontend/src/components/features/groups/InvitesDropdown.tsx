@@ -40,7 +40,7 @@ export default function InvitesDropdown({
       }
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to accept invite:', error);
+      logger.error('Failed to accept invite:', error);
     }
   };
 
@@ -53,7 +53,7 @@ export default function InvitesDropdown({
       await onDeclineInvite(groupId, invite._id);
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to decline invite:', error);
+      logger.error('Failed to decline invite:', error);
     }
   };
 

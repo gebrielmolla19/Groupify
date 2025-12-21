@@ -21,6 +21,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useGroupInvites } from "../../../hooks/useGroupInvites";
 import InviteFriendDialog from "./InviteFriendDialog";
 import InvitesList from "./InvitesList";
+import { logger } from "../../../utils/logger";
 
 interface GroupFeedScreenProps {
   group: Group | null;
@@ -105,8 +106,6 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
             startTime: Date.now(),
             shareId: matchingShare._id
           };
-          
-          console.log(`[Auto-track] Detected playback: ${matchingShare.trackName} on ${remotePlayback.device?.name || 'another device'}`);
         }
       }
     }
@@ -122,7 +121,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
             toast.success('Track auto-marked as listened');
           })
           .catch((err) => {
-            console.error('Failed to auto-mark track as listened:', err);
+            logger.error('Failed to auto-mark track as listened:', err);
           });
         
         // Reset tracking after marking
@@ -151,7 +150,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
               toast.success('Track auto-marked as listened');
             })
             .catch((err) => {
-              console.error('Failed to auto-mark track as listened:', err);
+              logger.error('Failed to auto-mark track as listened:', err);
             });
         }
       }
@@ -177,7 +176,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
               toast.success('Track auto-marked as listened');
             })
             .catch((err) => {
-              console.error('Failed to auto-mark track as listened:', err);
+              logger.error('Failed to auto-mark track as listened:', err);
             });
         }
       }
@@ -237,7 +236,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
       clear();
     } catch (err) {
       // Error already handled in hook with toast
-      console.error('Failed to share track:', err);
+      logger.error('Failed to share track:', err);
     } finally {
       setIsSharing(null);
     }
@@ -249,7 +248,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
       await markListened(shareId);
     } catch (err) {
       // Error already handled in hook with toast
-      console.error('Failed to mark as listened:', err);
+      logger.error('Failed to mark as listened:', err);
     }
   };
 
@@ -258,7 +257,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
       await toggleLike(shareId);
     } catch (err) {
       // Error handled in hook
-      console.error('Failed to toggle like:', err);
+      logger.error('Failed to toggle like:', err);
     }
   };
 
@@ -283,7 +282,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
       await playTrack(trackUri);
     } catch (err) {
       // Error already handled in playTrack with toast
-      console.error('Failed to play track:', err);
+      logger.error('Failed to play track:', err);
       // Remove from tracking if play failed
       playingShareRef.current.delete(trackUri);
     } finally {
@@ -315,7 +314,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
               await markListened(share._id);
               toast.success(`Marked "${share.trackName}" as listened`);
             } catch (err) {
-              console.error('Failed to auto-mark track as listened:', err);
+              logger.error('Failed to auto-mark track as listened:', err);
               toast.error('Failed to mark track as listened');
             }
           }
@@ -332,7 +331,7 @@ export default function GroupFeedScreen({ group, onNavigate }: GroupFeedScreenPr
           await markListened(shareId);
           toast.success('Track marked as listened');
         } catch (err) {
-          console.error('Failed to auto-mark track as listened:', err);
+          logger.error('Failed to auto-mark track as listened:', err);
           toast.error('Failed to mark track as listened');
         }
       }

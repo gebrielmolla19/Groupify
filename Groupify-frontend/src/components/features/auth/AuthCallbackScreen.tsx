@@ -6,6 +6,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useUser } from "../../../contexts/UserContext";
 import { toast } from 'sonner';
+import { logger } from '../../../utils/logger';
 
 interface AuthCallbackScreenProps {
   onNavigate: (screen: 'dashboard') => void;
@@ -26,6 +27,7 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
       hasProcessedCallback.current = true;
 
       try {
+        logger.info('Auth callback received');
         // Extract token from URL query params
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -33,6 +35,7 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
 
         if (errorParam) {
           const errorMsg = `Authentication failed: ${errorParam}`;
+          logger.error('Auth callback failed:', { error: errorParam });
           setError(errorMsg);
           toast.error(errorMsg);
           return;
@@ -40,6 +43,7 @@ export default function AuthCallbackScreen({ onNavigate }: AuthCallbackScreenPro
 
         if (!token) {
           const errorMsg = 'No authentication token received';
+          logger.error('Auth callback failed:', { error: 'No token' });
           setError(errorMsg);
           toast.error(errorMsg);
           return;

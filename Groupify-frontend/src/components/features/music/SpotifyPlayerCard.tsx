@@ -14,6 +14,7 @@ import { usePlaylist } from "../../../hooks/usePlaylist";
 import { Group, SpotifyDevice } from '../../../types';
 import { toast } from 'sonner';
 import { getSpotifyDevices, transferPlayback } from '../../../lib/api';
+import { logger } from '../../../utils/logger';
 
 interface SpotifyPlayerCardProps {
   selectedGroup?: Group | null;
@@ -105,7 +106,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
         return '';
       });
     } catch (err) {
-      console.error('Failed to load Spotify devices:', err);
+      logger.error('Failed to load Spotify devices:', err);
       toast.error('Failed to load Spotify devices');
     } finally {
       setIsDevicesLoading(false);
@@ -130,7 +131,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
         : `Playback device set to ${selected?.name || 'selected device'}`;
       toast.success(message);
     } catch (err) {
-      console.error('Failed to transfer playback:', err);
+      logger.error('Failed to transfer playback:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to switch playback device');
     } finally {
       setIsSwitchingDevice(false);
@@ -195,7 +196,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
       await player.togglePlay();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to control playback';
-      console.error('Playback control error:', err);
+      logger.error('Playback control error:', err);
       toast.error(errorMsg);
     } finally {
       setIsControlling(false);
@@ -238,7 +239,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
         await playTrack(nextTrackUri);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
-        console.error('Next track error:', err);
+        logger.error('Next track error:', err);
         toast.error(errorMsg);
       } finally {
         setIsControlling(false);
@@ -250,7 +251,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
         await player.nextTrack();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
-        console.error('Next track error:', err);
+        logger.error('Next track error:', err);
         toast.error(errorMsg);
       } finally {
         setIsControlling(false);
@@ -280,7 +281,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
         await playTrack(prevTrackUri);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
-        console.error('Previous track error:', err);
+        logger.error('Previous track error:', err);
         toast.error(errorMsg);
       } finally {
         setIsControlling(false);
@@ -292,7 +293,7 @@ export default function SpotifyPlayerCard({ selectedGroup }: SpotifyPlayerCardPr
         await player.previousTrack();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
-        console.error('Previous track error:', err);
+        logger.error('Previous track error:', err);
         toast.error(errorMsg);
       } finally {
         setIsControlling(false);

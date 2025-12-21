@@ -7,6 +7,7 @@ import {
   toggleLike as apiToggleLike
 } from '../lib/api';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 export const useGroupFeed = (groupId: string) => {
   const [shares, setShares] = useState<Share[]>([]);
@@ -27,13 +28,13 @@ export const useGroupFeed = (groupId: string) => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch group feed';
       // Handle deleted group gracefully (404 errors)
       if (errorMessage.includes('not found') || errorMessage.includes('404')) {
-        console.log('Group not found, clearing feed');
+        logger.debug('Group not found, clearing feed');
         setShares([]);
         setTotal(0);
         setError(null);
       } else {
         setError(errorMessage);
-        console.error('Failed to fetch group feed:', err);
+        logger.error('Failed to fetch group feed:', err);
       }
     } finally {
       setIsLoading(false);
@@ -45,6 +46,7 @@ export const useGroupFeed = (groupId: string) => {
       const newShare = await apiShareSong(groupId, spotifyTrackId);
       setShares(prev => [newShare, ...prev]);
       setTotal(prev => prev + 1);
+      logger.info('Track shared:', { groupId, trackId: spotifyTrackId, trackName: newShare.trackName });
       toast.success('Track shared successfully');
       return newShare;
     } catch (err) {
@@ -62,6 +64,7 @@ export const useGroupFeed = (groupId: string) => {
           share._id === shareId ? updatedShare : share
         )
       );
+      logger.info('Track marked as listened:', { shareId, trackName: updatedShare.trackName });
       toast.success('Marked as listened');
       return updatedShare;
     } catch (err) {

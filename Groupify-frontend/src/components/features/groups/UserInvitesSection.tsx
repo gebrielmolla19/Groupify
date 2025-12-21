@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Skeleton } from './ui/skeleton';
 import { UserPlus, CheckCircle2, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../utils/logger';
 
 interface UserInvitesSectionProps {
   invites: Invite[];
@@ -37,7 +38,7 @@ export default function UserInvitesSection({
       }
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to accept invite:', error);
+      logger.error('Failed to accept invite:', error);
     }
   };
 
@@ -50,7 +51,7 @@ export default function UserInvitesSection({
       await onDeclineInvite(groupId, invite._id);
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to decline invite:', error);
+      logger.error('Failed to decline invite:', error);
     }
   };
 

@@ -10,6 +10,7 @@ import {
 } from '../lib/api';
 import { toast } from 'sonner';
 import { useUser } from '../contexts/UserContext';
+import { logger } from '../utils/logger';
 
 export const useGroups = () => {
   const { isAuthenticated } = useUser();
@@ -40,7 +41,7 @@ export const useGroups = () => {
         setError(null);
       } else {
         setError(errorMessage);
-        console.error('Failed to fetch groups:', err);
+        logger.error('Failed to fetch groups:', err);
       }
     } finally {
       setIsLoading(false);
@@ -51,6 +52,7 @@ export const useGroups = () => {
     try {
       const newGroup = await apiCreateGroup(data);
       setGroups(prev => [newGroup, ...prev]);
+      logger.info('Group created:', { groupId: newGroup._id, name: newGroup.name });
       toast.success('Group created successfully');
       return newGroup;
     } catch (err) {
@@ -64,6 +66,7 @@ export const useGroups = () => {
     try {
       const joinedGroup = await apiJoinGroupByCode(inviteCode);
       setGroups(prev => [joinedGroup, ...prev]);
+      logger.info('Group joined:', { groupId: joinedGroup._id, name: joinedGroup.name });
       toast.success('Successfully joined group');
       return joinedGroup;
     } catch (err) {
@@ -77,6 +80,7 @@ export const useGroups = () => {
     try {
       const joinedGroup = await apiJoinGroup(groupId, inviteCode);
       setGroups(prev => [joinedGroup, ...prev]);
+      logger.info('Group joined:', { groupId: joinedGroup._id, name: joinedGroup.name });
       toast.success('Successfully joined group');
       return joinedGroup;
     } catch (err) {
@@ -90,6 +94,7 @@ export const useGroups = () => {
     try {
       await apiLeaveGroup(groupId);
       setGroups(prev => prev.filter(g => g._id !== groupId));
+      logger.info('Group left:', { groupId });
       toast.success('Successfully left group');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to leave group';

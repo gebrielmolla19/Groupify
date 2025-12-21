@@ -6,6 +6,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { getToken, setToken, getCurrentUser, logout as apiLogout, removeToken } from '../lib/api';
+import { logger } from '../utils/logger';
 
 interface UserContextType {
   user: User | null;
@@ -38,6 +39,7 @@ export function UserProvider({ children }: UserProviderProps) {
           await fetchUserData(storedToken);
         } catch (error) {
           // Token might be invalid, clear it
+          logger.warn('Token invalid, clearing auth state');
           removeToken();
           setTokenState(null);
           setUser(null);
@@ -55,19 +57,28 @@ export function UserProvider({ children }: UserProviderProps) {
       throw new Error('No token available');
     }
 
-    const userData = await getCurrentUser();
-    setUser(userData);
+    try {
+      const userData = await getCurrentUser();
+      setUser(userData);
+      return userData;
+    } catch (error) {
+      logger.error('Failed to fetch user data:', error);
+      throw error;
+    }
   };
 
   const handleLogin = async (newToken: string) => {
     setToken(newToken);
     setTokenState(newToken);
-    await fetchUserData(newToken);
+    const userData = await fetchUserData(newToken);
+    logger.info('User logged in:', { userId: userData._id, displayName: userData.displayName });
   };
 
   const handleLogout = async () => {
     // Call backend logout (which also removes token client-side)
     await apiLogout();
+    
+    logger.info('User logged out');
     
     // Clear state
     setTokenState(null);

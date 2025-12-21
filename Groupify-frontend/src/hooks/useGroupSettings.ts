@@ -9,6 +9,7 @@ import {
 } from '../lib/api';
 import { toast } from 'sonner';
 import { useUser } from '../contexts/UserContext';
+import { logger } from '../utils/logger';
 
 export const useGroupSettings = (groupId: string, ownerId?: string) => {
   const { user } = useUser();
@@ -31,7 +32,7 @@ export const useGroupSettings = (groupId: string, ownerId?: string) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch group settings';
       setError(errorMessage);
-      console.error('Failed to fetch group settings:', err);
+      logger.error('Failed to fetch group settings:', err);
     } finally {
       setIsLoading(false);
     }

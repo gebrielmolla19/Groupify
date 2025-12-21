@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getGroupActivity, getMemberVibes, getSuperlatives } from '../lib/api';
+import { logger } from '../utils/logger';
 
 interface AnalyticsData {
   activity: any[];
@@ -63,7 +64,7 @@ export const useGroupAnalytics = (groupId: string) => {
       if (fetchGroupId === groupId) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
       setError(errorMessage);
-      console.error('Failed to fetch analytics:', err);
+      logger.error('Failed to fetch analytics:', err);
       }
     } finally {
       if (fetchGroupId === groupId) {
@@ -100,7 +101,7 @@ export const useGroupAnalytics = (groupId: string) => {
       if (fetchGroupId === groupId) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch activity';
         setError(errorMessage);
-        console.error('Failed to fetch activity:', err);
+        logger.error('Failed to fetch activity:', err);
       }
     } finally {
       if (fetchGroupId === groupId) {
@@ -140,7 +141,7 @@ export const useGroupAnalytics = (groupId: string) => {
       if (fetchGroupId === groupId) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch vibes';
         setError(errorMessage);
-        console.error('Failed to fetch vibes:', err);
+        logger.error('Failed to fetch vibes:', err);
       }
     } finally {
       if (fetchGroupId === groupId) {

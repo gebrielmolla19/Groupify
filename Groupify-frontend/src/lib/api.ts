@@ -133,7 +133,7 @@ export const logout = async (): Promise<void> => {
     });
   } catch (error) {
     // Ignore errors - logout should succeed even if backend call fails
-    console.warn('Backend logout call failed:', error);
+    logger.warn('Backend logout call failed:', error);
   } finally {
     // Always remove token client-side
     removeToken();

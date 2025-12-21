@@ -7,6 +7,7 @@ import { Skeleton } from '../../ui/skeleton';
 import { UserPlus, CheckCircle2, XCircle } from 'lucide-react';
 import { useUser } from '../../../contexts/UserContext';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../../../utils/logger';
 
 interface InvitesListProps {
   groupId: string;
@@ -43,7 +44,7 @@ export default function InvitesList({
       await onAcceptInvite(groupId, inviteId);
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to accept invite:', error);
+      logger.error('Failed to accept invite:', error);
     }
   };
 
@@ -53,7 +54,7 @@ export default function InvitesList({
       await onDeclineInvite(groupId, inviteId);
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to decline invite:', error);
+      logger.error('Failed to decline invite:', error);
     }
   };
 

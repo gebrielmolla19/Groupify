@@ -3,6 +3,7 @@ import { useUser } from '../contexts/UserContext';
 import { getSpotifyAccessToken, transferPlayback, playTrack as apiPlayTrack } from '../lib/api';
 import { toast } from 'sonner';
 import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/spotifyPlayer';
+import { logger } from '../utils/logger';
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
 
@@ -112,7 +113,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
         await getSpotifyAccessToken();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to get Spotify access token';
-        console.error('Failed to get Spotify token:', err);
+        logger.error('Failed to get Spotify token:', err);
         globalError = errorMsg;
         globalIsLoading = false;
         setError(errorMsg);
@@ -131,7 +132,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
             const freshToken = await getSpotifyAccessToken();
             cb(freshToken);
           } catch (err) {
-            console.error('Failed to refresh Spotify token:', err);
+            logger.error('Failed to refresh Spotify token:', err);
             toast.error('Failed to refresh Spotify token');
           }
         },
@@ -147,6 +148,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
         setDeviceId(device_id);
         setIsLoading(false);
         setDeviceReadyTimestamp(globalDeviceReadyTimestamp);
+        logger.info('Spotify player initialized:', { deviceId: device_id });
         notifyListeners();
 
         // CRITICAL: Web Playback SDK devices need to be activated
@@ -167,7 +169,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
               await transferPlayback(device_id);
               toast.success('Spotify player ready! Click any track to play.', { duration: 3000 });
             } catch (err) {
-              console.warn('⚠️ Initial transfer failed (device will activate on first play):', err);
+              logger.warn('⚠️ Initial transfer failed (device will activate on first play):', err);
               toast.info('Player connected. Click any track to start playing.', { duration: 3000 });
             }
           }
@@ -217,7 +219,8 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
             try {
               globalOnTrackComplete(currentTrackUri);
             } catch (err) {
-              console.error('Error in track completion callback:', err);
+              // Errors in callbacks are usually handled by the caller
+              // Only log if it's a critical error that needs attention
             }
           }
           
@@ -248,7 +251,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
 
       spotifyPlayer.addListener('authentication_error', ({ message }) => {
         const errorMsg = `Spotify authentication error: ${message}`;
-        console.error(errorMsg);
+        logger.error(errorMsg);
         globalError = errorMsg;
         globalIsLoading = false;
         setError(errorMsg);
@@ -259,7 +262,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
 
       spotifyPlayer.addListener('account_error', ({ message }) => {
         const errorMsg = `Spotify account error: ${message}`;
-        console.error(errorMsg);
+        logger.error(errorMsg);
         globalError = errorMsg;
         globalIsLoading = false;
         setError(errorMsg);
@@ -279,7 +282,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       notifyListeners();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to initialize Spotify player';
-      console.error('Player initialization error:', err);
+      logger.error('Player initialization error:', err);
       globalError = errorMsg;
       globalIsLoading = false;
       setError(errorMsg);
@@ -331,7 +334,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       const errorMsg = 'Failed to load Spotify Web Playback SDK';
       setError(errorMsg);
       setIsLoading(false);
-      console.error(errorMsg);
+      logger.error(errorMsg);
       toast.error(errorMsg);
     };
 
@@ -396,7 +399,8 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
             try {
               globalOnTrackComplete(currentTrackUri);
             } catch (err) {
-              console.error('Error in track completion callback:', err);
+              // Errors in callbacks are usually handled by the caller
+              // Only log if it's a critical error that needs attention
             }
           }
           
@@ -420,7 +424,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
             try {
               globalOnTrackComplete(lastTrackUri);
             } catch (err) {
-              console.error('Error in track completion callback (null state):', err);
+              logger.error('Error in track completion callback (null state):', err);
             }
           }
           
@@ -433,7 +437,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
         // Silently handle errors - player_state_changed will handle state updates
         // Only log if it's a persistent issue
         if (err instanceof Error && !err.message.includes('No active device')) {
-        console.error('Error getting current state:', err);
+        logger.error('Error getting current state:', err);
         }
       }
     }, 1000); // Check every 1 second for position updates and completion detection
@@ -469,6 +473,7 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
     const timeSinceReady = globalDeviceReadyTimestamp ? Date.now() - globalDeviceReadyTimestamp : Infinity;
     if (timeSinceReady < 5000) {
       const waitTime = 5000 - timeSinceReady;
+      logger.warn('Player device not ready, waiting...', { waitTime: Math.ceil(waitTime/1000) });
       toast.info(`Preparing player... ${Math.ceil(waitTime/1000)}s`, { duration: waitTime });
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
@@ -477,12 +482,13 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       // Use backend API endpoint to play track
       await apiPlayTrack(deviceId, trackUri);
       
+      logger.info('Playback started:', { trackUri });
       toast.success('Track playing!');
       // The player state will update automatically via the player_state_changed event
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to play track';
-      console.error('❌ Play track error:', error);
+      logger.error('❌ Play track error:', error);
       
       // If device not found (404), provide helpful guidance
       if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('not ready')) {

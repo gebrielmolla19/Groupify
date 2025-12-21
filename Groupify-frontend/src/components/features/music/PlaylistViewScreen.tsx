@@ -26,6 +26,7 @@ import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { exportGroupToPlaylist } from "../../../lib/api";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { logger } from "../../../utils/logger";
 
 interface PlaylistViewScreenProps {
   group: Group | null;
@@ -79,7 +80,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
       await playTrack(trackUri);
     } catch (err) {
       // Error already handled in playTrack with toast
-      console.error('Failed to play track:', err);
+      logger.error('Failed to play track:', err);
     } finally {
       setIsPlaying(null);
     }
@@ -101,6 +102,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
         false
       );
 
+      logger.info('Playlist exported to Spotify:', { groupId: group._id, playlistId: playlist.id });
       toast.success('Playlist exported to Spotify!');
 
       // Open the playlist in Spotify
@@ -110,7 +112,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to export playlist';
       toast.error(errorMessage);
-      console.error('Failed to export playlist:', err);
+      logger.error('Failed to export playlist:', err);
     } finally {
       setIsExporting(false);
     }
@@ -135,7 +137,7 @@ export default function PlaylistViewScreen({ group, onNavigate }: PlaylistViewSc
       await playTrack(trackUri);
     } catch (err) {
       // Error already handled in playTrack with toast
-      console.error('Failed to play track:', err);
+      logger.error('Failed to play track:', err);
     } finally {
       setIsPlaying(null);
     }

@@ -7,6 +7,7 @@ import {
   getGroupInvites as apiGetGroupInvites
 } from '../lib/api';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 export const useGroupInvites = () => {
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -25,7 +26,7 @@ export const useGroupInvites = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch invites';
       setError(errorMessage);
-      console.error('Failed to fetch invites:', err);
+      logger.error('Failed to fetch invites:', err);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -44,6 +45,7 @@ export const useGroupInvites = () => {
       // Refresh invites list
       await fetchInvites(groupId);
       
+      logger.info('Invite sent:', { groupId, invitedUserId: spotifyId });
       toast.success('Invite sent successfully');
       return newInvite;
     } catch (err) {
@@ -68,6 +70,7 @@ export const useGroupInvites = () => {
       // Refresh invites list
       await fetchInvites(groupId);
       
+      logger.info('Invite accepted:', { groupId, inviteId });
       toast.success('Invite accepted successfully');
       return updatedGroup;
     } catch (err) {
@@ -92,6 +95,7 @@ export const useGroupInvites = () => {
       // Refresh invites list
       await fetchInvites(groupId);
       
+      logger.info('Invite declined:', { groupId, inviteId });
       toast.success('Invite declined successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to decline invite';

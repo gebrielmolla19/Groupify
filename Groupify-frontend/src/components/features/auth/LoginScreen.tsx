@@ -3,17 +3,19 @@ import { Button } from "../../ui/button";
 import { Music, Waves } from "lucide-react";
 import { login } from "../../../lib/api";
 import { toast } from "sonner";
+import { logger } from "../../../utils/logger";
 
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
     try {
+      logger.info('Login initiated');
       setIsLoading(true);
       await login();
       // Login redirects, so no need to handle success here
     } catch (error) {
-      console.error('Login failed:', error);
+      logger.error('Login failed:', error);
       toast.error('Failed to connect to Spotify. Please try again.');
       setIsLoading(false);
     }

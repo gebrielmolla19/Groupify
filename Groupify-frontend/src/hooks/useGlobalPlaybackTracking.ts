@@ -4,6 +4,7 @@ import { useGroups } from './useGroups';
 import { useUser } from '../contexts/UserContext';
 import { markAsListened, getGroupFeed } from '../lib/api';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 /**
  * Global hook to auto-track plays from any device across all user groups
@@ -66,18 +67,17 @@ export const useGlobalPlaybackTracking = () => {
           shares,
           timestamp: Date.now()
         });
-        console.log(`[Global Auto-track] Cached ${shares.length} shares for group ${groupId}`);
         return shares;
       }
     } catch (err) {
       // Handle deleted group gracefully - don't log as error
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       if (errorMessage.includes('not found') || errorMessage.includes('404')) {
-        console.log(`[Global Auto-track] Group ${groupId} not found (likely deleted), skipping`);
+        logger.debug(`Group ${groupId} not found (likely deleted), skipping`);
         // Remove from cache if it exists
         sharesCacheRef.current.delete(groupId);
       } else {
-        console.error(`[Global Auto-track] Failed to fetch shares for group ${groupId}:`, err);
+        logger.error(`Failed to fetch shares for group ${groupId}:`, err);
       }
     }
 
@@ -87,18 +87,6 @@ export const useGlobalPlaybackTracking = () => {
   // Auto-detect and track plays from other devices across all groups
   useEffect(() => {
     if (!user || !groups.length) return;
-
-    // Debug logging
-    if (remotePlayback?.item?.id) {
-      console.log('[Global Auto-track] Polling playback:', {
-        trackId: remotePlayback.item.id,
-        trackName: remotePlayback.item.name,
-        isPlaying: remotePlayback.is_playing,
-        progress: remotePlayback.progress_ms,
-        duration: remotePlayback.item.duration_ms,
-        device: remotePlayback.device?.name
-      });
-    }
 
     if (!remotePlayback) {
       // No playback detected - this is normal when nothing is playing
@@ -123,31 +111,26 @@ export const useGlobalPlaybackTracking = () => {
         try {
           const matchingShares: Array<{ shareId: string; groupId: string; trackName: string; groupName: string }> = [];
           
-          console.log(`[Global Auto-track] 🔍 Searching for track "${remotePlayback.item?.name}" (${currentTrackId}) across ${groups.length} group(s)...`);
+          logger.info(`🔍 Searching for track "${remotePlayback.item?.name}" (${currentTrackId}) across ${groups.length} group(s)...`);
           
           // Fetch shares for all groups in parallel
           const sharePromises = groups.map(async (group) => {
             try {
               const shares = await getGroupShares(group._id);
-              console.log(`[Global Auto-track] Group "${group.name}": ${shares.length} shares loaded`);
               
               const matchingShare = shares.find(s => s.spotifyTrackId === currentTrackId);
               
               if (matchingShare) {
-                console.log(`[Global Auto-track] ✅ Found match in group "${group.name}": ${matchingShare.trackName}`);
+                logger.info(`✅ Found match in group "${group.name}": ${matchingShare.trackName}`);
                 return {
                   shareId: matchingShare._id,
                   groupId: group._id,
                   trackName: matchingShare.trackName,
                   groupName: group.name
                 };
-              } else {
-                // Log what track IDs we have for debugging
-                const trackIds = shares.map(s => s.spotifyTrackId).slice(0, 5);
-                console.log(`[Global Auto-track] ❌ No match in group "${group.name}". Sample track IDs:`, trackIds);
               }
             } catch (err) {
-              console.error(`[Global Auto-track] Error fetching shares for group ${group._id}:`, err);
+              logger.error(`Error fetching shares for group ${group._id}:`, err);
             }
             return null;
           });
@@ -167,17 +150,14 @@ export const useGlobalPlaybackTracking = () => {
               shareIds: validMatches.map(m => ({ shareId: m.shareId, groupId: m.groupId }))
             };
             
-            console.log(`[Global Auto-track] ✅ Detected playback: "${validMatches[0].trackName}" (${currentTrackId}) in ${validMatches.length} group(s):`, 
+            logger.info(`✅ Detected playback: "${validMatches[0].trackName}" (${currentTrackId}) in ${validMatches.length} group(s):`, 
               validMatches.map(m => m.groupName).join(', '));
-            console.log(`[Global Auto-track] Tracking ${validMatches.length} share(s) for auto-marking`);
           } else {
-            console.log(`[Global Auto-track] ⚠️ Track "${remotePlayback.item?.name}" (${currentTrackId}) not found in any group shares`);
-            console.log(`[Global Auto-track] 💡 Tip: If this track was just shared, the cache might be stale. It will refresh in 5 minutes or when you navigate to the group.`);
+            logger.warn(`⚠️ Track "${remotePlayback.item?.name}" (${currentTrackId}) not found in any group shares`);
             
             // If we have a cached result but no match, clear cache to force refresh on next poll
             // This helps if a track was just shared
             if (groups.length > 0) {
-              console.log(`[Global Auto-track] Clearing cache to force refresh on next detection...`);
               sharesCacheRef.current.clear();
             }
           }
@@ -191,7 +171,7 @@ export const useGlobalPlaybackTracking = () => {
 
     // Track completed naturally (reached the end)
     if (isAtEnd && currentTrackId && remotePlaybackRef.current.shareIds.length > 0 && remotePlaybackRef.current.trackId === currentTrackId) {
-      console.log(`[Global Auto-track] 🎵 Track completed - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
+      logger.info(`🎵 Track completed - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
       // Mark ALL matching shares as listened (OPTIMIZATION: parallelize API calls)
       const markAllShares = async () => {
         const shareIds = remotePlaybackRef.current.shareIds;
@@ -202,26 +182,26 @@ export const useGlobalPlaybackTracking = () => {
           groupIds.add(groupId);
           try {
             await markAsListened(shareId);
-            console.log(`[Global Auto-track] Marked share ${shareId} as listened`);
             return { success: true, shareId };
           } catch (err) {
-            // If already listened, that's fine - just log
+            // If already listened, that's fine - treat as success
             if (err instanceof Error && err.message?.includes('already')) {
-              console.log(`[Global Auto-track] Share ${shareId} already marked as listened`);
-              return { success: true, shareId }; // Treat as success
+              return { success: true, shareId };
             } else {
-              console.error(`[Global Auto-track] Failed to mark share ${shareId} as listened:`, err);
+              logger.error(`Failed to mark share ${shareId} as listened:`, err);
               return { success: false, shareId };
             }
           }
         });
         
-        await Promise.all(markPromises);
+        const results = await Promise.all(markPromises);
+        const successCount = results.filter(r => r.success).length;
         
         // Clear cache for all affected groups to refresh data
         groupIds.forEach(groupId => sharesCacheRef.current.delete(groupId));
         
-        if (shareIds.length > 0) {
+        if (successCount > 0) {
+          logger.info(`Marked ${successCount} share(s) as listened`);
           toast.success(`Track auto-marked as listened in ${shareIds.length} group(s)`);
         }
       };
@@ -242,10 +222,8 @@ export const useGlobalPlaybackTracking = () => {
       const progressPercent = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
       const shouldMark = timePlayed >= 30000 || progressPercent >= 80;
       
-      console.log(`[Global Auto-track] Track paused - timePlayed: ${Math.round(timePlayed/1000)}s, progress: ${Math.round(progressPercent)}%, shouldMark: ${shouldMark}`);
-      
       if (shouldMark) {
-        console.log(`[Global Auto-track] ⏸️ Track paused after sufficient playtime - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
+        logger.info(`⏸️ Track paused after sufficient playtime - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
         // Mark ALL matching shares as listened (OPTIMIZATION: parallelize API calls)
         const markAllShares = async () => {
           const shareIds = remotePlaybackRef.current.shareIds;
@@ -256,15 +234,15 @@ export const useGlobalPlaybackTracking = () => {
             groupIds.add(groupId);
             try {
               await markAsListened(shareId);
-              console.log(`[Global Auto-track] Marked share ${shareId} as listened`);
+              logger.info(`Marked share ${shareId} as listened`);
               return { success: true, shareId };
             } catch (err) {
               // If already listened, that's fine - just log
               if (err instanceof Error && err.message?.includes('already')) {
-                console.log(`[Global Auto-track] Share ${shareId} already marked as listened`);
+                logger.debug(`Share ${shareId} already marked as listened`);
                 return { success: true, shareId }; // Treat as success
               } else {
-                console.error(`[Global Auto-track] Failed to mark share ${shareId} as listened:`, err);
+                logger.error(`Failed to mark share ${shareId} as listened:`, err);
                 return { success: false, shareId };
               }
             }
@@ -294,7 +272,7 @@ export const useGlobalPlaybackTracking = () => {
         : 0;
       
       if (timePlayed >= 30000) {
-        console.log(`[Global Auto-track] 🔄 Track changed after sufficient playtime - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
+        logger.info(`🔄 Track changed after sufficient playtime - marking ${remotePlaybackRef.current.shareIds.length} share(s) as listened`);
         // Mark ALL matching shares as listened (OPTIMIZATION: parallelize API calls)
         const markAllShares = async () => {
           const shareIds = remotePlaybackRef.current.shareIds;
@@ -305,15 +283,15 @@ export const useGlobalPlaybackTracking = () => {
             groupIds.add(groupId);
             try {
               await markAsListened(shareId);
-              console.log(`[Global Auto-track] Marked share ${shareId} as listened`);
+              logger.info(`Marked share ${shareId} as listened`);
               return { success: true, shareId };
             } catch (err) {
               // If already listened, that's fine - just log
               if (err instanceof Error && err.message?.includes('already')) {
-                console.log(`[Global Auto-track] Share ${shareId} already marked as listened`);
+                logger.debug(`Share ${shareId} already marked as listened`);
                 return { success: true, shareId }; // Treat as success
               } else {
-                console.error(`[Global Auto-track] Failed to mark share ${shareId} as listened:`, err);
+                logger.error(`Failed to mark share ${shareId} as listened:`, err);
                 return { success: false, shareId };
               }
             }
@@ -347,7 +325,7 @@ export const useGlobalPlaybackTracking = () => {
       // Only retry every 30 seconds to avoid excessive API calls
       const lastRetry = (remotePlaybackRef.current as any).lastRetry || 0;
       if (Date.now() - lastRetry > 30000) {
-        console.log(`[Global Auto-track] 🔄 Retrying search for track "${remotePlayback.item?.name}" (${currentTrackId}) - no matches found yet`);
+        logger.debug(`🔄 Retrying search for track "${remotePlayback.item?.name}" (${currentTrackId}) - no matches found yet`);
         (remotePlaybackRef.current as any).lastRetry = Date.now();
         
         isFetchingRef.current = true;
@@ -372,7 +350,7 @@ export const useGlobalPlaybackTracking = () => {
                   };
                 }
               } catch (err) {
-                console.error(`[Global Auto-track] Error fetching shares for group ${group._id}:`, err);
+                logger.error(`Error fetching shares for group ${group._id}:`, err);
               }
               return null;
             });
@@ -387,7 +365,7 @@ export const useGlobalPlaybackTracking = () => {
                 shareIds: validMatches.map(m => ({ shareId: m.shareId, groupId: m.groupId }))
               };
               
-              console.log(`[Global Auto-track] ✅ Found on retry: "${validMatches[0].trackName}" in ${validMatches.length} group(s)`);
+              logger.info(`✅ Found on retry: "${validMatches[0].trackName}" in ${validMatches.length} group(s)`);
             }
           } finally {
             isFetchingRef.current = false;

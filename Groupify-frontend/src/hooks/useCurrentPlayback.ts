@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentPlayback } from '../lib/api';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 export interface CurrentPlayback {
   device: {
@@ -86,7 +87,7 @@ export const useCurrentPlayback = (
         setError(errorMsg);
         // Don't show toast for 404/204 (no playback) - that's normal
         if (!errorMsg.includes('404') && !errorMsg.includes('204')) {
-          console.error('Failed to poll playback:', err);
+          logger.error('Failed to poll playback:', err);
         }
       } finally {
         setIsLoading(false);

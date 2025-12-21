@@ -15,6 +15,7 @@ import SpotifyPlayerCard from "./components/features/music/SpotifyPlayerCard";
 import AppSidebar from "./components/layout/AppSidebar";
 import { Group, ScreenName } from "./types";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
+import { logger } from "./utils/logger";
 
 interface AppWithPlayerProps {
   currentScreen: ScreenName;
@@ -97,6 +98,7 @@ function AppContent() {
   }, [isAuthenticated, isLoading, currentScreen]);
 
   const handleNavigate = (screen: ScreenName, group?: Group) => {
+    logger.debug('Navigation:', { from: currentScreen, to: screen, groupId: group?._id });
     setCurrentScreen(screen);
     if (group) {
       setSelectedGroup(group);

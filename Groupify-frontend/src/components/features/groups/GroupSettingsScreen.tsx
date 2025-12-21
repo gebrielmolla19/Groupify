@@ -33,6 +33,7 @@ import { useGroupSettings } from "../../../hooks/useGroupSettings";
 import { useUser } from "../../../contexts/UserContext";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { useGroups } from "../../../hooks/useGroups";
+import { logger } from "../../../utils/logger";
 
 interface GroupSettingsScreenProps {
   group: Group | null;
@@ -51,18 +52,6 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
     ownerId
   );
 
-  // Debug logging for ownership check
-  useEffect(() => {
-    if (group && user) {
-      console.log('[GroupSettings] Ownership check:', {
-        userId: user._id,
-        ownerId: ownerId,
-        isOwner: isOwner,
-        groupId: groupId
-      });
-    }
-  }, [group, user, ownerId, isOwner, groupId]);
-
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
@@ -72,25 +61,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
 
-  // Debug logging for dialog state (must be after useState declarations)
-  useEffect(() => {
-    console.log('[GroupSettings] Delete dialog state changed:', isDeleteDialogOpen);
-    // Check if dialog is in DOM when state is true
-    if (isDeleteDialogOpen) {
-      setTimeout(() => {
-        const dialog = document.querySelector('[data-slot="alert-dialog-content"]');
-        console.log('[GroupSettings] Dialog in DOM:', !!dialog, dialog);
-        if (dialog) {
-          console.log('[GroupSettings] Dialog styles:', window.getComputedStyle(dialog));
-          console.log('[GroupSettings] Dialog parent:', dialog.parentElement);
-        }
-      }, 100);
-    }
-  }, [isDeleteDialogOpen]);
-
-  useEffect(() => {
-    console.log('[GroupSettings] Leave dialog state changed:', isLeaveDialogOpen);
-  }, [isLeaveDialogOpen]);
+  // Removed verbose debug logging for dialog state - these were temporary debugging logs
 
   // Load settings on mount
   useEffect(() => {
@@ -133,6 +104,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
 
       await updateSettings(updates);
       setHasChanges(false);
+      logger.info('Group settings updated:', { groupId, updates });
     } catch (err) {
       // Error is already handled by the hook (toast notification)
     } finally {
@@ -143,6 +115,7 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
   const handleRemoveMember = async (memberId: string) => {
     try {
       await removeMember(memberId);
+      logger.info('Member removed:', { groupId, memberId });
       setMemberToRemove(null);
       setIsRemoveDialogOpen(false);
     } catch (err) {
@@ -155,7 +128,10 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
   const handleDeleteGroup = async () => {
     try {
       const deletedGroupId = groupId;
+      const groupName = settings?.name || group?.name || 'Unknown';
       await deleteGroup();
+      
+      logger.info('Group deleted:', { groupId: deletedGroupId, groupName });
       
       // Clear playing group if it's the deleted group
       if (group && group._id === deletedGroupId) {
@@ -180,7 +156,10 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
 
   const handleLeaveGroup = async () => {
     const leftGroupId = groupId;
+    const groupName = settings?.name || group?.name || 'Unknown';
     await leaveGroup();
+    
+    logger.info('Left group:', { groupId: leftGroupId, groupName });
     
     // Clear playing group if it's the group we left
     if (group && group._id === leftGroupId) {
@@ -395,7 +374,6 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                       <Button
                         variant="destructive"
                         onClick={() => {
-                          console.log('[GroupSettings] Delete button clicked, opening dialog');
                           setIsDeleteDialogOpen(true);
                         }}
                         className="w-full sm:w-auto"
@@ -413,7 +391,6 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                       <Button
                         variant="destructive"
                         onClick={() => {
-                          console.log('[GroupSettings] Leave button clicked, opening dialog');
                           setIsLeaveDialogOpen(true);
                         }}
                         className="w-full sm:w-auto"
@@ -477,7 +454,6 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
           <AlertDialog 
             open={isDeleteDialogOpen} 
             onOpenChange={(open) => {
-              console.log('[Delete Dialog] onOpenChange called:', open, 'isLoading:', isLoading, 'current state:', isDeleteDialogOpen);
               // Always update state - we'll handle preventing close in the onClick handler
               setIsDeleteDialogOpen(open);
             }}
@@ -497,14 +473,12 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                     e.preventDefault();
                     e.stopPropagation();
                     try {
-                      console.log('[Delete Group] Starting delete operation...');
                       await handleDeleteGroup();
-                      console.log('[Delete Group] Delete successful');
                       // handleDeleteGroup now handles closing the dialog and navigation
                     } catch (err) {
                       // Error is handled by handleDeleteGroup and hook (toast notification)
                       // Dialog stays open so user can retry
-                      console.error('[Delete Group] Delete failed:', err);
+                      logger.error('Delete failed:', err);
                       // Don't close dialog on error
                     }
                   }}
@@ -521,14 +495,11 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
           <AlertDialog 
             open={isLeaveDialogOpen} 
             onOpenChange={(open) => {
-              console.log('[Leave Dialog] onOpenChange called:', open, 'isLoading:', isLoading, 'current state:', isLeaveDialogOpen);
               // If trying to close during loading, prevent it
               if (!open && isLoading) {
-                console.log('[Leave Dialog] Preventing close during loading');
                 return;
               }
               // Otherwise, update state normally
-              console.log('[Leave Dialog] Updating state to:', open);
               setIsLeaveDialogOpen(open);
             }}
           >
@@ -547,15 +518,13 @@ export default function GroupSettingsScreen({ group, onNavigate }: GroupSettings
                     e.preventDefault();
                     e.stopPropagation();
                     try {
-                      console.log('[Leave Group] Starting leave operation...');
                       await handleLeaveGroup();
-                      console.log('[Leave Group] Leave successful, closing dialog');
                       // Only close on success
                       setIsLeaveDialogOpen(false);
                     } catch (err) {
                       // Error is handled by handleLeaveGroup and hook (toast notification)
                       // Dialog stays open so user can retry
-                      console.error('[Leave Group] Leave failed:', err);
+                      logger.error('Leave failed:', err);
                       // Don't close dialog on error
                     }
                   }}

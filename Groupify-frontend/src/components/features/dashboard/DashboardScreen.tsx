@@ -69,6 +69,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
     try {
       await navigator.clipboard.writeText(inviteCode);
       setCopiedCode(inviteCode);
+      logger.info('Invite code copied:', { inviteCode });
       toast.success('Invite code copied to clipboard!');
 
       // Reset copied state after 2 seconds
@@ -76,7 +77,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
         setCopiedCode(null);
       }, 2000);
     } catch (err) {
-      console.error('Failed to copy invite code:', err);
+      logger.error('Failed to copy invite code:', err);
       toast.error('Failed to copy invite code');
     }
   };

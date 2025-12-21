@@ -11,6 +11,7 @@ import {
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { logger } from '../../../utils/logger';
 
 interface InviteFriendDialogProps {
   open: boolean;
@@ -52,7 +53,7 @@ export default function InviteFriendDialog({
       onInviteSent?.();
     } catch (error) {
       // Error is already handled by the hook (toast notification)
-      console.error('Failed to send invite:', error);
+      logger.error('Failed to send invite:', error);
     }
   };
 

@@ -14,6 +14,7 @@ import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile, UserStats } from "../../../lib/api";
 import { toast } from "sonner";
 import { Skeleton } from "../../ui/skeleton";
+import { logger } from "../../../utils/logger";
 
 interface ProfileScreenProps {
   onNavigate: NavigateFunction;
@@ -44,7 +45,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         const userStats = await getUserStats();
         setStats(userStats);
       } catch (error) {
-        console.error('Failed to load stats:', error);
+        logger.error('Failed to load stats:', error);
         toast.error('Failed to load statistics');
       } finally {
         setIsLoadingStats(false);
@@ -73,10 +74,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     try {
       await updateUserProfile({ displayName });
       await fetchUser(); // Refresh user data
+      logger.info('Profile updated:', { displayName });
       toast.success('Profile updated successfully');
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      logger.error('Failed to update profile:', error);
       toast.error('Failed to update profile');
     } finally {
       setIsUpdating(false);

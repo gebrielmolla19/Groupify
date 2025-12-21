@@ -11,6 +11,7 @@ import {
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { logger } from '../../../utils/logger';
 
 interface JoinGroupDialogProps {
   open: boolean;
@@ -54,7 +55,7 @@ export default function JoinGroupDialog({
       // Error is already handled by the hook (toast notification)
       const errorMessage = error instanceof Error ? error.message : 'Failed to join group';
       setError(errorMessage);
-      console.error('Failed to join group:', error);
+      logger.error('Failed to join group:', error);
     }
   };
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { UserStats } from '../types';
 import { getUserStats } from '../lib/api';
+import { logger } from '../utils/logger';
 
 export const useUserStats = () => {
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -16,7 +17,7 @@ export const useUserStats = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user stats';
       setError(errorMessage);
-      console.error('Failed to fetch user stats:', err);
+      logger.error('Failed to fetch user stats:', err);
     } finally {
       setIsLoading(false);
     }
