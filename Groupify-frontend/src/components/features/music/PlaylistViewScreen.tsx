@@ -169,18 +169,6 @@ export default function PlaylistViewScreen() {
                   {group?.name || "Playlist"} • {stats.totalTracks} tracks
                 </p>
               </div>
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                <SelectTrigger className="w-32 sm:w-48 border-primary/30 shrink-0 min-h-[44px]" aria-label="Sort playlist">
-                  <Filter className="w-4 h-4 mr-2 hidden sm:inline" aria-hidden="true" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="most-listened">Most Listened</SelectItem>
-                  <SelectItem value="recently-added">Recently Added</SelectItem>
-                  <SelectItem value="alphabetical">Alphabetical</SelectItem>
-                  <SelectItem value="shared-by">Shared By</SelectItem>
-                </SelectContent>
-              </Select>
               <Button
                 variant="outline"
                 size="icon"
@@ -249,24 +237,6 @@ export default function PlaylistViewScreen() {
                 <Play className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-primary" />
               </div>
             </div>
-            <div className="flex-1 min-w-0 pb-0 sm:pb-2">
-              <Badge className="mb-2 md:mb-3 bg-primary/10 text-primary border-primary/30 text-xs" aria-label="Playlist type">
-                Group Playlist
-              </Badge>
-              <h2 id="playlist-title" className="text-2xl sm:text-3xl md:text-4xl mb-2 md:mb-3 truncate">{group?.name || "Group Playlist"}</h2>
-              <p className="text-sm md:text-base text-muted-foreground mb-3 md:mb-4 line-clamp-2">
-                {group?.description || "Collaborative playlist"}
-              </p>
-              <div className="flex items-center gap-2 md:gap-4 text-xs sm:text-sm flex-wrap">
-                <span className="text-primary whitespace-nowrap">{group?.members?.length || 0} members</span>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground whitespace-nowrap">
-                  {stats.totalTracks} songs
-                </span>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground whitespace-nowrap">{stats.totalDurationFormatted}</span>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -279,6 +249,47 @@ export default function PlaylistViewScreen() {
                 <p className="text-sm md:text-base text-destructive">{error}</p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Playlist Info and Sort Control - Same Row */}
+          {!isLoading && shares.length > 0 && (
+            <div className="flex flex-row items-end justify-between gap-4 mb-4 md:mb-6">
+              {/* Playlist Info - Left Side */}
+              <div className="flex-1 min-w-0">
+                <Badge className="mb-2 md:mb-3 bg-primary/10 text-primary border-primary/30 text-xs" aria-label="Playlist type">
+                  Group Playlist
+                </Badge>
+                <h2 id="playlist-title" className="text-xl sm:text-2xl md:text-3xl mb-1 md:mb-2 truncate">{group?.name || "Group Playlist"}</h2>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground mb-2 md:mb-3 line-clamp-2">
+                  {group?.description || "Collaborative playlist"}
+                </p>
+                <div className="flex items-center gap-2 md:gap-4 text-xs sm:text-sm flex-wrap">
+                  <span className="text-primary whitespace-nowrap">{group?.members?.length || 0} members</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground whitespace-nowrap">
+                    {stats.totalTracks} songs
+                  </span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground whitespace-nowrap">{stats.totalDurationFormatted}</span>
+                </div>
+              </div>
+              
+              {/* Sort Control - Right Side */}
+              <div className="shrink-0 self-end">
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                  <SelectTrigger className="w-32 sm:w-48 border-primary/30 shrink-0 min-h-[44px]" aria-label="Sort playlist">
+                    <Filter className="w-4 h-4 mr-2 hidden sm:inline" aria-hidden="true" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="most-listened">Most Listened</SelectItem>
+                    <SelectItem value="recently-added">Recently Added</SelectItem>
+                    <SelectItem value="alphabetical">Alphabetical</SelectItem>
+                    <SelectItem value="shared-by">Shared By</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           )}
 
           {/* Loading State */}

@@ -38,7 +38,7 @@ function AuthenticatedLayout() {
   return (
     <PlayingGroupProvider>
       <div className="min-h-screen bg-background">
-        <SidebarProvider>
+        <SidebarProvider defaultOpen={false}>
           <AppSidebar />
           <SidebarInset>
             <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">

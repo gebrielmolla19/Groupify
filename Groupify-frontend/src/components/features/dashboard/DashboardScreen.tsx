@@ -85,7 +85,7 @@ export default function DashboardScreen() {
     <>
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
-        <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
+        <div className="flex items-center gap-2 md:gap-4 px-4 md:px-6 py-3 md:py-4">
           <SidebarTrigger />
               <div className="flex-1 min-w-0">
                 <h1 className="text-base md:text-lg truncate">My Groups</h1>

@@ -69,26 +69,47 @@ function SidebarProvider({
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
-  // Read sidebar state from cookie on initialization
+  // On desktop, always keep sidebar collapsed (icon-only mode)
+  // On mobile, use the defaultOpen or cookie value
   const getInitialState = React.useCallback(() => {
-    if (openProp !== undefined) return openProp;
-    const cookies = document.cookie.split(';');
-    const sidebarCookie = cookies.find(cookie => 
-      cookie.trim().startsWith(`${SIDEBAR_COOKIE_NAME}=`)
-    );
-    if (sidebarCookie) {
-      const value = sidebarCookie.split('=')[1];
-      return value === 'true';
+    // On mobile, allow expand/collapse
+    if (isMobile) {
+      if (openProp !== undefined) return openProp;
+      const cookies = document.cookie.split(';');
+      const sidebarCookie = cookies.find(cookie => 
+        cookie.trim().startsWith(`${SIDEBAR_COOKIE_NAME}=`)
+      );
+      if (sidebarCookie) {
+        const value = sidebarCookie.split('=')[1];
+        return value === 'true';
+      }
+      return defaultOpen;
     }
-    return defaultOpen;
-  }, [defaultOpen, openProp]);
+    // On desktop, always return false (collapsed/icon-only)
+    return false;
+  }, [defaultOpen, openProp, isMobile]);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(getInitialState);
-  const open = openProp ?? _open;
+  
+  // On desktop, always force collapsed. On mobile, use the state.
+  const open = isMobile ? (openProp ?? _open) : false;
+  
+  // Force sidebar to collapse when switching from mobile to desktop
+  React.useEffect(() => {
+    if (!isMobile && _open) {
+      _setOpen(false);
+    }
+  }, [isMobile, _open]);
+  
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
+      // On desktop, prevent expanding (always keep collapsed)
+      if (!isMobile) {
+        return;
+      }
+      
       const openState = typeof value === "function" ? value(open) : value;
       if (setOpenProp) {
         setOpenProp(openState);
@@ -96,19 +117,28 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      // This sets the cookie to keep the sidebar state (only on mobile).
+      if (isMobile) {
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      }
     },
-    [setOpenProp, open],
+    [setOpenProp, open, isMobile],
   );
 
   // Helper to toggle the sidebar.
+  // On desktop, do nothing (sidebar stays collapsed).
+  // On mobile, toggle the mobile sheet.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
-  }, [isMobile, setOpen, setOpenMobile]);
+    if (isMobile) {
+      setOpenMobile((open) => !open);
+    }
+    // On desktop, do nothing - sidebar stays collapsed
+  }, [isMobile, setOpenMobile]);
 
-  // Adds a keyboard shortcut to toggle the sidebar.
+  // Adds a keyboard shortcut to toggle the sidebar (only on mobile).
   React.useEffect(() => {
+    if (!isMobile) return; // Disable keyboard shortcut on desktop
+    
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
@@ -121,7 +151,7 @@ function SidebarProvider({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
+  }, [toggleSidebar, isMobile]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -272,7 +302,12 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, isMobile } = useSidebar();
+
+  // Only show and enable on mobile
+  if (!isMobile) {
+    return null;
+  }
 
   return (
     <Button
@@ -294,7 +329,12 @@ function SidebarTrigger({
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, isMobile } = useSidebar();
+
+  // Only show and enable on mobile
+  if (!isMobile) {
+    return null;
+  }
 
   return (
     <button

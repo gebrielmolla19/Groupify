@@ -603,14 +603,16 @@ export default function GroupFeedScreen() {
                                 return (
                                   <Avatar
                                     key={listenerUser._id || listenerUser.id || index}
-                                    className="w-7 h-7 sm:w-6 sm:h-6 border-2 border-background shrink-0"
+                                    className="!w-7 !h-7 sm:!w-6 sm:!h-6 border-2 border-background shrink-0"
                                     style={{
                                       marginLeft: index > 0 ? '-8px' : '0',
-                                      zIndex: index + 1
+                                      zIndex: index + 1,
+                                      width: '28px',
+                                      height: '28px'
                                     }}
                                     title={listenerUser.displayName}
                                   >
-                                    <AvatarImage src={listenerUser.profileImage || undefined} />
+                                    <AvatarImage src={listenerUser.profileImage || undefined} className="object-cover" />
                                     <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
                                       {listenerUser.displayName?.charAt(0).toUpperCase() || '?'}
                                     </AvatarFallback>

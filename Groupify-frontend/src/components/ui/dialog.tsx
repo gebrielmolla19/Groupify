@@ -5,6 +5,8 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 
 import { cn } from "./utils";
+import { useSidebar } from "./sidebar";
+import { useIsMobile } from "./use-mobile";
 
 function Dialog({
   ...props
@@ -52,6 +54,35 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
+  const isMobile = useIsMobile();
+  // Try to get sidebar context, but don't fail if not available (e.g., on login screen)
+  let sidebarState: "expanded" | "collapsed" = "expanded";
+  try {
+    const sidebar = useSidebar();
+    sidebarState = sidebar.state;
+  } catch {
+    // Not in a sidebar context, use defaults
+  }
+
+  // Calculate sidebar offset
+  // On mobile, sidebar is a sheet overlay, so no offset needed
+  // On desktop: expanded = 16rem (256px), collapsed = 4rem (64px)
+  // Note: sidebar is always visible on desktop (either expanded or collapsed), so we always need offset
+  const sidebarOffset = isMobile
+    ? 0
+    : sidebarState === 'expanded'
+      ? 256 // 16rem
+      : 64; // 4rem
+
+  // Calculate left and right positions accounting for sidebar
+  // Left should start after sidebar + padding
+  // Right should have padding from viewport edge
+  const leftPosition = isMobile ? '1.5rem' : `calc(${sidebarOffset}px + 1.5rem)`;
+  const rightPosition = '1.5rem';
+  const maxWidth = isMobile 
+    ? 'calc(100% - 3rem)' 
+    : `calc(100% - ${sidebarOffset}px - 3rem)`;
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -59,13 +90,19 @@ const DialogContent = React.forwardRef<
         ref={ref}
         data-slot="dialog-content"
           className={cn(
-            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-lg border p-4 md:p-6 shadow-lg duration-200 sm:max-w-lg",
+            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid gap-4 rounded-lg border p-4 md:p-6 shadow-lg duration-200 sm:max-w-lg",
             className,
           )}
         style={{
           top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
+          left: leftPosition,
+          right: rightPosition,
+          transform: 'translateY(-50%)',
+          margin: '0 auto',
+          maxWidth: maxWidth,
+          width: 'auto',
+          maxHeight: 'calc(100vh - 3rem)',
+          overflowY: 'auto',
           ...props.style,
         }}
         {...props}
