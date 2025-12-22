@@ -434,7 +434,6 @@ export default function SpotifyPlayerCard() {
                     <p>Previous Track</p>
                   </TooltipContent>
                 </Tooltip>
-1
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
