@@ -150,14 +150,19 @@ export default function SpotifyPlayerCard() {
       : '2rem'; // Half of 4rem collapsed width
 
   // Responsive positioning: centered with dynamic sidebar offset
-  const playerStyle = {
-    position: 'fixed' as const,
-    bottom: '24px',
-    left: `calc(50% + ${sidebarOffset})`,
+  // Use safe area insets for mobile devices (handled via CSS class)
+  // Responsive positioning: centered with dynamic sidebar offset
+  // For mobile, use fixed bottom with safe area handled via CSS class
+  const playerStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: isMobile ? '20px' : '24px',
+    left: isMobile ? '50%' : `calc(50% + ${sidebarOffset})`,
     transform: 'translateX(-50%)',
-    width: 'min(90%, 600px)',
+    width: isMobile ? 'calc(100% - 2rem)' : 'min(90%, 600px)',
     maxWidth: '600px',
-    zIndex: 9999
+    zIndex: 9999,
+    // Add padding bottom for safe area on mobile (will be added via CSS)
+    ...(isMobile && { paddingBottom: 'env(safe-area-inset-bottom, 0px)' })
   };
 
   // Also load the viewed group's playlist to check if current track belongs to it
@@ -373,16 +378,16 @@ export default function SpotifyPlayerCard() {
           data-testid="spotify-player-global"
         >
           <Card className="rounded-full border border-zinc-800 shadow-xl overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-            <CardContent className="px-6 py-2">
-              <div className="flex items-center gap-4 h-16 overflow-hidden">
-                <div className="size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
-                  <Music className="size-6 text-zinc-500" />
+            <CardContent className="px-4 md:px-6 py-2 md:py-3">
+              <div className="flex items-center gap-3 md:gap-4 h-auto md:h-16 overflow-hidden">
+                <div className="size-10 md:size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
+                  <Music className="size-5 md:size-6 text-zinc-500" />
                 </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs md:text-sm font-medium text-white">
                   {isDeviceRecentlyReady ? 'Player Activating...' : 'No Player Connected'}
                 </p>
-                <p className="text-xs text-zinc-400 truncate">
+                <p className="text-xs text-zinc-400 truncate hidden sm:block">
                   {isDeviceRecentlyReady ? 'Wait 10 seconds before playing' : 'Connect to Spotify to start playing'}
                 </p>
               </div>
@@ -404,16 +409,16 @@ export default function SpotifyPlayerCard() {
           data-testid="spotify-player-global"
         >
         <Card className="rounded-full border border-zinc-800 shadow-xl overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-          <CardContent className="px-6 py-2">
-            <div className="flex items-center gap-4 h-16 overflow-hidden">
-              <div className="size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
-                <Music className="size-6 text-zinc-500" />
+          <CardContent className="px-4 md:px-6 py-2 md:py-3">
+            <div className="flex items-center gap-3 md:gap-4 h-auto md:h-16 overflow-hidden">
+              <div className="size-10 md:size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
+                <Music className="size-5 md:size-6 text-zinc-500" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs md:text-sm font-medium text-white">
                   {isDeviceRecentlyReady ? 'Player Activating...' : 'Ready to Play'}
                 </p>
-                <p className="text-xs text-zinc-400 truncate">
+                <p className="text-xs text-zinc-400 truncate hidden sm:block">
                   {isDeviceRecentlyReady ? 'Please wait 10 seconds...' : activeDeviceName ? `Playing on ${activeDeviceName}` : 'Click a track to start'}
                 </p>
               </div>
@@ -425,7 +430,7 @@ export default function SpotifyPlayerCard() {
                       size="icon"
                       onClick={handlePreviousTrack}
                       disabled={isControlling}
-                      className="h-10 w-10 rounded-full hover:bg-white/10 text-white"
+                      className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white min-w-[44px] min-h-[44px]"
                     >
                       <SkipBack className="size-5" />
                     </Button>
@@ -441,7 +446,7 @@ export default function SpotifyPlayerCard() {
                       size="icon"
                       onClick={handlePlayPause}
                       disabled={isControlling}
-                      className="h-10 w-10 rounded-full !bg-white !text-black hover:!bg-white/90 hover:scale-105 transition-all"
+                      className="h-12 w-12 md:h-10 md:w-10 rounded-full !bg-white !text-black hover:!bg-white/90 hover:scale-105 transition-all min-w-[44px] min-h-[44px]"
                     >
                       {isControlling ? (
                         <Loader2 className="size-5 animate-spin" />
@@ -462,7 +467,7 @@ export default function SpotifyPlayerCard() {
                       size="icon"
                       onClick={handleNextTrack}
                       disabled={isControlling}
-                      className="h-10 w-10 rounded-full hover:bg-white/10 text-white"
+                      className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white min-w-[44px] min-h-[44px]"
                     >
                       <SkipForward className="size-5" />
                     </Button>
@@ -518,10 +523,10 @@ export default function SpotifyPlayerCard() {
         data-testid="spotify-player-global"
       >
       <Card className="rounded-full border border-zinc-800 shadow-2xl transition-colors overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-        <CardContent className="px-6 py-3">
-          <div className="flex items-center gap-4 h-14">
+        <CardContent className="px-4 md:px-6 py-2 md:py-3">
+          <div className="flex items-center gap-3 md:gap-4 h-auto md:h-14">
             {/* Album Artwork */}
-            <div className="h-10 w-10 shrink-0 rounded overflow-hidden relative bg-neutral-800/50">
+            <div className="h-10 w-10 md:h-10 md:w-10 shrink-0 rounded overflow-hidden relative bg-neutral-800/50">
               {albumImage ? (
                 <img
                   src={albumImage}
@@ -539,7 +544,7 @@ export default function SpotifyPlayerCard() {
             <div className="flex-1 min-w-0">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <h3 className="text-sm font-semibold text-white truncate cursor-default">
+                  <h3 className="text-xs md:text-sm font-semibold text-white truncate cursor-default">
                     {displayTrack.name}
                   </h3>
                 </TooltipTrigger>
@@ -550,7 +555,7 @@ export default function SpotifyPlayerCard() {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <p className="text-xs text-white/70 truncate cursor-default hover:text-white transition-colors">
+                  <p className="text-xs text-white/70 truncate cursor-default hover:text-white transition-colors hidden sm:block">
                     {artists}
                     {isRemotePlayback && activeDeviceName && (
                       <span className="text-white/50"> • {activeDeviceName}</span>
@@ -564,7 +569,7 @@ export default function SpotifyPlayerCard() {
             </div>
 
             {/* Playback Controls */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -572,7 +577,7 @@ export default function SpotifyPlayerCard() {
                     size="icon"
                     onClick={handlePreviousTrack}
                     disabled={isControlling || isRemotePlayback}
-                    className="h-10 w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50"
+                    className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50 min-w-[44px] min-h-[44px]"
                     aria-label="Previous track"
                   >
                     <SkipBack className="size-5 fill-current opacity-90" />
@@ -590,15 +595,15 @@ export default function SpotifyPlayerCard() {
                     size="icon"
                     onClick={handlePlayPause}
                     disabled={isControlling || isRemotePlayback}
-                    className="h-12 w-12 rounded-full !bg-white !text-black hover:!bg-white/90 shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+                    className="h-12 w-12 md:h-12 md:w-12 rounded-full !bg-white !text-black hover:!bg-white/90 shadow-lg hover:scale-105 transition-all disabled:opacity-50 min-w-[48px] min-h-[48px]"
                     aria-label={displayIsPlaying ? 'Pause' : 'Play'}
                   >
                     {isControlling ? (
-                      <Loader2 className="size-6 animate-spin" />
+                      <Loader2 className="size-5 md:size-6 animate-spin" />
                     ) : displayIsPlaying ? (
-                      <Pause className="size-6 fill-current" />
+                      <Pause className="size-5 md:size-6 fill-current" />
                     ) : (
-                      <Play className="size-6 fill-current pl-0.5" />
+                      <Play className="size-5 md:size-6 fill-current pl-0.5" />
                     )}
                   </Button>
                 </TooltipTrigger>
@@ -614,7 +619,7 @@ export default function SpotifyPlayerCard() {
                     size="icon"
                     onClick={handleNextTrack}
                     disabled={isControlling || isRemotePlayback}
-                    className="h-10 w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50"
+                    className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50 min-w-[44px] min-h-[44px]"
                     aria-label="Next track"
                   >
                     <SkipForward className="size-5 fill-current opacity-90" />
@@ -633,7 +638,7 @@ export default function SpotifyPlayerCard() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 rounded-full hover:bg-white/10 text-white"
+                        className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white min-w-[44px] min-h-[44px]"
                         aria-label="Select playback device"
                       >
                         <MonitorSpeaker className="size-5 opacity-90" />
@@ -645,7 +650,7 @@ export default function SpotifyPlayerCard() {
                   </TooltipContent>
                 </Tooltip>
 
-                <PopoverContent align="end" className="w-80">
+                <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-80">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">

@@ -27,8 +27,11 @@ export default function LoginScreen() {
     const bars = [];
     const heights = [0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0];
     // Generate fewer bars - enough to fill width but with thicker bars
+    // Reduce bar count on mobile for better performance
     const barCount = typeof window !== 'undefined' 
-      ? Math.max(40, Math.floor(window.innerWidth / 20)) 
+      ? window.innerWidth < 640 
+        ? Math.max(20, Math.floor(window.innerWidth / 25)) // Fewer bars on mobile
+        : Math.max(40, Math.floor(window.innerWidth / 20))
       : 40;
     for (let i = 0; i < barCount; i++) {
       bars.push({
@@ -68,24 +71,24 @@ export default function LoginScreen() {
       </div>
 
       {/* Content */}
-      <main className="relative z-10 max-w-xl mx-auto px-6 text-center">
+      <main className="relative z-10 max-w-xl mx-auto px-4 md:px-6 text-center">
         {/* Logo/Icon */}
-        <div className="mb-8 flex justify-center">
+        <div className="mb-6 md:mb-8 flex justify-center">
           <div className="relative">
             <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" aria-hidden="true" />
-            <div className="relative bg-zinc-900 border border-primary/30 p-6 rounded-2xl">
-              <Music className="w-16 h-16 text-primary" strokeWidth={1.5} aria-hidden="true" />
+            <div className="relative bg-zinc-900 border border-primary/30 p-4 md:p-6 rounded-2xl">
+              <Music className="w-12 h-12 md:w-16 md:h-16 text-primary" strokeWidth={1.5} aria-hidden="true" />
             </div>
           </div>
         </div>
 
         {/* Heading */}
-        <h1 className="mb-4 text-5xl bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent">
+        <h1 className="mb-3 md:mb-4 text-3xl md:text-5xl bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent">
           Groupify
         </h1>
 
         {/* Tagline */}
-        <p className="mb-12 text-xl text-zinc-400 max-w-md mx-auto">
+        <p className="mb-8 md:mb-12 text-base md:text-xl text-zinc-400 max-w-md mx-auto px-2">
           Share music, compete with friends, and discover what makes your group
           unique
         </p>
@@ -93,7 +96,7 @@ export default function LoginScreen() {
         {/* CTA Button */}
         <Button
           size="lg"
-          className="bg-primary hover:bg-primary/90 text-black px-8 py-6 h-auto group relative overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(0,255,136,0.3)]"
+          className="bg-primary hover:bg-primary/90 text-black px-6 md:px-8 py-5 md:py-6 h-auto min-h-[44px] w-full sm:w-auto group relative overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(0,255,136,0.3)]"
           onClick={handleLogin}
           disabled={isLoading}
           aria-label="Login with Spotify"
@@ -128,7 +131,7 @@ export default function LoginScreen() {
         </Button>
 
         {/* Features list */}
-        <div className="mt-16 grid grid-cols-3 gap-6 text-sm text-zinc-500">
+        <div className="mt-12 md:mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 text-xs md:text-sm text-zinc-500">
           <div className="space-y-2">
             <Waves className="w-5 h-5 text-primary mx-auto" aria-hidden="true" />
             <p>Real-time sharing</p>

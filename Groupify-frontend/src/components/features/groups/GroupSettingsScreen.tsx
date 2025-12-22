@@ -182,20 +182,20 @@ export default function GroupSettingsScreen() {
     <>
       {/* Header */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+        <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
           <SidebarTrigger />
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate(`/groups/${groupId}`)}
-            className="hover:bg-primary/10 shrink-0"
+            className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
             aria-label="Back to group feed"
           >
             <ArrowLeft className="w-5 h-5" aria-hidden="true" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="truncate">Group Settings</h1>
-            <p className="text-sm text-muted-foreground truncate">
+            <h1 className="text-base md:text-lg truncate">Group Settings</h1>
+            <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
               Manage group name, description, and members
             </p>
           </div>
@@ -206,10 +206,10 @@ export default function GroupSettingsScreen() {
         <main className="p-4 md:p-6 max-w-4xl">
           {/* Error State */}
           {error && (
-            <Card className="border-destructive mb-6">
-              <CardContent className="p-6">
-                <p className="text-destructive mb-4">{error}</p>
-                <Button onClick={() => fetchSettings()} variant="outline">
+            <Card className="border-destructive mb-4 md:mb-6">
+              <CardContent className="p-4 md:p-6">
+                <p className="text-sm md:text-base text-destructive mb-4">{error}</p>
+                <Button onClick={() => fetchSettings()} variant="outline" className="min-h-[44px]">
                   Retry
                 </Button>
               </CardContent>
@@ -295,7 +295,7 @@ export default function GroupSettingsScreen() {
                   <Button
                     onClick={handleSave}
                     disabled={!hasChanges || isSaving}
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto min-h-[44px]"
                   >
                     {isSaving ? 'Saving...' : 'Save Changes'}
                   </Button>
@@ -345,7 +345,7 @@ export default function GroupSettingsScreen() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 min-w-[44px] min-h-[44px]"
                                 onClick={() => {
                                   setMemberToRemove(member.id);
                                   setIsRemoveDialogOpen(true);
@@ -379,7 +379,7 @@ export default function GroupSettingsScreen() {
                         onClick={() => {
                           setIsDeleteDialogOpen(true);
                         }}
-                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all"
+                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all min-h-[44px]"
                         disabled={isLoading}
                       >
                         <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -396,7 +396,7 @@ export default function GroupSettingsScreen() {
                         onClick={() => {
                           setIsLeaveDialogOpen(true);
                         }}
-                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all"
+                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all min-h-[44px]"
                         disabled={isLoading}
                       >
                         <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -426,7 +426,7 @@ export default function GroupSettingsScreen() {
                     </strong> from this group? This action cannot be undone.
                   </DialogDescription>
                 </DialogHeader>
-                <DialogFooter>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -434,6 +434,7 @@ export default function GroupSettingsScreen() {
                       setMemberToRemove(null);
                     }}
                     disabled={isLoading}
+                    className="w-full sm:w-auto min-h-[44px]"
                   >
                     Cancel
                   </Button>
@@ -444,7 +445,7 @@ export default function GroupSettingsScreen() {
                       }
                     }}
                     disabled={isLoading}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto min-h-[44px]"
                   >
                     {isLoading ? 'Removing...' : 'Remove'}
                   </Button>

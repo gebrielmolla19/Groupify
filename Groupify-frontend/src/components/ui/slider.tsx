@@ -38,7 +38,7 @@ function Slider({
       min={min}
       max={max}
       className={cn(
-        "relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
+        "relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col data-[orientation=horizontal]:min-h-[44px] md:data-[orientation=horizontal]:min-h-0",
         className,
       )}
       {...props}
@@ -69,8 +69,8 @@ function Slider({
           className={cn(
             "block shrink-0 rounded-full border transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
             isVolume
-              ? "size-4 border-white shadow-none"
-              : "border-primary bg-background ring-ring/50 size-4 shadow-sm"
+              ? "size-5 md:size-4 border-white shadow-none min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0"
+              : "border-primary bg-background ring-ring/50 size-5 md:size-4 shadow-sm min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0"
           )}
           style={isVolume ? { 
             backgroundColor: '#FFFFFF', 

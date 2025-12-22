@@ -105,7 +105,7 @@ export default function CreateGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full mx-4">
+      <DialogContent className="max-w-md w-full">
         <DialogHeader>
           <DialogTitle>Create New Group</DialogTitle>
           <DialogDescription>
@@ -169,18 +169,19 @@ export default function CreateGroupDialog({
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
               disabled={isSubmitting}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-primary hover:bg-primary/90 text-black"
+              className="bg-primary hover:bg-primary/90 text-black w-full sm:w-auto min-h-[44px]"
               disabled={isSubmitting || !name.trim()}
             >
               {isSubmitting ? (

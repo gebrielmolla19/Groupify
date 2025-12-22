@@ -85,11 +85,11 @@ export default function DashboardScreen() {
     <>
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
-        <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+        <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
           <SidebarTrigger />
               <div className="flex-1 min-w-0">
-                <h1 className="truncate">My Groups</h1>
-                <p className="text-sm text-muted-foreground truncate">
+                <h1 className="text-base md:text-lg truncate">My Groups</h1>
+                <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
                   Manage and explore your music sharing groups
                 </p>
               </div>
@@ -103,29 +103,27 @@ export default function DashboardScreen() {
                 />
                 <Button
                   variant="outline"
-                  className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0"
+                  className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 min-h-[44px]"
                   aria-label="Join a group"
                   onClick={handleOpenJoinDialog}
                 >
-                  <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <UserPlus className="w-4 h-4 sm:mr-2" aria-hidden="true" />
                   <span className="hidden sm:inline">Join Group</span>
-                  <span className="sm:hidden">Join</span>
                 </Button>
                 <Button
-                  className="bg-primary hover:bg-primary/90 text-black shrink-0"
+                  className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px]"
                   aria-label="Create new group"
                   onClick={handleOpenCreateDialog}
                 >
-                  <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <Plus className="w-4 h-4 sm:mr-2" aria-hidden="true" />
                   <span className="hidden sm:inline">Create New Group</span>
-                  <span className="sm:hidden">Create</span>
                 </Button>
               </div>
             </div>
           </header>
 
           {/* Main Content */}
-          <main className="p-4 md:p-6 relative z-0">
+          <main className="p-4 md:p-6 relative z-0 space-y-4 md:space-y-6">
             {/* Error State */}
             {error && (
               <Card className="border-destructive mb-6">
@@ -168,11 +166,11 @@ export default function DashboardScreen() {
                         </p>
                       </div>
                     </div>
-                    <CardContent className="p-4">
+                    <CardContent className="p-3 md:p-4">
                       <div className="space-y-2">
                         {/* Member count and timestamp */}
-                        <div className="flex items-center justify-between text-sm gap-2">
-                          <div className="flex items-center gap-3 md:gap-4 text-muted-foreground min-w-0">
+                        <div className="flex items-center justify-between text-xs md:text-sm gap-2">
+                          <div className="flex items-center gap-2 md:gap-3 text-muted-foreground min-w-0">
                             <div
                               className="flex items-center gap-1 shrink-0"
                               aria-label={`${group.members.length} members`}
@@ -189,7 +187,7 @@ export default function DashboardScreen() {
                         {/* Invite Code - Click to reveal and copy */}
                         <div className="flex justify-start">
                           <div
-                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded border border-border cursor-pointer hover:bg-muted/70 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 md:py-1 bg-muted/50 rounded border border-border cursor-pointer hover:bg-muted/70 transition-colors min-h-[44px] touch-manipulation"
                             onClick={(e) => handleRevealAndCopyInviteCode(group.inviteCode, e)}
                             role="button"
                             tabIndex={0}
@@ -243,18 +241,18 @@ export default function DashboardScreen() {
                 }}
                 aria-label="Create your first group"
               >
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="bg-primary/10 border border-primary/30 p-4 rounded-full mb-4" aria-hidden="true">
-                    <Plus className="w-8 h-8 text-primary" />
+                <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 text-center px-4">
+                  <div className="bg-primary/10 border border-primary/30 p-3 md:p-4 rounded-full mb-3 md:mb-4" aria-hidden="true">
+                    <Plus className="w-6 h-6 md:w-8 md:h-8 text-primary" />
                   </div>
-                  <h3 className="mb-2">Create Your First Group</h3>
-                  <p className="text-muted-foreground mb-4 max-w-md">
+                  <h3 className="text-base md:text-lg mb-2">Create Your First Group</h3>
+                  <p className="text-sm md:text-base text-muted-foreground mb-4 max-w-md">
                     Start sharing music with friends, discover new tracks together,
                     and compete on the leaderboard
                   </p>
                   <Button
                     variant="outline"
-                    className="border-primary/30 hover:bg-primary/10"
+                    className="border-primary/30 hover:bg-primary/10 min-h-[44px]"
                     aria-label="Get started creating a group"
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent card click from firing

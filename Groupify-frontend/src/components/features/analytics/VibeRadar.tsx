@@ -61,7 +61,7 @@ const createCustomTooltip = (allData: MemberVibe[]) => {
         const value = item.value;
         const member = allData.find(m => String(m.userId) === memberId);
         return { memberId, value, member };
-    }).filter(item => item.member);
+    }).filter((item: { member: any; }) => item.member);
 
     if (tooltipData.length === 0) return null;
 
@@ -234,7 +234,6 @@ export default function VibeRadar({ data, isLoading, isVibesLoading = false, vib
                     {/* Time Range Filter */}
                     {changeVibesRange && (
                         <div className="flex items-center gap-2 flex-1">
-                            <span className="text-xs text-muted-foreground mr-2">Time range:</span>
                             <div className="flex gap-1">
                                 {timeRanges.map((range) => (
                                     <Button

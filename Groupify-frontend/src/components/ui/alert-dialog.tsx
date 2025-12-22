@@ -56,15 +56,17 @@ const AlertDialogContent = React.forwardRef<
       <AlertDialogPrimitive.Content
         ref={ref}
         data-slot="alert-dialog-content"
-        className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid w-full max-w-md gap-4 rounded-lg border p-6 shadow-lg duration-200",
-          className,
-        )}
+          className={cn(
+            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid w-full max-w-[calc(100%-2rem)] sm:max-w-md gap-4 rounded-lg border p-4 md:p-6 shadow-lg duration-200",
+            className,
+          )}
         style={{
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
           margin: '1rem',
+          maxHeight: 'calc(100vh - 2rem)',
+          overflowY: 'auto',
           ...props.style,
         }}
         {...props}
@@ -135,7 +137,7 @@ function AlertDialogAction({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
   return (
     <AlertDialogPrimitive.Action
-      className={cn(buttonVariants(), className)}
+      className={cn(buttonVariants(), "min-h-[44px] w-full sm:w-auto", className)}
       {...props}
     />
   );
@@ -147,7 +149,7 @@ function AlertDialogCancel({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
     <AlertDialogPrimitive.Cancel
-      className={cn(buttonVariants({ variant: "outline" }), className)}
+      className={cn(buttonVariants({ variant: "outline" }), "min-h-[44px] w-full sm:w-auto", className)}
       {...props}
     />
   );

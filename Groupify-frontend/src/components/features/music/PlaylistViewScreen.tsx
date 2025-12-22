@@ -152,26 +152,26 @@ export default function PlaylistViewScreen() {
     <>
       {/* Header */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-4 md:px-6 py-4">
+        <div className="px-4 md:px-6 py-3 md:py-4">
             <div className="flex items-center gap-2 md:gap-4 flex-wrap">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate(`/groups/${groupId}`)}
-                className="hover:bg-primary/10 shrink-0"
+                className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
                 aria-label="Back to group feed"
               >
                 <ArrowLeft className="w-5 h-5" aria-hidden="true" />
               </Button>
               <div className="flex-1 min-w-0">
-                <h1 className="truncate">Group Playlist</h1>
-                <p className="text-sm text-muted-foreground truncate">
+                <h1 className="text-base md:text-lg truncate">Group Playlist</h1>
+                <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
                   {group?.name || "Playlist"} • {stats.totalTracks} tracks
                 </p>
               </div>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                <SelectTrigger className="w-32 sm:w-48 border-primary/30 shrink-0" aria-label="Sort playlist">
-                  <Filter className="w-4 h-4 mr-2" aria-hidden="true" />
+                <SelectTrigger className="w-32 sm:w-48 border-primary/30 shrink-0 min-h-[44px]" aria-label="Sort playlist">
+                  <Filter className="w-4 h-4 mr-2 hidden sm:inline" aria-hidden="true" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -184,7 +184,7 @@ export default function PlaylistViewScreen() {
               <Button
                 variant="outline"
                 size="icon"
-                className="border-primary/30 hover:bg-primary/10 shrink-0"
+                className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
                 onClick={() => navigate(`/groups/${groupId}/analytics`)}
                 aria-label="View group analytics"
               >
@@ -192,7 +192,17 @@ export default function PlaylistViewScreen() {
               </Button>
               <Button
                 variant="outline"
-                className="border-primary/30 hover:bg-primary/10 shrink-0"
+                size="icon"
+                className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px] md:hidden"
+                onClick={handleExportToSpotify}
+                disabled={isExporting || shares.length === 0}
+                aria-label="Export playlist to Spotify"
+              >
+                <ExternalLink className="w-4 h-4" aria-hidden="true" />
+              </Button>
+              <Button
+                variant="outline"
+                className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] hidden md:flex"
                 onClick={handleExportToSpotify}
                 disabled={isExporting || shares.length === 0}
                 aria-label="Export playlist to Spotify"
@@ -210,7 +220,7 @@ export default function PlaylistViewScreen() {
                 )}
               </Button>
               <Button
-                className="bg-primary hover:bg-primary/90 text-black shrink-0"
+                className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px]"
                 onClick={handlePlayAll}
                 disabled={shares.length === 0 || !deviceId || isPlayerLoading || isPlaying !== null}
                 aria-label="Play all tracks in playlist"
@@ -264,9 +274,9 @@ export default function PlaylistViewScreen() {
         <main className="p-4 md:p-6">
           {/* Error State */}
           {error && (
-            <Card className="border-destructive mb-6">
-              <CardContent className="p-6">
-                <p className="text-destructive">{error}</p>
+            <Card className="border-destructive mb-4 md:mb-6">
+              <CardContent className="p-4 md:p-6">
+                <p className="text-sm md:text-base text-destructive">{error}</p>
               </CardContent>
             </Card>
           )}
@@ -314,9 +324,70 @@ export default function PlaylistViewScreen() {
             </div>
           )}
 
-          {/* Playlist Table */}
+          {/* Mobile Card Layout */}
           {!isLoading && shares.length > 0 && (
-            <div className="rounded-lg border border-border overflow-x-auto">
+            <div className="md:hidden space-y-3">
+              {shares.map((share, index) => {
+                const isTopTrack = share.listenCount > 0 && share.listenCount >= Math.max(...shares.map(s => s.listenCount)) * 0.8;
+                return (
+                  <Card
+                    key={share._id}
+                    className="cursor-pointer hover:bg-primary/5 transition-colors"
+                    onClick={() => handleTrackClick(share)}
+                  >
+                    <CardContent className="p-3 md:p-4">
+                      <div className="flex items-center gap-3">
+                        <button
+                          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50 min-w-[44px] min-h-[44px]"
+                          aria-label={`Play ${share.trackName} by ${share.artistName}`}
+                          disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTrackClick(share);
+                          }}
+                        >
+                          {isPlaying === share._id ? (
+                            <Loader2 className="w-5 h-5 text-primary animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Play className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                            <h4 className="text-sm font-medium truncate">{share.trackName}</h4>
+                            {isTopTrack && (
+                              <TrendingUp className="w-3 h-3 text-primary shrink-0" aria-label="Top track" />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate mb-1">
+                            {share.artistName}
+                          </p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {share.albumName && (
+                              <span className="truncate">{share.albumName}</span>
+                            )}
+                            <span>•</span>
+                            <span>{formatDuration(share.durationMs || 0)}</span>
+                            {share.listenCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{share.listenCount} plays</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Desktop Table */}
+          {!isLoading && shares.length > 0 && (
+            <div className="hidden md:block rounded-lg border border-border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border">
@@ -341,7 +412,7 @@ export default function PlaylistViewScreen() {
                       >
                         <TableCell>
                           <button
-                            className="flex items-center justify-center w-full h-full disabled:opacity-50"
+                            className="flex items-center justify-center w-full h-full disabled:opacity-50 min-h-[44px] min-w-[44px]"
                             aria-label={`Play ${share.trackName} by ${share.artistName}`}
                             disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
                             onClick={(e) => {
@@ -416,7 +487,7 @@ export default function PlaylistViewScreen() {
                 <Button
                   variant="outline"
                   onClick={() => navigate(`/groups/${groupId}`)}
-                  className="border-primary/30 hover:bg-primary/10"
+                  className="border-primary/30 hover:bg-primary/10 min-h-[44px]"
                 >
                   Go to Group Feed
                 </Button>

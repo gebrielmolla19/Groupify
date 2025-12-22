@@ -70,18 +70,18 @@ export default function AuthCallbackScreen() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="max-w-md w-full mx-auto px-6 text-center">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full mx-auto text-center">
           <div
-            className="bg-destructive/10 border border-destructive/30 rounded-lg p-6"
+            className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 md:p-6"
             role="alert"
             aria-live="assertive"
           >
-            <h2 className="text-xl font-semibold text-destructive mb-2">Authentication Error</h2>
-            <p className="text-muted-foreground mb-4">{error}</p>
+            <h2 className="text-lg md:text-xl font-semibold text-destructive mb-2">Authentication Error</h2>
+            <p className="text-sm md:text-base text-muted-foreground mb-4">{error}</p>
             <button
               onClick={() => navigate('/login')}
-              className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors min-h-[44px]"
               aria-label="Return to login page"
             >
               Return to Login
@@ -93,14 +93,14 @@ export default function AuthCallbackScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="max-w-md w-full mx-auto px-6 text-center">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="max-w-md w-full mx-auto text-center">
         <div className="space-y-4" role="status" aria-live="polite">
           <div
-            className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"
+            className="inline-block animate-spin rounded-full h-10 w-10 md:h-12 md:w-12 border-4 border-primary border-t-transparent"
             aria-hidden="true"
           />
-          <p className="text-muted-foreground">Completing authentication...</p>
+          <p className="text-sm md:text-base text-muted-foreground">Completing authentication...</p>
         </div>
       </div>
     </div>

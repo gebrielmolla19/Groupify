@@ -64,7 +64,7 @@ export default function SolarSystem({ members, isLoading }: SolarSystemProps) {
     }
 
     return (
-        <div className="relative w-full aspect-square max-w-[500px] mx-auto flex items-center justify-center overflow-hidden rounded-full bg-black/40 border border-white/5 shadow-2xl backdrop-blur-sm">
+        <div className="relative w-full aspect-square max-w-[500px] mx-auto flex items-center justify-center overflow-hidden rounded-full bg-black/40 border border-white/5 shadow-2xl backdrop-blur-sm min-h-[300px] sm:min-h-0">
             {/* Background Stars - specific static implementation for simplicity */}
             <div className="absolute inset-0 opacity-30">
                 {[...Array(20)].map((_, i) => (

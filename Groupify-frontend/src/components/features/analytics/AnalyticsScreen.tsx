@@ -45,19 +45,19 @@ export default function AnalyticsScreen() {
 
         {/* Header */}
         <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+          <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
             <SidebarTrigger />
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate("/")}
-              className="hover:bg-primary/10 shrink-0"
+              className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
               aria-label="Back to dashboard"
             >
               <ArrowLeft className="w-5 h-5" aria-hidden="true" />
             </Button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold tracking-tight">Group Dynamics</h1>
+              <h1 className="text-base md:text-lg font-semibold tracking-tight">Group Dynamics</h1>
             </div>
           </div>
         </header>
@@ -93,20 +93,20 @@ export default function AnalyticsScreen() {
 
       {/* Header */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+        <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
           <SidebarTrigger />
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate(`/groups/${groupId}`)}
-            className="hover:bg-primary/10 shrink-0"
+            className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
             aria-label="Back to group feed"
           >
             <ArrowLeft className="w-5 h-5" aria-hidden="true" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold tracking-tight">Group Dynamics</h1>
-            <p className="text-xs text-muted-foreground truncate">
+            <h1 className="text-base md:text-lg font-semibold tracking-tight">Group Dynamics</h1>
+            <p className="text-xs text-muted-foreground truncate hidden sm:block">
               Visualizing {group?.name || 'group'} activity and engagement
             </p>
           </div>
@@ -114,26 +114,26 @@ export default function AnalyticsScreen() {
       </header>
 
       {/* Main Content */}
-      <main className="p-4 md:p-8 relative z-0 space-y-8 max-w-7xl mx-auto">
+      <main className="p-4 md:p-8 relative z-0 space-y-6 md:space-y-8 max-w-7xl mx-auto">
         {error && (
           <Card className="border-destructive bg-destructive/10">
-            <CardContent className="p-6">
-              <p className="text-destructive font-medium">{error}</p>
+            <CardContent className="p-4 md:p-6">
+              <p className="text-sm md:text-base text-destructive font-medium">{error}</p>
             </CardContent>
           </Card>
         )}
 
         {/* Top Section: Visualization & Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto lg:h-[500px]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 h-auto lg:h-[500px]">
 
           {/* 1. Vibe Radar (Personality) */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:gap-4">
             <div className="flex items-center justify-between px-2">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <span className="text-2xl">📡</span>
+              <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
+                <span className="text-xl md:text-2xl">📡</span>
                 Vibe Radar
               </h2>
-              <span className="text-xs text-muted-foreground">Compare member personalities</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Compare member personalities</span>
             </div>
             <Card className="flex-1 bg-black/40 border-white/5 overflow-hidden relative group">
               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
@@ -150,19 +150,18 @@ export default function AnalyticsScreen() {
           </div>
 
           {/* 2. Waveform (Activity) */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:gap-4">
             <div className="flex items-center justify-between px-2">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
+              <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
+                <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                 Resonance Frequency
               </h2>
             </div>
             
             {/* Time Range Selector and Mode Toggle */}
-            <div className="flex items-center justify-between gap-4 px-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground mr-2">Time range:</span>
-                <div className="flex gap-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 px-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
                   {timeRanges.map((range) => (
                     <Button
                       key={range.value}
@@ -171,8 +170,8 @@ export default function AnalyticsScreen() {
                       onClick={() => changeTimeRange(range.value)}
                       className={
                         activityRange === range.value
-                          ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
-                          : 'border-primary/30 hover:bg-primary/10 h-7 px-3 text-xs'
+                          ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                          : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
                       }
                     >
                       {range.label}
@@ -182,9 +181,9 @@ export default function AnalyticsScreen() {
               </div>
               
               {/* Mode Toggle */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                 <span className="text-xs text-muted-foreground">View:</span>
-                <div className="flex gap-1 border border-white/10 rounded-md p-0.5">
+                <div className="flex gap-1 border border-white/10 rounded-md p-0.5 w-full sm:w-auto">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -192,8 +191,8 @@ export default function AnalyticsScreen() {
                     disabled={isActivityLoading}
                     className={
                       activityMode === 'shares'
-                        ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
-                        : 'hover:bg-white/5 h-7 px-3 text-xs text-muted-foreground'
+                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
                     }
                   >
                     Shares Posted
@@ -205,8 +204,8 @@ export default function AnalyticsScreen() {
                     disabled={isActivityLoading}
                     className={
                       activityMode === 'engagement'
-                        ? 'bg-primary hover:bg-primary/90 text-black h-7 px-3 text-xs'
-                        : 'hover:bg-white/5 h-7 px-3 text-xs text-muted-foreground'
+                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
                     }
                   >
                     Engagement
@@ -228,23 +227,23 @@ export default function AnalyticsScreen() {
         </div>
 
         {/* Bottom Section: Hall of Fame */}
-        <div className="space-y-6 pt-6 border-t border-border/50">
+        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
           <div className="flex items-center gap-2 px-2">
             <div className="p-2 rounded-lg bg-primary/10">
-              <Sparkles className="w-6 h-6 text-primary" />
+              <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Hall of Fame</h2>
-              <p className="text-sm text-muted-foreground">Top performers and outliers in the group</p>
+              <h2 className="text-xl md:text-2xl font-bold">Hall of Fame</h2>
+              <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Top performers and outliers in the group</p>
             </div>
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 md:h-40 w-full rounded-xl" />)}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {superlatives.trendsetter && (
                 <SuperlativeCard
                   title="Trendsetter"
@@ -297,7 +296,7 @@ export default function AnalyticsScreen() {
               {/* Empty state if no superlatives found */}
               {Object.keys(superlatives).length === 0 && (
                 <Card className="col-span-full border-dashed bg-transparent">
-                  <CardContent className="h-32 flex items-center justify-center text-muted-foreground">
+                  <CardContent className="h-24 md:h-32 flex items-center justify-center text-sm md:text-base text-muted-foreground px-4">
                     No data available for superlatives yet.
                   </CardContent>
                 </Card>

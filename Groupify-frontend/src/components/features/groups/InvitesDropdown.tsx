@@ -74,7 +74,7 @@ export default function InvitesDropdown({
         <div className="relative inline-flex">
           <Button
             variant="outline"
-            className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 p-2 h-9 w-9"
+            className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 p-2 h-11 w-11 md:h-9 md:w-9 min-w-[44px] min-h-[44px]"
             aria-label={`View invitations${inviteCount > 0 ? ` (${inviteCount} pending)` : ''}`}
           >
             <Bell className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -164,12 +164,12 @@ export default function InvitesDropdown({
                             {formatDistanceToNow(new Date(invite.createdAt), { addSuffix: true })}
                           </p>
                         </div>
-                        <div className="flex gap-1 shrink-0">
+                        <div className="flex gap-2 shrink-0">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleDecline(invite)}
-                            className="h-8 w-8 p-0 border-muted-foreground/30 hover:bg-destructive/10 hover:border-destructive/50"
+                            className="h-11 w-11 md:h-8 md:w-8 p-0 border-muted-foreground/30 hover:bg-destructive/10 hover:border-destructive/50 min-w-[44px] min-h-[44px]"
                             aria-label="Decline invite"
                           >
                             <XCircle className="w-4 h-4" />
@@ -177,7 +177,7 @@ export default function InvitesDropdown({
                           <Button
                             size="sm"
                             onClick={() => handleAccept(invite)}
-                            className="h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-black"
+                            className="h-11 w-11 md:h-8 md:w-8 p-0 bg-primary hover:bg-primary/90 text-black min-w-[44px] min-h-[44px]"
                             aria-label="Accept invite"
                           >
                             <CheckCircle2 className="w-4 h-4" />

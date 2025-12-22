@@ -41,7 +41,7 @@ function AuthenticatedLayout() {
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <div className="pb-24 w-full">
+            <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
               <Routes>
                 <Route path="/" element={<DashboardScreen />} />
                 <Route path="/profile" element={<ProfileScreen />} />

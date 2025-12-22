@@ -126,6 +126,11 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Safe area insets for iOS devices */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }
 
@@ -294,5 +299,71 @@ html {
 [data-slot="slider"] [data-slot="slider-track"] {
   background-color: rgba(255, 255, 255, 0.1) !important;
   background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Virtual keyboard handling */
+@supports (height: 100dvh) {
+  html {
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+  
+  body {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Prevent viewport zoom on iOS when keyboard appears */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Ensure inputs scroll into view when focused */
+input:focus,
+textarea:focus,
+select:focus {
+  scroll-margin-bottom: 20vh; /* Account for keyboard */
+}
+
+/* Landscape orientation optimizations */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Reduce padding on small landscape screens */
+  header {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  /* Reduce spacing in cards */
+  .card-content {
+    padding: 0.75rem;
+  }
+  
+  /* Make headers more compact */
+  h1 {
+    font-size: 1rem;
+  }
+  
+  h2 {
+    font-size: 0.875rem;
+  }
+}
+
+/* Performance optimizations for mobile */
+@media (max-width: 768px) {
+  /* Reduce animations on mobile for better performance */
+  * {
+    animation-duration: 0.3s !important;
+    transition-duration: 0.2s !important;
+  }
+  
+  /* Optimize will-change for better scrolling */
+  [data-slot="scroll-area-viewport"] {
+    will-change: scroll-position;
+  }
 }
 

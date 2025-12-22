@@ -97,11 +97,11 @@ export default function ProfileScreen() {
       <>
         {/* Header */}
         <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+          <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
             <SidebarTrigger />
               <div className="flex-1 min-w-0">
-                <h1 className="truncate">Profile & Settings</h1>
-                <p className="text-sm text-muted-foreground truncate">
+                <h1 className="text-base md:text-lg truncate">Profile & Settings</h1>
+                <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
                   Manage your account and preferences
                 </p>
               </div>
@@ -121,17 +121,17 @@ export default function ProfileScreen() {
                   Your Spotify account details
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-start gap-6">
+              <CardContent className="space-y-4 md:space-y-6">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
                   <div className="relative">
-                    <Avatar className="w-24 h-24 border-2 border-primary/30">
+                    <Avatar className="w-16 h-16 md:w-24 md:h-24 border-2 border-primary/30">
                       <AvatarImage src={user?.profileImage || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                      <AvatarFallback className="bg-primary/10 text-primary text-base md:text-xl">
                         {user?.displayName ? getInitials(user.displayName) : 'U'}
                       </AvatarFallback>
                     </Avatar>
                   </div>
-                  <div className="flex-1 space-y-4">
+                  <div className="flex-1 space-y-4 w-full">
                     <div>
                       <Label htmlFor="display-name">Display Name</Label>
                       <Input
@@ -187,10 +187,10 @@ export default function ProfileScreen() {
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button 
                     variant="outline" 
-                    className="border-primary/30 hover:bg-primary/10"
+                    className="border-primary/30 hover:bg-primary/10 min-h-[44px] w-full sm:w-auto"
                     onClick={handleSaveChanges}
                     disabled={!hasChanges || isUpdating}
                   >
@@ -200,6 +200,7 @@ export default function ProfileScreen() {
                     variant="ghost"
                     onClick={handleCancel}
                     disabled={!hasChanges || isUpdating}
+                    className="min-h-[44px] w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -262,44 +263,44 @@ export default function ProfileScreen() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="new-tracks">New Track Shares</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between py-3 gap-4">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label htmlFor="new-tracks" className="text-sm md:text-base">New Track Shares</Label>
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Get notified when someone shares a new track
                     </p>
                   </div>
-                  <Switch id="new-tracks" defaultChecked />
+                  <Switch id="new-tracks" defaultChecked className="shrink-0" />
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between py-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="group-invites">Group Invites</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between py-3 gap-4">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label htmlFor="group-invites" className="text-sm md:text-base">Group Invites</Label>
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Receive notifications for new group invitations
                     </p>
                   </div>
-                  <Switch id="group-invites" defaultChecked />
+                  <Switch id="group-invites" defaultChecked className="shrink-0" />
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between py-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="leaderboard">Leaderboard Updates</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between py-3 gap-4">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label htmlFor="leaderboard" className="text-sm md:text-base">Leaderboard Updates</Label>
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Weekly summary of your position on leaderboards
                     </p>
                   </div>
-                  <Switch id="leaderboard" defaultChecked />
+                  <Switch id="leaderboard" defaultChecked className="shrink-0" />
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between py-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="recommendations">Recommendations</Label>
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between py-3 gap-4">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label htmlFor="recommendations" className="text-sm md:text-base">Recommendations</Label>
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Get personalized track recommendations
                     </p>
                   </div>
-                  <Switch id="recommendations" />
+                  <Switch id="recommendations" className="shrink-0" />
                 </div>
               </CardContent>
             </Card>
@@ -343,7 +344,7 @@ export default function ProfileScreen() {
               <CardContent className="space-y-3">
                 <Button
                   variant="outline"
-                  className="w-full border-destructive/30 hover:bg-destructive/10 text-destructive-foreground"
+                  className="w-full border-destructive/30 hover:bg-destructive/10 text-destructive-foreground min-h-[44px]"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
@@ -351,7 +352,7 @@ export default function ProfileScreen() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full border-destructive/50 hover:bg-destructive/20 text-destructive-foreground"
+                  className="w-full border-destructive/50 hover:bg-destructive/20 text-destructive-foreground min-h-[44px]"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4 mr-2" />

@@ -245,26 +245,35 @@ export default function GroupFeedScreen() {
     <>
       {/* Header - Full Width */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-4 md:px-6 py-4">
-              <div className="flex items-center gap-2 md:gap-4 mb-4">
+        <div className="px-4 md:px-6 py-3 md:py-4">
+              <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => navigate("/")}
-                  className="hover:bg-primary/10 shrink-0"
+                  className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
                   aria-label="Back to dashboard"
                 >
                   <ArrowLeft className="w-5 h-5" aria-hidden="true" />
                 </Button>
                 <div className="flex-1 min-w-0">
-                  <h1 className="truncate">{group?.name || "Group Feed"}</h1>
-                  <p className="text-sm text-muted-foreground truncate">
+                  <h1 className="text-base md:text-lg truncate">{group?.name || "Group Feed"}</h1>
+                  <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
                     {group?.members?.length || 0} members • {total || 0} tracks shared
                   </p>
                 </div>
                 <Button
                   variant="outline"
-                  className="border-primary/30 hover:bg-primary/10 hidden md:flex shrink-0"
+                  size="icon"
+                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px] md:hidden"
+                  onClick={() => navigate(`/groups/${groupId}/playlist`)}
+                  aria-label="View group playlist"
+                >
+                  <List className="w-4 h-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-primary/30 hover:bg-primary/10 hidden md:flex shrink-0 min-h-[44px]"
                   onClick={() => navigate(`/groups/${groupId}/playlist`)}
                   aria-label="View group playlist"
                 >
@@ -274,7 +283,7 @@ export default function GroupFeedScreen() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0"
+                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
                   onClick={() => navigate(`/groups/${groupId}/analytics`)}
                   aria-label="View group analytics"
                 >
@@ -283,7 +292,7 @@ export default function GroupFeedScreen() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0"
+                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
                   onClick={() => navigate(`/groups/${groupId}/settings`)}
                   aria-label="Group settings"
                 >
@@ -291,7 +300,7 @@ export default function GroupFeedScreen() {
                 </Button>
                 <Button
                   size="icon"
-                  className="bg-primary hover:bg-primary/90 text-black shrink-0 rounded-full"
+                  className="bg-primary hover:bg-primary/90 text-black shrink-0 rounded-full min-w-[44px] min-h-[44px]"
                   aria-label="Invite a friend to group"
                   onClick={() => setIsInviteDialogOpen(true)}
                 >
@@ -317,8 +326,8 @@ export default function GroupFeedScreen() {
 
                 {/* Search Results Dropdown */}
                 {showSearchResults && (searchResults.length > 0 || isSearching) && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-[10000] max-h-[400px] overflow-hidden">
-                    <ScrollArea className="max-h-[400px]">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-[10000] max-h-[60vh] md:max-h-[400px] overflow-hidden">
+                    <ScrollArea className="max-h-[60vh] md:max-h-[400px]">
                       <div className="p-2">
                         {isSearching ? (
                           <div className="flex items-center justify-center py-8">
@@ -332,7 +341,7 @@ export default function GroupFeedScreen() {
                                 key={track.id}
                                 onClick={() => handleShareTrack(track)}
                                 disabled={isSharing === track.id}
-                                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed group"
+                                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed group min-h-[60px] touch-manipulation"
                                 aria-label={`Share ${track.name} by ${track.artists.map(a => a.name).join(', ')}`}
                               >
                                 {/* Album Art */}
@@ -380,9 +389,9 @@ export default function GroupFeedScreen() {
             <main className="flex-1 min-w-0 p-4 md:p-6">
               {/* Error State */}
               {error && (
-                <Card className="border-destructive mb-6">
-                  <CardContent className="p-6">
-                    <p className="text-destructive">{error}</p>
+                <Card className="border-destructive mb-4 md:mb-6">
+                  <CardContent className="p-4 md:p-6">
+                    <p className="text-sm md:text-base text-destructive">{error}</p>
                   </CardContent>
                 </Card>
               )}
@@ -392,14 +401,14 @@ export default function GroupFeedScreen() {
                 <div className="space-y-3 max-w-4xl">
                   {[1, 2, 3].map((i) => (
                     <Card key={i} className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <Skeleton className="w-16 h-16 rounded-lg" />
+                      <CardContent className="p-3 md:p-4">
+                        <div className="flex items-center gap-3 md:gap-4">
+                          <Skeleton className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg" />
                           <div className="flex-1">
                             <Skeleton className="h-4 w-3/4 mb-2" />
                             <Skeleton className="h-3 w-1/2" />
                           </div>
-                          <Skeleton className="h-10 w-10 rounded-full" />
+                          <Skeleton className="h-10 w-10 sm:h-10 sm:w-10 rounded-full" />
                         </div>
                       </CardContent>
                     </Card>
@@ -432,7 +441,7 @@ export default function GroupFeedScreen() {
                             )}
                             <Button
                               size="icon"
-                              className="absolute inset-0 m-auto w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-black rounded-full disabled:opacity-50"
+                              className="absolute inset-0 m-auto w-10 h-10 sm:w-8 sm:h-8 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-black rounded-full disabled:opacity-50 min-w-[44px] min-h-[44px]"
                               aria-label={`Play ${share.trackName}`}
                               onClick={() => handlePlayTrack(share)}
                               disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
@@ -484,7 +493,7 @@ export default function GroupFeedScreen() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="w-8 h-8 hover:bg-primary/10"
+                                className="w-10 h-10 sm:w-8 sm:h-8 hover:bg-primary/10 min-w-[44px] min-h-[44px]"
                                 onClick={() => handleMarkListened(share._id)}
                                 aria-label="Mark as listened"
                               >
@@ -501,7 +510,7 @@ export default function GroupFeedScreen() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 hover:bg-primary/10"
+                                    className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-primary/10 min-w-[44px] min-h-[44px]"
                                     onClick={() => handleToggleLike(share._id)}
                                   >
                                     <Heart
@@ -540,7 +549,7 @@ export default function GroupFeedScreen() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors min-w-[44px] min-h-[44px]"
                                   disabled={isRemoving === share._id}
                                   aria-label="Remove from group"
                                 >
@@ -594,7 +603,7 @@ export default function GroupFeedScreen() {
                                 return (
                                   <Avatar
                                     key={listenerUser._id || listenerUser.id || index}
-                                    className="w-6 h-6 border-2 border-background shrink-0"
+                                    className="w-7 h-7 sm:w-6 sm:h-6 border-2 border-background shrink-0"
                                     style={{
                                       marginLeft: index > 0 ? '-8px' : '0',
                                       zIndex: index + 1
@@ -633,12 +642,12 @@ export default function GroupFeedScreen() {
               {/* Empty State */}
               {!isLoading && shares.length === 0 && !error && (
                 <Card className="border-dashed border-2 border-border">
-                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="bg-primary/10 border border-primary/30 p-4 rounded-full mb-4" aria-hidden="true">
-                      <Music2 className="w-8 h-8 text-primary" />
+                  <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 text-center px-4">
+                    <div className="bg-primary/10 border border-primary/30 p-3 md:p-4 rounded-full mb-3 md:mb-4" aria-hidden="true">
+                      <Music2 className="w-6 h-6 md:w-8 md:h-8 text-primary" />
                     </div>
-                    <h3 className="mb-2">No Tracks Shared Yet</h3>
-                    <p className="text-muted-foreground mb-4 max-w-md">
+                    <h3 className="text-base md:text-lg mb-2">No Tracks Shared Yet</h3>
+                    <p className="text-sm md:text-base text-muted-foreground mb-4 max-w-md">
                       Be the first to share a track! Search for a song above and add it to the group.
                     </p>
                   </CardContent>
