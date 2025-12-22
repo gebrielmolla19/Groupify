@@ -163,3 +163,4 @@ if (typeof window !== 'undefined') {
     logger.error('This error log should appear');
   };
 }
+
