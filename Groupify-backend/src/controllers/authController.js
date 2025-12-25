@@ -20,6 +20,8 @@ class AuthController {
         'user-read-playback-state',
         'user-read-currently-playing',
         'user-modify-playback-state',
+        'playlist-modify-private',
+        'playlist-read-private',
         'streaming'
       ].join(' ');
 

@@ -376,52 +376,25 @@ class SpotifyService {
    * @param {string} name - Playlist name
    * @param {string} description - Playlist description
    * @param {boolean} isPublic - Whether playlist is public (default: false)
+   * @param {boolean} collaborative - Whether playlist is collaborative (default: false)
    * @returns {Promise<Object>} Created playlist data
    */
-  static async createPlaylist(accessToken, userId, name, description = '', isPublic = false) {
-    try {
-      const response = await axios.post(
-        `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
-        {
+  static async createPlaylist(accessToken, userId, name, description = '', isPublic = false, collaborative = false, maxRetries = 3) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    const attemptCreate = async (retryCount = 0) => {
+      try {
+        // If collaborative is true, public must be false (Spotify API requirement)
+        const playlistData = {
           name,
           description,
-          public: isPublic
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to create playlist: ${error.message}`);
-    }
-  }
+          public: collaborative ? false : isPublic,
+          collaborative: collaborative
+        };
 
-  /**
-   * Add tracks to a playlist
-   * @param {string} accessToken - Spotify access token
-   * @param {string} playlistId - Spotify playlist ID
-   * @param {string[]} trackUris - Array of Spotify track URIs (spotify:track:xxx)
-   * @returns {Promise<Object>} Snapshot ID of the playlist
-   */
-  static async addTracksToPlaylist(accessToken, playlistId, trackUris) {
-    try {
-      // Spotify API allows max 100 tracks per request
-      const chunks = [];
-      for (let i = 0; i < trackUris.length; i += 100) {
-        chunks.push(trackUris.slice(i, i + 100));
-      }
-
-      const results = [];
-      for (const chunk of chunks) {
         const response = await axios.post(
-          `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
-          {
-            uris: chunk
-          },
+          `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+          playlistData,
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -429,13 +402,489 @@ class SpotifyService {
             }
           }
         );
-        results.push(response.data);
+        
+        return response.data;
+      } catch (error) {
+        // Handle specific Spotify API errors
+        if (error.response) {
+          const status = error.response.status;
+          const responseData = error.response.data;
+          
+          let spotifyMessage = error.message;
+          if (responseData?.error?.message) {
+            spotifyMessage = responseData.error.message;
+          } else if (typeof responseData === 'string') {
+            spotifyMessage = responseData;
+          }
+          
+          // Retry on server errors (502, 503, 504) with exponential backoff
+          if (status >= 500 && status < 600 && retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
+            console.log(`Spotify API server error (${status}) when creating playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            await sleep(delay);
+            return attemptCreate(retryCount + 1);
+          }
+          
+          const customError = new Error();
+          
+          if (status >= 500 && status < 600) {
+            customError.message = `Spotify API is temporarily unavailable (${status}). Please try again in a moment.`;
+            customError.statusCode = status;
+            customError.spotifyError = spotifyMessage;
+            customError.isServerError = true;
+            customError.isRetryable = true;
+            throw customError;
+          } else if (status === 403) {
+            customError.message = `Insufficient permissions to create playlist. Please ensure you have granted the 'playlist-modify-private' scope during login. Error: ${spotifyMessage}`;
+            customError.statusCode = 403;
+            customError.spotifyError = spotifyMessage;
+            customError.details = {
+              requiredScopes: ['playlist-modify-private'],
+              suggestion: 'Please log out and log back in to grant the required permissions.'
+            };
+            throw customError;
+          } else if (status === 401) {
+            customError.message = `Invalid or expired Spotify access token: ${spotifyMessage}`;
+            customError.statusCode = 401;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          } else if (status === 400) {
+            customError.message = `Invalid playlist data: ${spotifyMessage}`;
+            customError.statusCode = 400;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          } else {
+            customError.message = `Failed to create playlist: ${spotifyMessage}`;
+            customError.statusCode = status || 500;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          }
+        }
+        
+        // Network errors - retry if we haven't exceeded max retries
+        if (retryCount < maxRetries && !error.response) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          console.log(`Network error when creating playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await sleep(delay);
+          return attemptCreate(retryCount + 1);
+        }
+        
+        // Network or other errors
+        throw new Error(`Failed to create playlist: ${error.message}`);
       }
+    };
+    
+    return attemptCreate();
+  }
 
-      return results[results.length - 1]; // Return last snapshot ID
-    } catch (error) {
-      throw new Error(`Failed to add tracks to playlist: ${error.message}`);
-    }
+  /**
+   * Add tracks to a playlist with retry logic for server errors
+   * @param {string} accessToken - Spotify access token
+   * @param {string} playlistId - Spotify playlist ID
+   * @param {string[]} trackUris - Array of Spotify track URIs (spotify:track:xxx)
+   * @param {number} maxRetries - Maximum number of retries (default: 3)
+   * @returns {Promise<Object>} Snapshot ID of the playlist
+   */
+  static async addTracksToPlaylist(accessToken, playlistId, trackUris, maxRetries = 3) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    const attemptAddTracks = async (retryCount = 0) => {
+      try {
+        // Spotify API allows max 100 tracks per request
+        const chunks = [];
+        for (let i = 0; i < trackUris.length; i += 100) {
+          chunks.push(trackUris.slice(i, i + 100));
+        }
+
+        const results = [];
+        for (const chunk of chunks) {
+          const response = await axios.post(
+            `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+            {
+              uris: chunk
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          results.push(response.data);
+        }
+
+        return results[results.length - 1]; // Return last snapshot ID
+      } catch (error) {
+        // Handle specific Spotify API errors
+        if (error.response) {
+          const status = error.response.status;
+          const responseData = error.response.data;
+          
+          let spotifyMessage = error.message;
+          if (responseData?.error?.message) {
+            spotifyMessage = responseData.error.message;
+          }
+          
+          // Retry on server errors (502, 503, 504) with exponential backoff
+          if (status >= 500 && status < 600 && retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
+            console.log(`Spotify API server error (${status}), retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            await sleep(delay);
+            return attemptAddTracks(retryCount + 1);
+          }
+          
+          const customError = new Error();
+          
+          if (status >= 500 && status < 600) {
+            customError.message = `Spotify API is temporarily unavailable (${status}). Please try again in a moment.`;
+            customError.statusCode = status;
+            customError.spotifyError = spotifyMessage;
+            customError.isServerError = true;
+            customError.isRetryable = true;
+            throw customError;
+          } else if (status === 404) {
+            customError.message = `Playlist not found. It may have been deleted on Spotify.`;
+            customError.statusCode = 404;
+            customError.spotifyError = spotifyMessage;
+            customError.isPlaylistDeleted = true;
+            throw customError;
+          } else if (status === 403) {
+            customError.message = `Insufficient permissions to add tracks to playlist: ${spotifyMessage}`;
+            customError.statusCode = 403;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          } else if (status === 401) {
+            customError.message = `Invalid or expired Spotify access token: ${spotifyMessage}`;
+            customError.statusCode = 401;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          }
+        }
+        
+        // Network errors - retry if we haven't exceeded max retries
+        if (retryCount < maxRetries && !error.response) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          console.log(`Network error, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await sleep(delay);
+          return attemptAddTracks(retryCount + 1);
+        }
+        
+        throw new Error(`Failed to add tracks to playlist: ${error.message}`);
+      }
+    };
+    
+    return attemptAddTracks();
+  }
+
+  /**
+   * Replace all tracks in a playlist
+   * @param {string} accessToken - Spotify access token
+   * @param {string} playlistId - Spotify playlist ID
+   * @param {string[]} trackUris - Array of Spotify track URIs (spotify:track:xxx)
+   * @param {number} maxRetries - Maximum number of retries (default: 3)
+   * @returns {Promise<Object>} Snapshot ID of the playlist
+   * @throws {Error} If playlist doesn't exist (404) or other errors
+   */
+  static async replacePlaylistTracks(accessToken, playlistId, trackUris, maxRetries = 3) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    const attemptReplace = async (retryCount = 0) => {
+      try {
+        // First, get all existing tracks to clear them
+        const existingTracks = await this.getPlaylistTracks(accessToken, playlistId, maxRetries);
+        
+        // Clear existing tracks if any
+        if (existingTracks.length > 0) {
+          const trackUrisToRemove = existingTracks.map(track => ({ uri: track.track.uri }));
+          
+          // Spotify API allows max 100 tracks per delete request
+          const chunks = [];
+          for (let i = 0; i < trackUrisToRemove.length; i += 100) {
+            chunks.push(trackUrisToRemove.slice(i, i + 100));
+          }
+
+          for (const chunk of chunks) {
+            try {
+              await axios.delete(
+                `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  },
+                  data: {
+                    tracks: chunk
+                  }
+                }
+              );
+            } catch (deleteError) {
+              // Retry delete on server errors
+              if (deleteError.response?.status >= 500 && deleteError.response?.status < 600 && retryCount < maxRetries) {
+                const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+                console.log(`Spotify API server error (${deleteError.response.status}) when deleting tracks, retrying in ${delay}ms...`);
+                await sleep(delay);
+                // Retry the entire replace operation
+                return attemptReplace(retryCount + 1);
+              }
+              throw deleteError;
+            }
+          }
+        }
+
+        // Add new tracks (this already has retry logic)
+        if (trackUris.length > 0) {
+          return await this.addTracksToPlaylist(accessToken, playlistId, trackUris, maxRetries);
+        }
+
+        return { snapshot_id: playlistId };
+      } catch (error) {
+        // Handle specific Spotify API errors
+        if (error.response) {
+          const status = error.response.status;
+          const responseData = error.response.data;
+          
+          let spotifyMessage = error.message;
+          if (responseData?.error?.message) {
+            spotifyMessage = responseData.error.message;
+          }
+          
+          // Retry on server errors (502, 503, 504) with exponential backoff
+          if (status >= 500 && status < 600 && retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
+            console.log(`Spotify API server error (${status}) when replacing tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            await sleep(delay);
+            return attemptReplace(retryCount + 1);
+          }
+          
+          const customError = new Error();
+          
+          if (status === 404) {
+            // Playlist was deleted or doesn't exist
+            customError.message = `Playlist not found. It may have been deleted on Spotify.`;
+            customError.statusCode = 404;
+            customError.spotifyError = spotifyMessage;
+            customError.isPlaylistDeleted = true;
+            throw customError;
+          } else if (status >= 500 && status < 600) {
+            // Server errors (502, 503, 504, etc.) - Spotify API issues
+            customError.message = `Spotify API is temporarily unavailable (${status}). Please try again in a moment.`;
+            customError.statusCode = status;
+            customError.spotifyError = spotifyMessage;
+            customError.isServerError = true;
+            customError.isRetryable = true;
+            throw customError;
+          } else if (status === 403) {
+            customError.message = `Insufficient permissions to modify playlist: ${spotifyMessage}`;
+            customError.statusCode = 403;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          } else if (status === 401) {
+            customError.message = `Invalid or expired Spotify access token: ${spotifyMessage}`;
+            customError.statusCode = 401;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          }
+        }
+        
+        // Network errors - retry if we haven't exceeded max retries
+        if (retryCount < maxRetries && !error.response) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          console.log(`Network error when replacing tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await sleep(delay);
+          return attemptReplace(retryCount + 1);
+        }
+        
+        // Network errors or other issues
+        const networkError = new Error(`Failed to replace playlist tracks: ${error.message}`);
+        networkError.originalError = error;
+        networkError.isRetryable = !error.response; // Network errors are retryable
+        throw networkError;
+      }
+    };
+    
+    return attemptReplace();
+  }
+
+  /**
+   * Get all tracks from a playlist with retry logic
+   * @param {string} accessToken - Spotify access token
+   * @param {string} playlistId - Spotify playlist ID
+   * @param {number} maxRetries - Maximum number of retries (default: 3)
+   * @returns {Promise<Array>} Array of track objects
+   * @throws {Error} If playlist doesn't exist (404) or other errors
+   */
+  static async getPlaylistTracks(accessToken, playlistId, maxRetries = 3) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    const attemptGetTracks = async (retryCount = 0) => {
+      try {
+        const tracks = [];
+        let offset = 0;
+        const limit = 100;
+
+        while (true) {
+          const response = await axios.get(
+            `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              },
+              params: {
+                limit,
+                offset
+              }
+            }
+          );
+
+          tracks.push(...response.data.items);
+
+          if (!response.data.next) {
+            break;
+          }
+
+          offset += limit;
+        }
+
+          return tracks;
+      } catch (error) {
+        // Handle specific Spotify API errors
+        if (error.response) {
+          const status = error.response.status;
+          const responseData = error.response.data;
+          
+          let spotifyMessage = error.message;
+          if (responseData?.error?.message) {
+            spotifyMessage = responseData.error.message;
+          }
+          
+          // Retry on server errors (502, 503, 504) with exponential backoff
+          if (status >= 500 && status < 600 && retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
+            console.log(`Spotify API server error (${status}) when getting playlist tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            await sleep(delay);
+            return attemptGetTracks(retryCount + 1);
+          }
+          
+          const customError = new Error();
+          
+          if (status === 404) {
+            // Playlist was deleted or doesn't exist
+            customError.message = `Playlist not found. It may have been deleted on Spotify.`;
+            customError.statusCode = 404;
+            customError.spotifyError = spotifyMessage;
+            customError.isPlaylistDeleted = true;
+            throw customError;
+          } else if (status >= 500 && status < 600) {
+            // Server errors (502, 503, 504, etc.) - Spotify API issues
+            customError.message = `Spotify API is temporarily unavailable (${status}). Please try again in a moment.`;
+            customError.statusCode = status;
+            customError.spotifyError = spotifyMessage;
+            customError.isServerError = true;
+            customError.isRetryable = true;
+            throw customError;
+          } else if (status === 403) {
+            customError.message = `Insufficient permissions to access playlist: ${spotifyMessage}`;
+            customError.statusCode = 403;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          } else if (status === 401) {
+            customError.message = `Invalid or expired Spotify access token: ${spotifyMessage}`;
+            customError.statusCode = 401;
+            customError.spotifyError = spotifyMessage;
+            throw customError;
+          }
+        }
+        
+        // Network errors - retry if we haven't exceeded max retries
+        if (retryCount < maxRetries && !error.response) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          console.log(`Network error when getting playlist tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await sleep(delay);
+          return attemptGetTracks(retryCount + 1);
+        }
+        
+        // Network errors or other issues
+        const networkError = new Error(`Failed to get playlist tracks: ${error.message}`);
+        networkError.originalError = error;
+        networkError.isRetryable = !error.response; // Network errors are retryable
+        throw networkError;
+      }
+    };
+    
+    return attemptGetTracks();
+  }
+
+  /**
+   * Follow a playlist (required for users to collaborate on collaborative playlists)
+   * @param {string} accessToken - Spotify access token
+   * @param {string} playlistId - Spotify playlist ID
+   * @returns {Promise<void>} Success if following is successful
+   */
+  static async followPlaylist(accessToken, playlistId, maxRetries = 3) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    const attemptFollow = async (retryCount = 0) => {
+      try {
+        await axios.put(
+          `${SPOTIFY_API_BASE}/playlists/${playlistId}/followers`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        return;
+      } catch (error) {
+        // Handle specific Spotify API errors
+        if (error.response) {
+          const status = error.response.status;
+          const responseData = error.response.data;
+          
+          let spotifyMessage = error.message;
+          if (responseData?.error?.message) {
+            spotifyMessage = responseData.error.message;
+          }
+          
+          // Retry on server errors (502, 503, 504) with exponential backoff
+          if (status >= 500 && status < 600 && retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
+            console.log(`Spotify API server error (${status}) when following playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            await sleep(delay);
+            return attemptFollow(retryCount + 1);
+          }
+          
+          // 403 can mean user already follows, or insufficient permissions
+          // 404 means playlist doesn't exist
+          // Both are acceptable - we'll log but not throw for 403 (already following)
+          if (status === 403) {
+            // User might already be following, which is fine
+            console.log(`User already follows playlist or insufficient permissions: ${spotifyMessage}`);
+            return; // Don't throw - already following is acceptable
+          } else if (status === 404) {
+            throw new Error(`Playlist not found: ${spotifyMessage}`);
+          } else if (status === 401) {
+            throw new Error(`Invalid or expired Spotify access token: ${spotifyMessage}`);
+          } else if (status >= 500 && status < 600) {
+            // Server errors after retries exhausted
+            throw new Error(`Spotify API is temporarily unavailable (${status}). Please try again in a moment.`);
+          }
+        }
+        
+        // Network errors - retry if we haven't exceeded max retries
+        if (retryCount < maxRetries && !error.response) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          console.log(`Network error when following playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          await sleep(delay);
+          return attemptFollow(retryCount + 1);
+        }
+        
+        throw new Error(`Failed to follow playlist: ${error.message}`);
+      }
+    };
+    
+    return attemptFollow();
   }
 
   /**

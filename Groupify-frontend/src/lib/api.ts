@@ -50,23 +50,34 @@ export const fetchWithAuth = async (
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-    const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-    
-    // Create error with status code for better handling
-    const apiError = new Error(errorMessage);
-    (apiError as any).status = response.status;
-    (apiError as any).statusCode = response.status;
-    throw apiError;
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+      const errorMessage = error.message || `HTTP error! status: ${response.status}`;
+      
+      // Create error with status code for better handling
+      const apiError = new Error(errorMessage);
+      (apiError as any).status = response.status;
+      (apiError as any).statusCode = response.status;
+      throw apiError;
+    }
+
+    return response;
+  } catch (error) {
+    // Re-throw with more context for network errors
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      // Network error - could be CORS, backend down, or no internet
+      const networkError = new Error('Network error: Unable to reach the server. Please check your connection.');
+      (networkError as any).isNetworkError = true;
+      throw networkError;
+    }
+    throw error;
   }
-
-  return response;
 };
 
 /**
@@ -583,16 +594,31 @@ export const getRecentlyPlayed = async (
 };
 
 /**
- * Export group to Spotify playlist
+ * Export group to Spotify collaborative playlist
+ * Creates a new collaborative playlist or updates existing one
  */
+export interface ExportPlaylistResponse {
+  id: string;
+  name: string;
+  external_urls: { spotify: string };
+  tracks: { total: number };
+}
+
+export interface ExportPlaylistResult {
+  playlist: ExportPlaylistResponse;
+  isNewPlaylist: boolean;
+  playlistId: string;
+  playlistUrl: string | null;
+  canModify?: boolean;
+}
+
 export const exportGroupToPlaylist = async (
   groupId: string,
-  playlistName?: string,
-  isPublic: boolean = false
-): Promise<{ id: string; name: string; external_urls: { spotify: string }; tracks: { total: number } }> => {
+  playlistName?: string
+): Promise<ExportPlaylistResult> => {
   const response = await fetchWithAuth(`/spotify/groups/${groupId}/export-playlist`, {
     method: 'POST',
-    body: JSON.stringify({ playlistName, isPublic }),
+    body: JSON.stringify({ playlistName }),
   });
 
   const data = await response.json();
@@ -601,7 +627,38 @@ export const exportGroupToPlaylist = async (
     throw new Error(data.message || 'Failed to export playlist');
   }
 
-  return data.playlist;
+  return {
+    playlist: data.playlist,
+    isNewPlaylist: data.isNewPlaylist,
+    playlistId: data.playlistId,
+    playlistUrl: data.playlistUrl,
+    canModify: data.canModify !== false
+  };
+};
+
+/**
+ * Follow a group's collaborative playlist (for non-owners)
+ */
+export const followGroupPlaylist = async (groupId: string): Promise<{
+  playlist: ExportPlaylistResponse;
+  playlistId: string;
+  playlistUrl: string | null;
+}> => {
+  const response = await fetchWithAuth(`/spotify/groups/${groupId}/follow-playlist`, {
+    method: 'POST',
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to follow playlist');
+  }
+
+  return {
+    playlist: data.playlist,
+    playlistId: data.playlistId,
+    playlistUrl: data.playlistUrl
+  };
 };
 
 /**

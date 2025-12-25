@@ -247,65 +247,101 @@ export default function GroupFeedScreen() {
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="px-4 md:px-6 py-3 md:py-4">
               <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate("/")}
-                  className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                  aria-label="Back to dashboard"
-                >
-                  <ArrowLeft className="w-5 h-5" aria-hidden="true" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
+                        onClick={() => navigate("/")}
+                        aria-label="Back to dashboard"
+                      >
+                        <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Back to dashboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <div className="flex-1 min-w-0">
                   <h1 className="text-base md:text-lg truncate">{group?.name || "Group Feed"}</h1>
                   <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
                     {group?.members?.length || 0} members • {total || 0} tracks shared
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px] md:hidden"
-                  onClick={() => navigate(`/groups/${groupId}/playlist`)}
-                  aria-label="View group playlist"
-                >
-                  <List className="w-4 h-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-primary/30 hover:bg-primary/10 hidden md:flex shrink-0 min-h-[44px]"
-                  onClick={() => navigate(`/groups/${groupId}/playlist`)}
-                  aria-label="View group playlist"
-                >
-                  <List className="w-4 h-4 mr-2" aria-hidden="true" />
-                  <span>View Playlist</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                  onClick={() => navigate(`/groups/${groupId}/analytics`)}
-                  aria-label="View group analytics"
-                >
-                  <TrendingUp className="w-4 h-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                  onClick={() => navigate(`/groups/${groupId}/settings`)}
-                  aria-label="Group settings"
-                >
-                  <Settings className="w-4 h-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="icon"
-                  className="bg-primary hover:bg-primary/90 text-black shrink-0 rounded-full min-w-[44px] min-h-[44px]"
-                  aria-label="Invite a friend to group"
-                  onClick={() => setIsInviteDialogOpen(true)}
-                >
-                  <UserPlus className="w-4 h-4" aria-hidden="true" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        onClick={() => navigate(`/groups/${groupId}/playlist`)}
+                        aria-label="View group playlist"
+                      >
+                        <List className="w-4 h-4" aria-hidden="true" />
+                        <span className="hidden md:block ml-2">View Playlist</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>View group playlist</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        onClick={() => navigate(`/groups/${groupId}/analytics`)}
+                        aria-label="View group analytics"
+                      >
+                        <TrendingUp className="w-4 h-4" aria-hidden="true" />
+                        <span className="hidden md:block ml-2">Analytics</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>View group analytics</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        onClick={() => navigate(`/groups/${groupId}/settings`)}
+                        aria-label="Group settings"
+                      >
+                        <Settings className="w-4 h-4" aria-hidden="true" />
+                        <span className="hidden md:block ml-2">Settings</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Group settings</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        className="bg-primary hover:bg-primary/90 text-black shrink-0 rounded-full min-h-[44px] px-2 sm:px-4"
+                        aria-label="Invite a friend to group"
+                        onClick={() => setIsInviteDialogOpen(true)}
+                      >
+                        <UserPlus className="w-4 h-4" aria-hidden="true" />
+                        <span className="hidden md:block ml-2">Invite</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Invite a friend to group</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
 
               {/* Search Bar */}

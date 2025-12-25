@@ -31,6 +31,20 @@ const groupSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  spotifyPlaylistId: {
+    type: String,
+    default: null,
+    index: true
+  },
+  spotifyPlaylistUrl: {
+    type: String,
+    default: null
+  },
+  spotifyPlaylistOwnerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   }
 }, {
   timestamps: true

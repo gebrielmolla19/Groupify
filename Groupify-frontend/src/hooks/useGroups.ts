@@ -19,8 +19,9 @@ export const useGroups = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchGroups = useCallback(async () => {
-    // Don't fetch if user is not authenticated
-    if (!isAuthenticated || !getToken()) {
+    // Don't fetch if user is not authenticated or token is missing
+    const token = getToken();
+    if (!isAuthenticated || !token) {
       setIsLoading(false);
       setGroups([]);
       setError(null);
@@ -33,13 +34,26 @@ export const useGroups = () => {
       const fetchedGroups = await apiGetUserGroups();
       setGroups(fetchedGroups);
     } catch (err) {
-      // Handle "no token" errors gracefully (user is logged out)
+      // Handle network errors and auth errors gracefully
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch groups';
-      if (errorMessage.includes('token') || errorMessage.includes('authentication') || errorMessage.includes('401')) {
-        // User is logged out, clear groups silently
+      
+      // Check if it's a network error (Failed to fetch) or auth error
+      if (
+        errorMessage.includes('Failed to fetch') ||
+        errorMessage.includes('token') || 
+        errorMessage.includes('authentication') || 
+        errorMessage.includes('401') ||
+        errorMessage.includes('403')
+      ) {
+        // User is logged out or network issue - clear groups silently
         setGroups([]);
         setError(null);
+        // Only log if it's not a simple "no auth" case
+        if (!errorMessage.includes('Failed to fetch')) {
+          logger.debug('Groups fetch skipped - user not authenticated');
+        }
       } else {
+        // Real error - log it
         setError(errorMessage);
         logger.error('Failed to fetch groups:', err);
       }
@@ -125,7 +139,8 @@ export const useGroups = () => {
     joinGroupByCode,
     joinGroup,
     leaveGroup,
-    refetch: fetchGroups
+    refetch: fetchGroups,
+    setGroups // Expose setGroups for optimistic updates
   };
 };
 

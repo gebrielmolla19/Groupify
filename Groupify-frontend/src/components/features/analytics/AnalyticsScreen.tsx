@@ -2,6 +2,7 @@ import { Card, CardContent } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import { useGroupAnalytics } from "../../../hooks/useGroupAnalytics";
 import ActivityWave from "./ActivityWave";
 import VibeRadar from "./VibeRadar";
@@ -95,15 +96,24 @@ export default function AnalyticsScreen() {
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
           <SidebarTrigger />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(`/groups/${groupId}`)}
-            className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-            aria-label="Back to group feed"
-          >
-            <ArrowLeft className="w-5 h-5" aria-hidden="true" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
+                  onClick={() => navigate(`/groups/${groupId}`)}
+                  aria-label="Back to group feed"
+                >
+                  <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Back to group feed</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <div className="flex-1 min-w-0">
             <h1 className="text-base md:text-lg font-semibold tracking-tight">Group Dynamics</h1>
             <p className="text-xs text-muted-foreground truncate hidden sm:block">

@@ -20,6 +20,9 @@ export interface Group {
   members: User[];
   inviteCode: string;
   isActive: boolean;
+  spotifyPlaylistId?: string;
+  spotifyPlaylistUrl?: string;
+  spotifyPlaylistOwnerId?: string;
   createdAt: string;
   updatedAt: string;
 }

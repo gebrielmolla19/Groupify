@@ -1,5 +1,6 @@
-import { ArrowLeft, Play, Clock, Filter, TrendingUp, Loader2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Play, Clock, Filter, TrendingUp, Loader2, ExternalLink, Plus, ListMusic } from "lucide-react";
 import { Button } from "../../ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { Badge } from "../../ui/badge";
 import { Card, CardContent } from "../../ui/card";
@@ -19,11 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { Share } from "../../../types";
+import { Share, Group } from "../../../types";
 import { usePlaylist } from "../../../hooks/usePlaylist";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
-import { exportGroupToPlaylist } from "../../../lib/api";
+import { exportGroupToPlaylist, followGroupPlaylist } from "../../../lib/api";
+import { useUser } from "../../../contexts/UserContext";
 import { toast } from "sonner";
 import { useState, useEffect, useMemo } from "react";
 import { logger } from "../../../utils/logger";
@@ -41,10 +43,27 @@ const formatDuration = (ms: number): string => {
 export default function PlaylistViewScreen() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
-  const { groups } = useGroups();
+  const { groups, refetch: refetchGroups, setGroups } = useGroups();
+  const { user } = useUser();
   
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
+  
+  // Check if group has a collaborative playlist
+  const hasCollaborativePlaylist = useMemo(() => !!group?.spotifyPlaylistId, [group]);
+  
+  // Check if current user is the playlist owner
+  // If no playlist exists yet, any group member can create it
+  const isPlaylistOwner = useMemo(() => {
+    if (!user || !group) return false;
+    
+    // If no playlist exists, user can create it (they'll become the owner)
+    if (!group.spotifyPlaylistId) return true;
+    
+    // If playlist exists, check if user is the owner
+    if (!group.spotifyPlaylistOwnerId) return false;
+    return group.spotifyPlaylistOwnerId === user._id || group.spotifyPlaylistOwnerId === user.id;
+  }, [group, user]);
   
   const { shares, isLoading, error, sortBy, setSortBy, stats } = usePlaylist(groupId || '');
   const { playTrack, deviceId, isLoading: isPlayerLoading } = useSpotifyPlayer();
@@ -58,6 +77,7 @@ export default function PlaylistViewScreen() {
   }, [sortBy, group, setContextSortBy]);
   
   const [isExporting, setIsExporting] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
 
   const handlePlayAll = async () => {
@@ -101,18 +121,62 @@ export default function PlaylistViewScreen() {
 
     try {
       setIsExporting(true);
-      const playlist = await exportGroupToPlaylist(
+      
+      // Remember if we had a playlist before (to detect recreation)
+      const hadPlaylistBefore = hasCollaborativePlaylist;
+      
+      const result = await exportGroupToPlaylist(
         groupId,
-        `${group?.name || 'Group'} - Groupify Playlist`,
-        false
+        `${group?.name || 'Group'} - Groupify Collaborative Playlist`
       );
 
-      logger.info('Playlist exported to Spotify:', { groupId, playlistId: playlist.id });
-      toast.success('Playlist exported to Spotify!');
+      logger.info('Playlist exported to Spotify:', { 
+        groupId, 
+        playlistId: result.playlistId,
+        isNewPlaylist: result.isNewPlaylist,
+        hadPlaylistBefore
+      });
+
+      // Show appropriate success message
+      if (result.canModify === false) {
+        // User doesn't have permission to modify the playlist
+        toast.info('Playlist opened in Spotify', {
+          description: 'Only the playlist creator can update tracks via Groupify. You can add tracks directly in Spotify.'
+        });
+      } else if (result.isNewPlaylist) {
+        // If we had a playlist before but got isNewPlaylist = true, it was recreated
+        if (hadPlaylistBefore) {
+          toast.success('Playlist recreated successfully! (Previous playlist was deleted on Spotify)', {
+            description: 'All group members will be re-invited to collaborate.'
+          });
+        } else {
+          toast.success('Collaborative playlist created successfully!');
+        }
+      } else {
+        toast.success('Collaborative playlist updated successfully!');
+      }
+
+      // Update local group state immediately with playlist info (optimistic update)
+      if (group && result.playlistId && setGroups) {
+        const updatedGroup: Group = {
+          ...group,
+          spotifyPlaylistId: result.playlistId,
+          spotifyPlaylistUrl: result.playlistUrl || undefined,
+          spotifyPlaylistOwnerId: user?._id || user?.id
+        };
+        setGroups(prevGroups => 
+          prevGroups.map(g => g._id === groupId ? updatedGroup : g)
+        );
+      }
+      
+      // Refresh groups to get updated playlist ID and owner from server
+      await refetchGroups();
 
       // Open the playlist in Spotify
-      if (playlist.external_urls?.spotify) {
-        window.open(playlist.external_urls.spotify, '_blank');
+      if (result.playlistUrl) {
+        window.open(result.playlistUrl, '_blank');
+      } else if (result.playlist.external_urls?.spotify) {
+        window.open(result.playlist.external_urls.spotify, '_blank');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to export playlist';
@@ -120,6 +184,36 @@ export default function PlaylistViewScreen() {
       logger.error('Failed to export playlist:', err);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleFollowPlaylist = async () => {
+    if (!groupId) return;
+
+    try {
+      setIsFollowing(true);
+      
+      const result = await followGroupPlaylist(groupId);
+
+      logger.info('Playlist followed:', { 
+        groupId, 
+        playlistId: result.playlistId
+      });
+
+      toast.success('Successfully followed the collaborative playlist!', {
+        description: 'You can now add tracks directly in Spotify.'
+      });
+
+      // Open the playlist in Spotify
+      if (result.playlistUrl) {
+        window.open(result.playlistUrl, '_blank');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to follow playlist';
+      toast.error(errorMessage);
+      logger.error('Failed to follow playlist:', err);
+    } finally {
+      setIsFollowing(false);
     }
   };
 
@@ -154,59 +248,119 @@ export default function PlaylistViewScreen() {
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="px-4 md:px-6 py-3 md:py-4">
             <div className="flex items-center gap-2 md:gap-4 flex-wrap">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(`/groups/${groupId}`)}
-                className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                aria-label="Back to group feed"
-              >
-                <ArrowLeft className="w-5 h-5" aria-hidden="true" />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
+                      onClick={() => navigate(`/groups/${groupId}`)}
+                      aria-label="Back to group feed"
+                    >
+                      <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Back to group feed</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="flex-1 min-w-0">
                 <h1 className="text-base md:text-lg truncate">Group Playlist</h1>
                 <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
-                  {group?.name || "Playlist"} • {stats.totalTracks} tracks
+                  {group?.name || "Playlist"} • {stats?.totalTracks || 0} tracks
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                onClick={() => navigate(`/groups/${groupId}/analytics`)}
-                aria-label="View group analytics"
-              >
-                <TrendingUp className="w-4 h-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="border-primary/30 hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px] md:hidden"
-                onClick={handleExportToSpotify}
-                disabled={isExporting || shares.length === 0}
-                aria-label="Export playlist to Spotify"
-              >
-                <ExternalLink className="w-4 h-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="outline"
-                className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] hidden md:flex"
-                onClick={handleExportToSpotify}
-                disabled={isExporting || shares.length === 0}
-                aria-label="Export playlist to Spotify"
-              >
-                {isExporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
-                    <span className="hidden md:inline">Exporting...</span>
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="w-4 h-4 mr-2" aria-hidden="true" />
-                    <span className="hidden md:inline">Export</span>
-                  </>
-                )}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                      onClick={() => navigate(`/groups/${groupId}/analytics`)}
+                      aria-label="View group analytics"
+                    >
+                      <TrendingUp className="w-4 h-4" aria-hidden="true" />
+                      <span className="hidden md:block ml-2">Analytics</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>View group analytics</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {/* Show Create/Update button for playlist owner, or Create button if no playlist exists */}
+              {group && (!hasCollaborativePlaylist || isPlaylistOwner) && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        onClick={handleExportToSpotify}
+                        disabled={isExporting || shares.length === 0}
+                        aria-label={hasCollaborativePlaylist ? "Update collaborative playlist" : "Create collaborative playlist"}
+                      >
+                        {isExporting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                            <span className="hidden md:block ml-2">
+                              {hasCollaborativePlaylist ? 'Updating...' : 'Creating...'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {hasCollaborativePlaylist ? (
+                              <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                            ) : (
+                              <Plus className="w-4 h-4" aria-hidden="true" />
+                            )}
+                            <span className="hidden md:block ml-2">
+                              {hasCollaborativePlaylist ? 'Update Collaborative Playlist' : 'Create Collaborative Playlist'}
+                            </span>
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{hasCollaborativePlaylist ? 'Update Collaborative Playlist' : 'Create Collaborative Playlist'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              
+              {/* Show Follow button for non-owners (only if playlist exists and user is not the owner) */}
+              {hasCollaborativePlaylist && group && user && !isPlaylistOwner && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        onClick={handleFollowPlaylist}
+                        disabled={isFollowing || !hasCollaborativePlaylist}
+                        aria-label="Follow collaborative playlist"
+                      >
+                        {isFollowing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                            <span className="hidden md:block ml-2">Following...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ListMusic className="w-4 h-4" aria-hidden="true" />
+                            <span className="hidden md:block ml-2">Follow Collaborative Playlist</span>
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Follow Collaborative Playlist</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Button
                 className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px]"
                 onClick={handlePlayAll}
@@ -267,10 +421,10 @@ export default function PlaylistViewScreen() {
                   <span className="text-primary whitespace-nowrap">{group?.members?.length || 0} members</span>
                   <span className="text-muted-foreground">•</span>
                   <span className="text-muted-foreground whitespace-nowrap">
-                    {stats.totalTracks} songs
+                    {stats?.totalTracks || 0} songs
                   </span>
                   <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground whitespace-nowrap">{stats.totalDurationFormatted}</span>
+                  <span className="text-muted-foreground whitespace-nowrap">{stats?.totalDurationFormatted || '0m'}</span>
                 </div>
               </div>
               
