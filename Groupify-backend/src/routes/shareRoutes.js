@@ -40,6 +40,14 @@ router.post(
   ShareController.markAsListened
 );
 
+// Unmark a share as listened
+router.delete(
+  '/:shareId/listen',
+  authMiddleware,
+  validate(shareIdSchema, 'params'),
+  ShareController.unmarkAsListened
+);
+
 // Toggle like on a share
 router.put(
   '/:shareId/like',

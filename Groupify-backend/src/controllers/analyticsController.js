@@ -61,6 +61,44 @@ class AnalyticsController {
       next(error);
     }
   }
+
+  /**
+   * Get listener reflex analytics
+   * GET /api/v1/analytics/:id/listener-reflex?range=30d&mode=received
+   */
+  static async getListenerReflex(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { range = '30d', mode = 'received' } = req.query;
+
+      // Validate range
+      const validRanges = ['24h', '7d', '30d', '90d'];
+      if (!validRanges.includes(range)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid range. Must be one of: ${validRanges.join(', ')}`
+        });
+      }
+
+      // Validate mode
+      const validModes = ['received', 'shared'];
+      if (!validModes.includes(mode)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid mode. Must be one of: ${validModes.join(', ')}`
+        });
+      }
+
+      const data = await AnalyticsService.computeListenerReflex(id, range, mode);
+
+      res.json({
+        success: true,
+        data
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = AnalyticsController;

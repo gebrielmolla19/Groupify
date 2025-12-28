@@ -673,6 +673,272 @@ class AnalyticsService {
 
     return results;
   }
+
+  /**
+   * Compute Listener Reflex analytics
+   * Tracks how quickly group members react to shared songs
+   * @param {string} groupId - Group ID
+   * @param {string} range - Time range: '24h' | '7d' | '30d' | '90d'
+   * @param {string} mode - Analysis mode: 'received' | 'shared'
+   *   - 'received': How fast each member listens to songs shared in the group
+   *   - 'shared': How fast others listen to songs shared by that member
+   */
+  static async computeListenerReflex(groupId, range = '30d', mode = 'received') {
+    const gid = new mongoose.Types.ObjectId(groupId);
+    const now = new Date();
+    let startDate = new Date();
+
+    // Calculate start date based on range
+    if (range === '24h') {
+      startDate.setTime(now.getTime() - 24 * 60 * 60 * 1000);
+    } else if (range === '7d') {
+      startDate.setDate(now.getDate() - 7);
+    } else if (range === '30d') {
+      startDate.setDate(now.getDate() - 30);
+    } else if (range === '90d') {
+      startDate.setDate(now.getDate() - 90);
+    } else {
+      // Default to 30d
+      startDate.setDate(now.getDate() - 30);
+    }
+
+    // Get group members
+    const group = await Group.findById(gid).select('members').lean();
+    if (!group) {
+      throw new Error('Group not found');
+    }
+
+    const memberIds = group.members.map(m => new mongoose.Types.ObjectId(m));
+
+    // Build aggregation pipeline based on mode
+    let pipeline;
+
+    if (mode === 'received') {
+      // Received mode: How fast each member listens to songs shared in the group
+      pipeline = [
+        {
+          $match: {
+            group: gid,
+            createdAt: { $gte: startDate }
+          }
+        },
+        { $unwind: '$listeners' },
+        {
+          $match: {
+            'listeners.user': { $in: memberIds },
+            'listeners.timeToListen': { $ne: null, $exists: true },
+            'listeners.listenedAt': { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: '$listeners.user',
+            listenData: {
+              $push: {
+                ms: '$listeners.timeToListen',
+                listenedAt: '$listeners.listenedAt'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ];
+    } else {
+      // Shared mode: How fast others listen to songs shared by that member
+      pipeline = [
+        {
+          $match: {
+            group: gid,
+            sharedBy: { $in: memberIds },
+            createdAt: { $gte: startDate }
+          }
+        },
+        { $unwind: '$listeners' },
+        {
+          $match: {
+            'listeners.timeToListen': { $ne: null, $exists: true },
+            'listeners.listenedAt': { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: '$sharedBy',
+            listenData: {
+              $push: {
+                ms: '$listeners.timeToListen',
+                listenedAt: '$listeners.listenedAt'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ];
+    }
+
+    // Execute aggregation
+    const aggregationResults = await Share.aggregate(pipeline);
+
+    // Helper function to calculate percentile
+    const calculatePercentile = (values, percentile) => {
+      if (!values || values.length === 0) return null;
+      const sorted = [...values].sort((a, b) => a - b);
+      
+      // For median (50th percentile), handle even/odd cases correctly
+      if (percentile === 50) {
+        const mid = sorted.length / 2;
+        if (sorted.length % 2 === 0) {
+          // Even number of values: average the two middle values
+          return (sorted[mid - 1] + sorted[mid]) / 2;
+        } else {
+          // Odd number of values: return the middle value
+          return sorted[Math.floor(mid)];
+        }
+      }
+      
+      // For other percentiles, use the standard formula
+      const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+      return sorted[Math.max(0, index)];
+    };
+
+    // Process results and calculate statistics
+    const userStatsMap = new Map();
+
+    for (const result of aggregationResults) {
+      const userId = result._id.toString();
+      // Filter out invalid entries and extract timeToListen values for statistics
+      const validListenData = result.listenData.filter(
+        item => item.ms !== null && item.ms !== undefined && item.listenedAt
+      );
+
+      if (validListenData.length === 0) continue;
+
+      // Extract timeToListen values for statistics calculation
+      const timeToListenValues = validListenData.map(item => item.ms);
+
+      // Calculate statistics
+      const sorted = [...timeToListenValues].sort((a, b) => a - b);
+      const median = calculatePercentile(sorted, 50);
+      const p25 = calculatePercentile(sorted, 25);
+      const p75 = calculatePercentile(sorted, 75);
+      const avg = timeToListenValues.reduce((sum, val) => sum + val, 0) / timeToListenValues.length;
+
+      // Categorize based on median
+      let category;
+      if (median < 600000) { // < 10 minutes
+        category = 'instant';
+      } else if (median < 3600000) { // 10-60 minutes
+        category = 'quick';
+      } else if (median < 86400000) { // 1-24 hours
+        category = 'slow';
+      } else { // > 24 hours
+        category = 'longTail';
+      }
+
+      // Store listenData with both ms and listenedAt for ringData
+      // Sort by listenedAt (most recent first) for ringData, then limit to 50
+      const sortedByRecency = [...validListenData].sort((a, b) => {
+        const dateA = new Date(a.listenedAt).getTime();
+        const dateB = new Date(b.listenedAt).getTime();
+        return dateB - dateA; // Most recent first
+      });
+
+      userStatsMap.set(userId, {
+        userId,
+        listens: timeToListenValues.length,
+        medianMs: median,
+        p25Ms: p25,
+        p75Ms: p75,
+        avgMs: avg,
+        category,
+        listenData: sortedByRecency // Keep with timestamps for ringData
+      });
+    }
+
+    // Get user details for all users with stats
+    const userIds = Array.from(userStatsMap.keys()).map(id => new mongoose.Types.ObjectId(id));
+    const users = await User.find({ _id: { $in: userIds } })
+      .select('displayName profileImage')
+      .lean();
+
+    const userDetailsMap = new Map();
+    users.forEach(user => {
+      userDetailsMap.set(user._id.toString(), {
+        displayName: user.displayName,
+        avatarUrl: user.profileImage || null
+      });
+    });
+
+    // Build users array with details
+    const usersArray = [];
+    const buckets = {
+      instant: [],
+      quick: [],
+      slow: [],
+      longTail: []
+    };
+
+    for (const [userId, stats] of userStatsMap.entries()) {
+      const userDetails = userDetailsMap.get(userId);
+      if (!userDetails) continue;
+
+      usersArray.push({
+        userId,
+        displayName: userDetails.displayName,
+        avatarUrl: userDetails.avatarUrl,
+        listens: stats.listens,
+        medianMs: stats.medianMs,
+        p25Ms: stats.p25Ms,
+        p75Ms: stats.p75Ms,
+        category: stats.category
+      });
+
+      buckets[stats.category].push(userId);
+    }
+
+    // Sort users by median time (fastest first)
+    usersArray.sort((a, b) => a.medianMs - b.medianMs);
+
+    // Build ringData (sample up to 50 most recent points per user)
+    const ringData = [];
+    for (const [userId, stats] of userStatsMap.entries()) {
+      // Take up to 50 most recent listens (already sorted by recency)
+      const recentListens = stats.listenData.slice(0, 50);
+      const points = recentListens.map(item => ({
+        ms: item.ms,
+        listenedAt: item.listenedAt instanceof Date 
+          ? item.listenedAt.toISOString() 
+          : new Date(item.listenedAt).toISOString()
+      }));
+      
+      ringData.push({
+        userId,
+        points
+      });
+    }
+
+    // Calculate group median
+    const allMedians = usersArray.map(u => u.medianMs);
+    const groupMedianMs = allMedians.length > 0
+      ? calculatePercentile(allMedians, 50)
+      : null;
+
+    // Build summary
+    const summary = {
+      groupMedianMs: groupMedianMs || 0,
+      instantReactorCount: buckets.instant.length
+    };
+
+    return {
+      groupId: groupId.toString(),
+      range,
+      mode,
+      generatedAt: new Date().toISOString(),
+      buckets,
+      users: usersArray,
+      ringData,
+      summary
+    };
+  }
 }
 
 module.exports = AnalyticsService;

@@ -4,6 +4,7 @@ import {
   getGroupFeed as apiGetGroupFeed,
   shareSong as apiShareSong,
   markAsListened as apiMarkAsListened,
+  unmarkAsListened as apiUnmarkAsListened,
   toggleLike as apiToggleLike,
   removeShare as apiRemoveShare
 } from '../lib/api';
@@ -76,6 +77,30 @@ export const useGroupFeed = (groupId: string) => {
       return updatedShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to mark as listened';
+      toast.error(errorMessage);
+      throw err;
+    }
+  }, []);
+
+  const unmarkListened = useCallback(async (shareId: string) => {
+    try {
+      const updatedShare = await apiUnmarkAsListened(shareId);
+      setShares(prev =>
+        prev.map(share =>
+          share._id === shareId ? updatedShare : share
+        )
+      );
+      logger.info('Track unmarked as listened:', { shareId, trackName: updatedShare.trackName });
+      toast.success('Unmarked as listened');
+
+      // Dispatch global event for other listeners
+      window.dispatchEvent(new CustomEvent('trackUnlistened', {
+        detail: { groupId, shareId, updatedShare }
+      }));
+
+      return updatedShare;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to unmark as listened';
       toast.error(errorMessage);
       throw err;
     }
@@ -174,6 +199,7 @@ export const useGroupFeed = (groupId: string) => {
     error,
     shareTrack,
     markListened,
+    unmarkListened,
     toggleLike,
     removeShare,
     refetch: fetchFeed

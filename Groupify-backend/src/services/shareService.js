@@ -168,6 +168,59 @@ class ShareService {
 
     return populatedShare;
   }
+
+  /**
+   * Unmark a share as listened by user (remove listener)
+   * @param {string} shareId - Share ID
+   * @param {string} userId - User ID unmarking as listened
+   * @returns {Promise<Object>} Updated share
+   * @throws {Error} If share not found or user not in group
+   */
+  static async unmarkAsListened(shareId, userId) {
+    const share = await Share.findById(shareId)
+      .populate('group', 'members');
+
+    if (!share) {
+      const error = new Error('Share not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Verify user is a member of the group
+    if (!share.group.members.includes(userId)) {
+      const error = new Error('You are not a member of this group');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Find and remove the listener entry
+    const listenerIndex = share.listeners.findIndex(
+      listener => listener.user.toString() === userId.toString()
+    );
+
+    if (listenerIndex === -1) {
+      const error = new Error('You have not marked this song as listened');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Remove listener
+    share.listeners.splice(listenerIndex, 1);
+
+    // Update listen count
+    share.listenCount = share.listeners.length;
+
+    await share.save();
+
+    const populatedShare = await Share.findById(share._id)
+      .populate('sharedBy', 'displayName profileImage spotifyId')
+      .populate('listeners.user', 'displayName profileImage spotifyId')
+      .populate('likes.user', 'displayName profileImage spotifyId')
+      .populate('group', 'name');
+
+    return populatedShare;
+  }
+
   /**
    * Toggle like on a share
    * @param {string} shareId - Share ID

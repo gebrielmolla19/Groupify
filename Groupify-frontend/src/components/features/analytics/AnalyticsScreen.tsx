@@ -7,6 +7,7 @@ import { useGroupAnalytics } from "../../../hooks/useGroupAnalytics";
 import ActivityWave from "./ActivityWave";
 import VibeRadar from "./VibeRadar";
 import SuperlativeCard from "./SuperlativeCard";
+import ListenerReflexCard from "./ListenerReflexCard";
 import { Sparkles, Activity, ArrowLeft } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
@@ -234,6 +235,11 @@ export default function AnalyticsScreen() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        {/* Listener Reflex Section */}
+        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
+          <ListenerReflexCard groupId={groupId || ''} />
         </div>
 
         {/* Bottom Section: Hall of Fame */}

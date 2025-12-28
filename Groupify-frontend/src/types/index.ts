@@ -126,3 +126,41 @@ export interface GroupSettings {
     profileImage?: string | null;
   }>;
 }
+
+export type ReflexCategory = 'instant' | 'quick' | 'slow' | 'longTail';
+
+export interface ListenerReflexUser {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  listens: number;
+  medianMs: number;
+  p25Ms: number;
+  p75Ms: number;
+  category: ReflexCategory;
+}
+
+export interface ListenerReflexData {
+  groupId: string;
+  range: '7d' | '30d' | '90d';
+  mode: 'received' | 'shared';
+  generatedAt: string;
+  buckets: {
+    instant: string[];
+    quick: string[];
+    slow: string[];
+    longTail: string[];
+  };
+  users: ListenerReflexUser[];
+  ringData: Array<{
+    userId: string;
+    points: Array<{
+      ms: number;
+      listenedAt: string; // ISO timestamp
+    }>;
+  }>;
+  summary: {
+    groupMedianMs: number;
+    instantReactorCount: number;
+  };
+}

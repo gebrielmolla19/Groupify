@@ -1,4 +1,4 @@
-import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, Heart, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, TrendingUp, Trash2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
@@ -35,7 +35,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, total, isLoading, error, markListened, unmarkListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -112,13 +112,18 @@ export default function GroupFeedScreen() {
     }
   };
 
-  const handleMarkListened = async (shareId: string) => {
-    if (hasListened[shareId]) return; // Already listened
+  const handleToggleListened = async (shareId: string) => {
     try {
-      await markListened(shareId);
+      if (hasListened[shareId]) {
+        // Currently listened, so unmark it
+        await unmarkListened(shareId);
+      } else {
+        // Not listened, so mark it
+        await markListened(shareId);
+      }
     } catch (err) {
       // Error already handled in hook with toast
-      logger.error('Failed to mark as listened:', err);
+      logger.error('Failed to toggle listened status:', err);
     }
   };
 
@@ -253,7 +258,7 @@ export default function GroupFeedScreen() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
+                        className="hover:bg-white/5 text-white shrink-0 min-w-[44px] min-h-[44px]"
                         onClick={() => navigate("/")}
                         aria-label="Back to dashboard"
                       >
@@ -276,7 +281,7 @@ export default function GroupFeedScreen() {
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
-                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
                         onClick={() => navigate(`/groups/${groupId}/playlist`)}
                         aria-label="View group playlist"
                       >
@@ -294,7 +299,7 @@ export default function GroupFeedScreen() {
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
-                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
                         onClick={() => navigate(`/groups/${groupId}/analytics`)}
                         aria-label="View group analytics"
                       >
@@ -312,7 +317,7 @@ export default function GroupFeedScreen() {
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
-                        className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
+                        className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
                         onClick={() => navigate(`/groups/${groupId}/settings`)}
                         aria-label="Group settings"
                       >
@@ -517,25 +522,24 @@ export default function GroupFeedScreen() {
                           {/* Stats */}
                           <div className="flex items-center gap-2 md:gap-4 text-sm text-muted-foreground shrink-0">
                             <div className="flex items-center gap-1" aria-label={`${share.listenCount} listeners`}>
-                              <Headphones className="w-4 h-4" aria-hidden="true" />
+                              <Headphones className="w-4 h-4 text-white" aria-hidden="true" />
                               <span className="hidden sm:inline">{share.listenCount}</span>
                             </div>
-                            {hasListened[share._id] ? (
-                              <CheckCircle2
-                                className="w-4 h-4 sm:w-5 sm:h-5 text-primary"
-                                aria-label="Listened"
-                              />
-                            ) : (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="w-10 h-10 sm:w-8 sm:h-8 hover:bg-primary/10 min-w-[44px] min-h-[44px]"
-                                onClick={() => handleMarkListened(share._id)}
-                                aria-label="Mark as listened"
-                              >
-                                <Clock className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-                              </Button>
-                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className={`w-10 h-10 sm:w-8 sm:h-8 hover:bg-white/5 min-w-[44px] min-h-[44px] ${
+                                hasListened[share._id] ? 'text-primary' : 'text-white'
+                              }`}
+                              onClick={() => handleToggleListened(share._id)}
+                              aria-label={hasListened[share._id] ? 'Unmark as listened' : 'Mark as listened'}
+                            >
+                              {hasListened[share._id] ? (
+                                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
+                              ) : (
+                                <Clock className="w-4 h-4" aria-hidden="true" />
+                              )}
+                            </Button>
                           </div>
 
                           {/* Like Button */}
@@ -546,14 +550,19 @@ export default function GroupFeedScreen() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-primary/10 min-w-[44px] min-h-[44px]"
+                                    className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-white/5 min-w-[44px] min-h-[44px]"
                                     onClick={() => handleToggleLike(share._id)}
                                   >
-                                    <Heart
-                                      className={`w-4 h-4 ${share.likes?.some(like => like.user._id === user?._id || like.user.id === user?.id)
-                                        ? "fill-primary text-primary"
-                                        : "text-muted-foreground"
-                                        }`}
+                                    <img
+                                      src={share.likes?.some(like => like.user._id === user?._id || like.user.id === user?.id)
+                                        ? "/like-icon-svg/like-icon-liked.svg"
+                                        : "/like-icon-svg/like-icon-like.svg"
+                                      }
+                                      alt={share.likes?.some(like => like.user._id === user?._id || like.user.id === user?.id)
+                                        ? "Unlike"
+                                        : "Like"
+                                      }
+                                      className="w-4 h-4"
                                     />
                                   </Button>
                                 </TooltipTrigger>
@@ -585,14 +594,14 @@ export default function GroupFeedScreen() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors min-w-[44px] min-h-[44px]"
+                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-white/5 text-white hover:text-destructive/80 transition-colors min-w-[44px] min-h-[44px]"
                                   disabled={isRemoving === share._id}
                                   aria-label="Remove from group"
                                 >
                                   {isRemoving === share._id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-4 h-4 text-white" />
                                   )}
                                 </Button>
                               </AlertDialogTrigger>

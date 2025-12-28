@@ -519,6 +519,26 @@ export const markAsListened = async (shareId: string): Promise<import('../types'
 };
 
 /**
+ * Unmark share as listened
+ */
+export const unmarkAsListened = async (shareId: string): Promise<import('../types').Share> => {
+  const response = await fetchWithAuth(`/shares/${shareId}/listen`, {
+    method: 'DELETE',
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to unmark as listened');
+  }
+
+  return {
+    ...data.share,
+    id: data.share._id
+  };
+};
+
+/**
  * Toggle like on a share
  */
 export const toggleLike = async (shareId: string): Promise<import('../types').Share> => {
@@ -789,6 +809,29 @@ export const getSuperlatives = async (groupId: string): Promise<any> => {
 
   if (!data.success) {
     throw new Error(data.message || 'Failed to fetch superlatives');
+  }
+
+  return data.data;
+};
+
+/**
+ * Get listener reflex analytics
+ * @param groupId - Group ID
+ * @param range - Time range: '7d' | '30d' | '90d'
+ * @param mode - Analysis mode: 'received' | 'shared'
+ */
+export const getListenerReflex = async (
+  groupId: string,
+  range: string = '30d',
+  mode: string = 'received'
+): Promise<any> => {
+  const response = await fetchWithAuth(
+    `/analytics/${groupId}/listener-reflex?range=${range}&mode=${mode}`
+  );
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch listener reflex data');
   }
 
   return data.data;
