@@ -8,10 +8,13 @@ import ActivityWave from "./ActivityWave";
 import VibeRadar from "./VibeRadar";
 import SuperlativeCard from "./SuperlativeCard";
 import ListenerReflexCard from "./ListenerReflexCard";
+import TasteGravity from "./TasteGravity";
 import { Sparkles, Activity, ArrowLeft } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { cn } from "../../ui/utils";
+import type { TimeRange as TasteGravityTimeRange } from "../../../hooks/useTasteGravity";
 
 export default function AnalyticsScreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -22,6 +25,9 @@ export default function AnalyticsScreen() {
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
   const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, activityMode, vibesRange, changeTimeRange, changeActivityMode, changeVibesRange } = useGroupAnalytics(groupId || '');
+
+  // Taste Gravity time range state
+  const [tasteGravityRange, setTasteGravityRange] = useState<TasteGravityTimeRange>('7d');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
@@ -35,6 +41,14 @@ export default function AnalyticsScreen() {
     { value: '30d' as const, label: '30d' },
     { value: '90d' as const, label: '90d' },
     { value: 'all' as const, label: 'All' },
+  ];
+
+  // Taste Gravity time range options (no 24h)
+  const tasteGravityTimeRanges: { value: TasteGravityTimeRange; label: string }[] = [
+    { value: '7d', label: '7d' },
+    { value: '30d', label: '30d' },
+    { value: '90d', label: '90d' },
+    { value: 'all', label: 'All' },
   ];
 
 
@@ -240,6 +254,44 @@ export default function AnalyticsScreen() {
         {/* Listener Reflex Section */}
         <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
           <ListenerReflexCard groupId={groupId || ''} />
+        </div>
+
+        {/* Taste Gravity Section */}
+        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
+          <div className="flex flex-col gap-4 px-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <span className="text-xl md:text-2xl">🌌</span>
+              </div>
+              <div>
+                <h2 className="text-base md:text-xl font-bold">Taste Gravity</h2>
+                <span className="text-xs text-muted-foreground hidden sm:inline">Musical taste connections</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {tasteGravityTimeRanges.map((range) => (
+                <Button
+                  key={range.value}
+                  size="sm"
+                  variant={tasteGravityRange === range.value ? 'default' : 'outline'}
+                  onClick={() => setTasteGravityRange(range.value)}
+                  className={cn(
+                    'h-8 px-3 text-xs',
+                    tasteGravityRange === range.value
+                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      : 'border-primary/30 hover:bg-primary/10'
+                  )}
+                >
+                  {range.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <TasteGravity
+            groupId={groupId || ''}
+            timeRange={tasteGravityRange}
+            onTimeRangeChange={setTasteGravityRange}
+          />
         </div>
 
         {/* Bottom Section: Hall of Fame */}

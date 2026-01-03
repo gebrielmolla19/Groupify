@@ -63,6 +63,35 @@ class AnalyticsController {
   }
 
   /**
+   * Get taste gravity analytics
+   * GET /api/v1/groups/:id/analytics/taste-gravity?timeRange=7d
+   */
+  static async getTasteGravity(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { timeRange = '7d' } = req.query;
+
+      // Validate timeRange
+      const validRanges = ['7d', '30d', '90d', 'all'];
+      if (!validRanges.includes(timeRange)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid timeRange. Must be one of: ${validRanges.join(', ')}`
+        });
+      }
+
+      const data = await AnalyticsService.getTasteGravity(id, timeRange);
+
+      res.json({
+        success: true,
+        data
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get listener reflex analytics
    * GET /api/v1/analytics/:id/listener-reflex?range=30d&mode=received
    */

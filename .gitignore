@@ -48,3 +48,6 @@ coverage/
 # Documentation
 docs/
 
+
+# Dev tools
+Groupify-backend/check-server.js

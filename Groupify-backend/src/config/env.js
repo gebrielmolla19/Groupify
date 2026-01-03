@@ -4,7 +4,7 @@ const envSchema = Joi.object({
     NODE_ENV: Joi.string()
         .valid('development', 'production', 'test')
         .default('development'),
-    PORT: Joi.number().default(5000),
+    PORT: Joi.number().default(5001),
     MONGO_URI: Joi.string().required().description('MongoDB connection string'),
     JWT_SECRET: Joi.string().required().description('JWT secret key'),
     SPOTIFY_CLIENT_ID: Joi.string().required().description('Spotify Client ID'),

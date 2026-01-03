@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -10,6 +10,8 @@ import { cn } from '../../ui/utils';
 import type { ListenerReflexUser, ReflexCategory } from '../../../types';
 import { Zap, Clock, TrendingUp, Timer } from 'lucide-react';
 import { getListeningStyleLabel } from '../../../utils/getListeningStyleLabel';
+import { getInfluenceStyleLabel } from '../../../utils/getInfluenceStyleLabel';
+import { useGroups } from '../../../hooks/useGroups';
 
 interface ListenerReflexCardProps {
   groupId: string;
@@ -259,29 +261,49 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
   const [mode, setMode] = useState<ListenerReflexMode>('received');
   
   const { data, isLoading, error } = useListenerReflex(groupId, range, mode);
+  const { groups } = useGroups();
+
+  // Keep previous data while loading new data for smooth transitions
+  const [previousData, setPreviousData] = useState<typeof data>(null);
+  
+  // Update previous data when new data arrives (not during initial load)
+  useEffect(() => {
+    if (data && !isLoading) {
+      setPreviousData(data);
+    }
+  }, [data, isLoading]);
+  
+  // Use previous data if available during loading, otherwise use current data
+  const displayData = isLoading && previousData ? previousData : data;
+
+  // Get total group member count for magnetism score calculation
+  const totalGroupMembers = useMemo(() => {
+    const group = groups.find(g => g._id === groupId);
+    return group?.members?.length || 0;
+  }, [groups, groupId]);
 
   // Calculate group average listens for relative engagement comparison
   const groupAverageListens = useMemo(() => {
-    if (!data || data.users.length === 0) return 0;
-    const totalListens = data.users.reduce((sum, user) => sum + user.listens, 0);
-    return totalListens / data.users.length;
-  }, [data]);
+    if (!displayData || displayData.users.length === 0) return 0;
+    const totalListens = displayData.users.reduce((sum, user) => sum + user.listens, 0);
+    return totalListens / displayData.users.length;
+  }, [displayData]);
 
   // Calculate ring visualization data - use all users with data
   const ringVisualizationData = useMemo(() => {
-    if (!data || !data.ringData || data.ringData.length === 0) return null;
+    if (!displayData || !displayData.ringData || displayData.ringData.length === 0) return null;
 
     // Calculate max time across all users for consistent scaling
     // Extract ms values from points array
     const maxTime = Math.max(
-      ...data.ringData.flatMap(rd => rd.points.map(p => p.ms)),
+      ...displayData.ringData.flatMap(rd => rd.points.map(p => p.ms)),
       1
     );
     
     // Match users with their ring data
-    const usersWithRings = data.users
+    const usersWithRings = displayData.users
       .map(user => {
-        const ringData = data.ringData.find(rd => rd.userId === user.userId);
+        const ringData = displayData.ringData.find(rd => rd.userId === user.userId);
         if (!ringData) return null;
         
         return { user, ringData };
@@ -295,52 +317,7 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
       usersWithRings,
       maxTime
     };
-  }, [data]);
-
-  if (isLoading) {
-    return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
-        <CardHeader>
-          <Skeleton className="h-6 w-48 mb-4" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full mb-4" />
-          <Skeleton className="h-32 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5 border-destructive/50">
-        <CardContent className="p-6">
-          <p className="text-destructive text-sm">{error}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!data || data.users.length === 0) {
-    return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            Listener Reflex
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">No listener data available yet.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  }, [displayData]);
 
   return (
     <>
@@ -350,7 +327,26 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
           stroke-width: 2px;
         }
       `}</style>
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
+      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5 relative">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-30 flex items-center justify-center rounded-lg transition-opacity duration-200">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <p className="text-xs text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-30 flex items-center justify-center rounded-lg">
+          <div className="bg-destructive/20 border border-destructive/50 rounded-lg p-4">
+            <p className="text-destructive text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+      
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <CardTitle className="flex items-center gap-2">
@@ -411,26 +407,37 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
           </div>
         </div>
 
-        {/* Summary Line */}
-        <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Group Median:</span>
-            <span className="font-semibold text-foreground">
-              {formatTime(data.summary.groupMedianMs)}
-            </span>
+        {/* Summary Line - Only show if data exists */}
+        {displayData && displayData.users.length > 0 && (
+          <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Group Median:</span>
+              <span className="font-semibold text-foreground">
+                {formatTime(displayData.summary.groupMedianMs)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Instant Reactors:</span>
+              <span className="font-semibold text-primary">
+                {displayData.summary.instantReactorCount}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Instant Reactors:</span>
-            <span className="font-semibold text-primary">
-              {data.summary.instantReactorCount}
-            </span>
-          </div>
-        </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {/* Empty State Message */}
+        {!displayData || displayData.users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center transition-opacity duration-200">
+            <p className="text-muted-foreground text-sm mb-2">No listener data available yet.</p>
+            <p className="text-muted-foreground text-xs">Try selecting a different time range or mode.</p>
+          </div>
+        ) : null}
+
         {/* Reaction Rings Visualization */}
-        {ringVisualizationData && ringVisualizationData.usersWithRings.length > 0 && (
+        {displayData && ringVisualizationData && ringVisualizationData.usersWithRings.length > 0 && (
+          <div className="transition-opacity duration-200">
           <div className="w-full">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-muted-foreground">Reaction Rings</h3>
@@ -491,14 +498,22 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                           </div>
                         </div>
                         
-                        {/* Listening Style Label */}
+                        {/* Listening Style Label / Influence Style Label */}
                         {(() => {
-                          const styleLabel = getListeningStyleLabel(
-                            user,
-                            ringData,
-                            range,
-                            groupAverageListens
-                          );
+                          // Use influence style label for shared mode, listening style label for received mode
+                          const styleLabel = mode === 'shared'
+                            ? getInfluenceStyleLabel(
+                                user,
+                                ringData,
+                                range,
+                                totalGroupMembers
+                              )
+                            : getListeningStyleLabel(
+                                user,
+                                ringData,
+                                range,
+                                groupAverageListens
+                              );
                           const BadgeIcon = styleLabel.badge.icon;
                           
                           // Parse Tailwind color classes to inline styles
@@ -695,13 +710,15 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
               })}
             </div>
           </div>
+          </div>
         )}
 
         {/* Ranked List */}
-        <div className="w-full">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Member Rankings</h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {data.users.map((user, index) => {
+        {displayData && displayData.users.length > 0 && (
+          <div className="w-full transition-opacity duration-200">
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Member Rankings</h3>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {displayData.users.map((user, index) => {
               const categoryConfig = CATEGORY_CONFIG[user.category];
               const CategoryIcon = categoryConfig.icon;
               
@@ -748,9 +765,10 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                   </div>
                 </div>
               );
-            })}
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
     </>

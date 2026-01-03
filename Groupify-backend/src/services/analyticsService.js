@@ -675,6 +675,373 @@ class AnalyticsService {
   }
 
   /**
+   * Get Taste Gravity analytics
+   * Visualizes the "social pull" between group members based on shared musical taste
+   * @param {string} groupId - Group ID
+   * @param {string} timeRange - '7d' | '30d' | '90d' | 'all'
+   * @returns {Promise<Object>} Graph data with nodes, links, and insights
+   */
+  static async getTasteGravity(groupId, timeRange = '7d') {
+    const gid = new mongoose.Types.ObjectId(groupId);
+    const now = new Date();
+    let startDate = new Date();
+
+    // Calculate start date based on timeRange
+    if (timeRange === '7d') {
+      startDate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - 7,
+        0, 0, 0, 0
+      ));
+    } else if (timeRange === '30d') {
+      startDate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - 30,
+        0, 0, 0, 0
+      ));
+    } else if (timeRange === '90d') {
+      startDate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - 90,
+        0, 0, 0, 0
+      ));
+    } else if (timeRange === 'all') {
+      const earliest = await Share.findOne({ group: gid })
+        .sort({ createdAt: 1 })
+        .select('createdAt')
+        .lean();
+      startDate = earliest?.createdAt ? new Date(earliest.createdAt) : new Date(0);
+      const days = (now.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
+      if (days > 365) {
+        startDate = new Date(Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() - 365,
+          0, 0, 0, 0
+        ));
+      }
+    } else {
+      // Default to 7d
+      startDate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - 7,
+        0, 0, 0, 0
+      ));
+    }
+
+    // Get group with members
+    const group = await Group.findById(gid).populate('members', 'displayName profileImage').lean();
+    if (!group) {
+      throw new Error('Group not found');
+    }
+
+    if (group.members.length < 2) {
+      // Return empty graph for single-member or empty groups
+      return {
+        nodes: group.members.map(m => ({
+          id: m._id.toString(),
+          name: m.displayName,
+          img: m.profileImage || null,
+          mass: 0,
+          topArtists: []
+        })),
+        links: [],
+        insights: ['Not enough members to calculate taste gravity']
+      };
+    }
+
+    const memberIds = group.members.map(m => new mongoose.Types.ObjectId(m._id));
+
+    // Get all shares in time range with listeners and likes
+    const shares = await Share.find({
+      group: gid,
+      createdAt: { $gte: startDate }
+    })
+      .select('artistName listeners likes')
+      .lean();
+
+    // Build per-user artist frequency maps from listens
+    const userArtistCounts = new Map(); // userId -> { artistName: count }
+    const userListenedShares = new Map(); // userId -> Set of share IDs
+    const userLikedShares = new Map(); // userId -> Set of share IDs
+    const artistUserCounts = new Map(); // artistName -> count of users who listened
+
+    // Initialize maps for all members
+    memberIds.forEach(id => {
+      userArtistCounts.set(id.toString(), new Map());
+      userListenedShares.set(id.toString(), new Set());
+      userLikedShares.set(id.toString(), new Set());
+    });
+
+    // Process shares to build frequency maps
+    shares.forEach(share => {
+      const shareId = share._id.toString();
+      const artistName = share.artistName;
+
+      // Process listeners
+      if (share.listeners && Array.isArray(share.listeners)) {
+        share.listeners.forEach(listener => {
+          const userId = listener.user?.toString();
+          if (userId && memberIds.some(id => id.toString() === userId)) {
+            const counts = userArtistCounts.get(userId);
+            if (counts) {
+              counts.set(artistName, (counts.get(artistName) || 0) + 1);
+              userListenedShares.get(userId).add(shareId);
+              
+              // Track which users listened to this artist
+              if (!artistUserCounts.has(artistName)) {
+                artistUserCounts.set(artistName, new Set());
+              }
+              artistUserCounts.get(artistName).add(userId);
+            }
+          }
+        });
+      }
+
+      // Process likes
+      if (share.likes && Array.isArray(share.likes)) {
+        share.likes.forEach(like => {
+          const userId = like.user?.toString();
+          if (userId && memberIds.some(id => id.toString() === userId)) {
+            userLikedShares.get(userId)?.add(shareId);
+          }
+        });
+      }
+    });
+
+    const totalUsers = memberIds.length;
+
+    // Calculate TF-IDF vectors for each user
+    const userVectors = new Map(); // userId -> Map(artistName -> tfidf)
+    const allArtists = new Set();
+
+    userArtistCounts.forEach((counts, userId) => {
+      counts.forEach((count, artist) => {
+        allArtists.add(artist);
+      });
+    });
+
+    // Calculate IDF for each artist
+    const artistIdf = new Map();
+    allArtists.forEach(artist => {
+      const usersWhoListened = artistUserCounts.get(artist)?.size || 0;
+      const idf = Math.log(1 + totalUsers / (1 + usersWhoListened));
+      artistIdf.set(artist, idf);
+    });
+
+    // Build TF-IDF vectors
+    userArtistCounts.forEach((counts, userId) => {
+      const vector = new Map();
+      let totalListens = 0;
+      counts.forEach(count => {
+        totalListens += count;
+      });
+
+      counts.forEach((count, artist) => {
+        const tf = count; // Term frequency (raw count)
+        const idf = artistIdf.get(artist) || 0;
+        const tfidf = tf * idf;
+        vector.set(artist, tfidf);
+      });
+
+      userVectors.set(userId, vector);
+    });
+
+    // Helper: Cosine similarity between two vectors
+    const cosineSimilarity = (vecA, vecB) => {
+      const allKeys = new Set([...vecA.keys(), ...vecB.keys()]);
+      let dotProduct = 0;
+      let normA = 0;
+      let normB = 0;
+
+      allKeys.forEach(key => {
+        const valA = vecA.get(key) || 0;
+        const valB = vecB.get(key) || 0;
+        dotProduct += valA * valB;
+        normA += valA * valA;
+        normB += valB * valB;
+      });
+
+      const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+      return denominator === 0 ? 0 : dotProduct / denominator;
+    };
+
+    // Helper: Jaccard similarity (for co-listening and co-liking)
+    const jaccardSimilarity = (setA, setB) => {
+      const intersection = new Set([...setA].filter(x => setB.has(x)));
+      const union = new Set([...setA, ...setB]);
+      return union.size === 0 ? 0 : intersection.size / union.size;
+    };
+
+    // Helper: Clamp value to [0, 1]
+    const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
+
+    // Calculate gravity between all pairs
+    const links = [];
+    const userLinkMap = new Map(); // userId -> array of links (for top 3 guarantee)
+
+    for (let i = 0; i < memberIds.length; i++) {
+      const userIdA = memberIds[i].toString();
+      const linkArray = [];
+      userLinkMap.set(userIdA, linkArray);
+
+      for (let j = i + 1; j < memberIds.length; j++) {
+        const userIdB = memberIds[j].toString();
+
+        // Calculate artist cosine similarity
+        const vecA = userVectors.get(userIdA) || new Map();
+        const vecB = userVectors.get(userIdB) || new Map();
+        const artistCosine = cosineSimilarity(vecA, vecB);
+
+        // Calculate co-listening overlap
+        const listenedA = userListenedShares.get(userIdA) || new Set();
+        const listenedB = userListenedShares.get(userIdB) || new Set();
+        const coListenOverlap = jaccardSimilarity(listenedA, listenedB);
+
+        // Calculate co-liking overlap
+        const likedA = userLikedShares.get(userIdA) || new Set();
+        const likedB = userLikedShares.get(userIdB) || new Set();
+        const coLikeOverlap = jaccardSimilarity(likedA, likedB);
+
+        // Calculate gravity
+        const gravity = clamp01(0.65 * artistCosine + 0.30 * coListenOverlap + 0.05 * coLikeOverlap);
+
+        // Build reasons array
+        const reasons = [];
+        if (artistCosine > 0.1) {
+          // Find shared artists
+          const sharedArtists = [];
+          vecA.forEach((val, artist) => {
+            if (vecB.has(artist) && val > 0 && vecB.get(artist) > 0) {
+              sharedArtists.push(artist);
+            }
+          });
+          if (sharedArtists.length > 0) {
+            const topShared = sharedArtists
+              .sort((a, b) => {
+                const scoreA = (vecA.get(a) || 0) + (vecB.get(a) || 0);
+                const scoreB = (vecA.get(b) || 0) + (vecB.get(b) || 0);
+                return scoreB - scoreA;
+              })
+              .slice(0, 3);
+            reasons.push(`Shared Artists: ${topShared.join(', ')}`);
+          }
+        }
+        if (coListenOverlap > 0.1) {
+          reasons.push(`Co-listened ${Math.round(coListenOverlap * 100)}% of tracks`);
+        }
+        if (coLikeOverlap > 0.1) {
+          reasons.push(`Co-liked ${Math.round(coLikeOverlap * 100)}% of tracks`);
+        }
+
+        const link = {
+          source: userIdA,
+          target: userIdB,
+          gravity,
+          reasons: reasons.length > 0 ? reasons : ['Low similarity']
+        };
+
+        links.push(link);
+        linkArray.push(link);
+      }
+    }
+
+    // Filter links by threshold (0.08) but ensure top 3 per user
+    const threshold = 0.08;
+    const filteredLinks = links.filter(link => link.gravity >= threshold);
+
+    // Ensure each user has at least top 3 strongest links
+    const finalLinks = new Set();
+    filteredLinks.forEach(link => {
+      finalLinks.add(JSON.stringify([link.source, link.target, link.gravity].sort()));
+    });
+
+    userLinkMap.forEach((linkArray, userId) => {
+      // Sort by gravity descending
+      linkArray.sort((a, b) => b.gravity - a.gravity);
+      // Add top 3
+      linkArray.slice(0, 3).forEach(link => {
+        const key = JSON.stringify([link.source, link.target, link.gravity].sort());
+        finalLinks.add(key);
+      });
+    });
+
+    // Reconstruct final links array
+    const finalLinksArray = links.filter(link => {
+      const key = JSON.stringify([link.source, link.target, link.gravity].sort());
+      return finalLinks.has(key);
+    });
+
+    // Calculate user mass
+    const userMass = new Map();
+    memberIds.forEach(id => {
+      const userId = id.toString();
+      const listenedCount = userListenedShares.get(userId)?.size || 0;
+      const likedCount = userLikedShares.get(userId)?.size || 0;
+      const mass = Math.log(1 + listenedCount) + 0.5 * Math.log(1 + likedCount);
+      userMass.set(userId, mass);
+    });
+
+    // Normalize mass to [0, 1] range
+    const maxMass = Math.max(...Array.from(userMass.values()), 1);
+    userMass.forEach((mass, userId) => {
+      userMass.set(userId, mass / maxMass);
+    });
+
+    // Build nodes
+    const nodes = group.members.map(member => {
+      const userId = member._id.toString();
+      const counts = userArtistCounts.get(userId) || new Map();
+      const topArtists = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([artist]) => artist);
+
+      return {
+        id: userId,
+        name: member.displayName,
+        img: member.profileImage || null,
+        mass: userMass.get(userId) || 0,
+        topArtists
+      };
+    });
+
+    // Generate insights
+    const insights = [];
+    if (finalLinksArray.length > 0) {
+      // Find strongest connection
+      const strongest = finalLinksArray.reduce((max, link) => 
+        link.gravity > max.gravity ? link : max
+      );
+      const nodeA = nodes.find(n => n.id === strongest.source);
+      const nodeB = nodes.find(n => n.id === strongest.target);
+      if (nodeA && nodeB && strongest.reasons.length > 0) {
+        insights.push(
+          `The strongest pull is between ${nodeA.name} and ${nodeB.name} due to ${strongest.reasons[0].toLowerCase()}`
+        );
+      }
+
+      // Count connections
+      const avgGravity = finalLinksArray.reduce((sum, link) => sum + link.gravity, 0) / finalLinksArray.length;
+      insights.push(
+        `${finalLinksArray.length} connections found with average gravity of ${(avgGravity * 100).toFixed(1)}%`
+      );
+    } else {
+      insights.push('No strong connections found. Members may have different musical tastes.');
+    }
+
+    return {
+      nodes,
+      links: finalLinksArray,
+      insights
+    };
+  }
+
+  /**
    * Compute Listener Reflex analytics
    * Tracks how quickly group members react to shared songs
    * @param {string} groupId - Group ID

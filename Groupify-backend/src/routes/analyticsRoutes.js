@@ -18,6 +18,13 @@ router.get('/:id/vibes', authMiddleware, AnalyticsController.getMemberVibes);
 // Get superlatives (hall of fame)
 router.get('/:id/superlatives', authMiddleware, AnalyticsController.getSuperlatives);
 
+// Get taste gravity analytics
+// Note: isGroupMember expects req.params.groupId, so we need to map :id to groupId
+router.get('/:id/taste-gravity', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.params.id;
+  next();
+}, isGroupMember, AnalyticsController.getTasteGravity);
+
 // Get listener reflex analytics
 // Note: isGroupMember expects req.params.groupId, so we need to map :id to groupId
 router.get('/:id/listener-reflex', authMiddleware, (req, res, next) => {

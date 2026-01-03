@@ -41,11 +41,50 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Database connection check middleware
+app.use((req, res, next) => {
+  // Allow health check endpoint without database connection
+  if (req.path === '/health') {
+    return next();
+  }
+  
+  // Check if MongoDB is connected
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection not ready. Please try again in a moment.',
+      readyState: mongoose.connection.readyState,
+      // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+      states: {
+        0: 'disconnected',
+        1: 'connected',
+        2: 'connecting',
+        3: 'disconnecting'
+      }
+    });
+  }
+  
+  next();
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
   res.json({
-    success: true,
+    success: dbState === 1,
     message: 'Groupify API is running',
+    database: {
+      status: dbStates[dbState] || 'unknown',
+      readyState: dbState,
+      connected: dbState === 1
+    },
     timestamp: new Date().toISOString()
   });
 });
@@ -97,22 +136,47 @@ io.on('connection', (socket) => {
   });
 });
 
-// MongoDB connection
-mongoose.connect(config.mongo.uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-  .then(() => {
-    // Connected to database successfully
-  })
-  .catch((error) => {
+// MongoDB connection function
+const connectDB = async () => {
+  try {
+    const isAtlas = config.mongo.uri.includes('mongodb+srv://');
+    
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 10000, // 10 seconds
+      socketTimeoutMS: 45000,
+      retryWrites: true,
+      retryReads: true,
+    };
+
+    console.log(`[MongoDB] Connecting to ${isAtlas ? 'MongoDB Atlas' : 'MongoDB'}...`);
+    
+    await mongoose.connect(config.mongo.uri, options);
+    
+    console.log('[MongoDB] Connected successfully');
+    console.log(`[MongoDB] Database: ${mongoose.connection.name}`);
+    
+    return mongoose.connection;
+  } catch (error) {
     console.error('[MongoDB] Connection error:', error.message);
-    process.exit(1);
-  });
+    
+    if (error.message.includes('SSL') || error.message.includes('TLS')) {
+      console.error('[MongoDB] SSL/TLS Error - Check connection string and network settings');
+    } else if (error.message.includes('authentication')) {
+      console.error('[MongoDB] Authentication Error - Check username and password');
+    } else if (error.message.includes('timeout') || error.message.includes('ENOTFOUND')) {
+      console.error('[MongoDB] Network Error - Check internet connection and hostname');
+    }
+    
+    throw error;
+  }
+};
 
 // MongoDB connection event handlers
 mongoose.connection.on('disconnected', () => {
-  // Disconnected from database
+  console.warn('[MongoDB] Disconnected from database');
 });
 
 mongoose.connection.on('error', (error) => {
@@ -132,5 +196,7 @@ app.use(notFoundHandler);
 // Centralized error handling middleware (must be last)
 app.use(errorHandler);
 
+// Export both server and connectDB function
 module.exports = server;
+module.exports.connectDB = connectDB;
 

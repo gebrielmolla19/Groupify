@@ -815,6 +815,25 @@ export const getSuperlatives = async (groupId: string): Promise<any> => {
 };
 
 /**
+ * Get taste gravity analytics
+ * @param groupId - Group ID
+ * @param timeRange - Time range filter ('7d' | '30d' | '90d' | 'all')
+ */
+export const getTasteGravity = async (
+  groupId: string,
+  timeRange: '7d' | '30d' | '90d' | 'all' = '7d'
+): Promise<import('../types/analytics').TasteGravityResponse> => {
+  const response = await fetchWithAuth(`/analytics/${groupId}/taste-gravity?timeRange=${timeRange}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch taste gravity');
+  }
+
+  return data.data;
+};
+
+/**
  * Get listener reflex analytics
  * @param groupId - Group ID
  * @param range - Time range: '7d' | '30d' | '90d'
