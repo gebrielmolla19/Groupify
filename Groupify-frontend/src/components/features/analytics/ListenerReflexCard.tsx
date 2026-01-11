@@ -4,6 +4,7 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { Skeleton } from '../../ui/skeleton';
+import { useIsMobile } from '../../ui/use-mobile';
 import { useListenerReflex, type ListenerReflexRange, type ListenerReflexMode } from '../../../hooks/useListenerReflex';
 import { formatTime } from '../../../lib/formatTime';
 import { cn } from '../../ui/utils';
@@ -257,6 +258,7 @@ const RecencyLegend = () => {
 export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps) {
   const [range, setRange] = useState<ListenerReflexRange>('30d');
   const [mode, setMode] = useState<ListenerReflexMode>('received');
+  const isMobile = useIsMobile();
   
   const { data, isLoading, error } = useListenerReflex(groupId, range, mode);
 
@@ -709,25 +711,26 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                 <div
                   key={user.userId}
                   className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg border transition-colors',
-                    'bg-card/50 border-white/5 hover:bg-white/5'
+                    'flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border transition-colors',
+                    'bg-card/50 border-white/5 hover:bg-white/5',
+                    'flex-wrap sm:flex-nowrap'
                   )}
                 >
                   {/* Rank */}
-                  <div className="flex-shrink-0 w-8 text-center">
+                  <div className="flex-shrink-0 w-6 md:w-8 text-center">
                     <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
                   </div>
 
                   {/* Avatar */}
-                  <Avatar className="w-10 h-10 border border-white/10">
+                  <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-white/10 flex-shrink-0">
                     <AvatarImage src={user.avatarUrl || undefined} />
-                    <AvatarFallback>{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="text-xs md:text-sm">{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
 
                   {/* Name */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{user.displayName}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="flex-1 min-w-0 flex-shrink">
+                    <p className="font-medium text-xs md:text-sm truncate">{user.displayName}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">
                       {user.listens} {user.listens === 1 ? 'listen' : 'listens'}
                     </p>
                   </div>
@@ -735,16 +738,28 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                   {/* Category Badge */}
                   <Badge
                     variant="outline"
-                    className={cn('flex items-center gap-1', categoryConfig.color)}
+                    className={cn(
+                      'flex items-center gap-1 flex-shrink-0',
+                      // Mobile: icon only - more padding around icon
+                      isMobile ? 'px-2 py-1.5' : 'px-2 md:px-2.5 py-1 md:py-1.5',
+                      categoryConfig.color
+                    )}
                   >
-                    <CategoryIcon className="w-3 h-3" />
-                    {categoryConfig.label}
+                    <CategoryIcon className={cn(
+                      'flex-shrink-0',
+                      isMobile ? 'w-3 h-3' : 'w-2.5 h-2.5 md:w-3 md:h-3'
+                    )} />
+                    {!isMobile && (
+                      <span className="text-[10px] md:text-[11px] whitespace-nowrap font-medium">
+                        {categoryConfig.label}
+                      </span>
+                    )}
                   </Badge>
 
                   {/* Median Time */}
-                  <div className="flex-shrink-0 text-right">
-                    <p className="text-sm font-semibold">{formatTime(user.medianMs)}</p>
-                    <p className="text-xs text-muted-foreground">median</p>
+                  <div className="flex-shrink-0 text-right min-w-[60px] md:min-w-0">
+                    <p className="text-xs md:text-sm font-semibold whitespace-nowrap">{formatTime(user.medianMs)}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">median</p>
                   </div>
                 </div>
               );
