@@ -6,6 +6,14 @@ export interface TasteGravityNode {
   img: string | null;      // profileImage
   mass: number;            // Calculated mass (0-1 range)
   topArtists: string[];    // Top 3-5 artists by listen count
+
+  // D3 Simulation properties
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 export interface TasteGravityLink {

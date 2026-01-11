@@ -10,7 +10,6 @@ import { Skeleton } from "../../ui/skeleton";
 import { Separator } from "../../ui/separator";
 import { Badge } from "../../ui/badge";
 import { SidebarTrigger } from "../../ui/sidebar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -185,24 +184,15 @@ export default function GroupSettingsScreen() {
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
           <SidebarTrigger />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                  onClick={() => navigate(`/groups/${groupId}`)}
-                  aria-label="Back to group feed"
-                >
-                  <ArrowLeft className="w-5 h-5" aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Back to group feed</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
+            onClick={() => navigate(`/groups/${groupId}`)}
+            aria-label="Back to group feed"
+          >
+            <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+          </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-base md:text-lg truncate">Group Settings</h1>
             <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">

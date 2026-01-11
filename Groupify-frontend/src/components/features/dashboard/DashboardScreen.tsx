@@ -4,7 +4,6 @@ import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import { SidebarTrigger } from "../../ui/sidebar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
 import InvitesDropdown from "../groups/InvitesDropdown";
@@ -102,41 +101,23 @@ export default function DashboardScreen() {
                   isLoading={isLoadingInvites}
                   error={invitesError}
                 />
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 min-h-[44px] px-2 sm:px-4"
-                        aria-label="Join a group"
-                        onClick={handleOpenJoinDialog}
-                      >
-                        <UserPlus className="w-4 h-4" aria-hidden="true" />
-                        <span className="hidden md:block ml-2">Join Group</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Join a group</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px] px-2 sm:px-4"
-                        aria-label="Create new group"
-                        onClick={handleOpenCreateDialog}
-                      >
-                        <Plus className="w-4 h-4" aria-hidden="true" />
-                        <span className="hidden md:block ml-2">Create New Group</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Create new group</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Button
+                  variant="outline"
+                  className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 min-h-[44px] px-2 sm:px-4"
+                  aria-label="Join a group"
+                  onClick={handleOpenJoinDialog}
+                >
+                  <UserPlus className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden md:block ml-2">Join Group</span>
+                </Button>
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px] px-2 sm:px-4"
+                  aria-label="Create new group"
+                  onClick={handleOpenCreateDialog}
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden md:block ml-2">Create New Group</span>
+                </Button>
               </div>
             </div>
           </header>
