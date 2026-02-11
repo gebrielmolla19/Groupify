@@ -1,0 +1,49 @@
+name: Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Groupify-backend/package-lock.json
+
+      - name: Install backend deps
+        run: cd Groupify-backend && npm ci
+
+      - name: Run backend tests
+        run: cd Groupify-backend && npm test -- --testPathIgnorePatterns=analyticsService.test.js
+        env:
+          JWT_SECRET: test-jwt-secret-for-ci
+          NODE_ENV: test
+
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Groupify-frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: cd Groupify-frontend && npm ci --legacy-peer-deps
+
+      - name: Run frontend tests
+        run: cd Groupify-frontend && npm run test:run

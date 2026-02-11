@@ -9,7 +9,8 @@ import { useListenerReflex, type ListenerReflexRange, type ListenerReflexMode } 
 import { formatTime } from '../../../lib/formatTime';
 import { cn } from '../../ui/utils';
 import type { ListenerReflexUser, ReflexCategory } from '../../../types';
-import { Zap, Clock, TrendingUp, Timer } from 'lucide-react';
+import { Zap, Clock, TrendingUp, Timer, BarChart3 } from 'lucide-react';
+import ListenerReflexComparePanel from './listenerReflex/ListenerReflexComparePanel';
 import { getListeningStyleLabel } from '../../../utils/getListeningStyleLabel';
 
 interface ListenerReflexCardProps {
@@ -190,7 +191,8 @@ const getDotRecency = (listenTimestamp: string | Date, activeRange: ListenerRefl
     '24h': 24 * 60 * 60 * 1000,
     '7d': 7 * 24 * 60 * 60 * 1000,
     '30d': 30 * 24 * 60 * 60 * 1000,
-    '90d': 90 * 24 * 60 * 60 * 1000
+    '90d': 90 * 24 * 60 * 60 * 1000,
+    'all': 90 * 24 * 60 * 60 * 1000 // Use 90d as default for 'all'
   };
   const activeWindowMs = rangeMsMap[activeRange];
   
@@ -258,6 +260,7 @@ const RecencyLegend = () => {
 export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps) {
   const [range, setRange] = useState<ListenerReflexRange>('30d');
   const [mode, setMode] = useState<ListenerReflexMode>('received');
+  const [isCompareMode, setIsCompareMode] = useState(false);
   const isMobile = useIsMobile();
   
   const { data, isLoading, error } = useListenerReflex(groupId, range, mode);
@@ -360,24 +363,40 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
             Listener Reflex
           </CardTitle>
           
-          {/* Range Selector */}
-          <div className="flex gap-2">
-            {(['24h', '7d', '30d', '90d'] as ListenerReflexRange[]).map((r) => (
-              <Button
-                key={r}
-                size="sm"
-                variant={range === r ? 'default' : 'outline'}
-                onClick={() => setRange(r)}
-                className={cn(
-                  'h-8 px-3 text-xs',
-                  range === r
-                    ? 'bg-primary hover:bg-primary/90 text-black'
-                    : 'border-primary/30 hover:bg-primary/10'
-                )}
-              >
-                {r}
-              </Button>
-            ))}
+          {/* Range Selector and Compare Toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2">
+              {(['24h', '7d', '30d', '90d', 'all'] as ListenerReflexRange[]).map((r) => (
+                <Button
+                  key={r}
+                  size="sm"
+                  variant={range === r ? 'default' : 'outline'}
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    'h-8 px-3 text-xs',
+                    range === r
+                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      : 'border-primary/30 hover:bg-primary/10'
+                  )}
+                >
+                  {r}
+                </Button>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              variant={isCompareMode ? 'default' : 'outline'}
+              onClick={() => setIsCompareMode(!isCompareMode)}
+              className={cn(
+                'h-8 px-3 text-xs flex items-center gap-1.5',
+                isCompareMode
+                  ? 'bg-primary hover:bg-primary/90 text-black'
+                  : 'border-primary/30 hover:bg-primary/10'
+              )}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Compare
+            </Button>
           </div>
         </div>
 
@@ -431,8 +450,19 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Reaction Rings Visualization */}
-        {ringVisualizationData && ringVisualizationData.usersWithRings.length > 0 && (
+        {/* Compare Mode Panel */}
+        {isCompareMode ? (
+          <div className="transition-all duration-200">
+            <ListenerReflexComparePanel
+              groupId={groupId}
+              window={range === '24h' ? '7d' : (range === 'all' ? 'all' : range)} // Map 24h to 7d for radar
+              mode={mode}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Reaction Rings Visualization */}
+            {ringVisualizationData && ringVisualizationData.usersWithRings.length > 0 && (
           <div className="w-full">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-muted-foreground">Reaction Rings</h3>
@@ -658,7 +688,8 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                               '24h': 24 * 60 * 60 * 1000,
                               '7d': 7 * 24 * 60 * 60 * 1000,
                               '30d': 30 * 24 * 60 * 60 * 1000,
-                              '90d': 90 * 24 * 60 * 60 * 1000
+                              '90d': 90 * 24 * 60 * 60 * 1000,
+                              'all': 90 * 24 * 60 * 60 * 1000 // Use 90d as default for 'all'
                             };
                             const activeWindowMs = rangeMsMap[range];
                             const innerRadius = baseRadius * 0.15; // Tightened from 0.3 to increase visual contrast
@@ -699,73 +730,75 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
           </div>
         )}
 
-        {/* Ranked List */}
-        <div className="w-full">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Member Rankings</h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {data.users.map((user, index) => {
-              const categoryConfig = CATEGORY_CONFIG[user.category];
-              const CategoryIcon = categoryConfig.icon;
-              
-              return (
-                <div
-                  key={user.userId}
-                  className={cn(
-                    'flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border transition-colors',
-                    'bg-card/50 border-white/5 hover:bg-white/5',
-                    'flex-wrap sm:flex-nowrap'
-                  )}
-                >
-                  {/* Rank */}
-                  <div className="flex-shrink-0 w-6 md:w-8 text-center">
-                    <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
-                  </div>
+            {/* Ranked List */}
+            <div className="w-full">
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Member Rankings</h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {data.users.map((user, index) => {
+                  const categoryConfig = CATEGORY_CONFIG[user.category];
+                  const CategoryIcon = categoryConfig.icon;
+                  
+                  return (
+                    <div
+                      key={user.userId}
+                      className={cn(
+                        'flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border transition-colors',
+                        'bg-card/50 border-white/5 hover:bg-white/5',
+                        'flex-wrap sm:flex-nowrap'
+                      )}
+                    >
+                      {/* Rank */}
+                      <div className="flex-shrink-0 w-6 md:w-8 text-center">
+                        <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
+                      </div>
 
-                  {/* Avatar */}
-                  <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-white/10 flex-shrink-0">
-                    <AvatarImage src={user.avatarUrl || undefined} />
-                    <AvatarFallback className="text-xs md:text-sm">{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
+                      {/* Avatar */}
+                      <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-white/10 flex-shrink-0">
+                        <AvatarImage src={user.avatarUrl || undefined} />
+                        <AvatarFallback className="text-xs md:text-sm">{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
 
-                  {/* Name */}
-                  <div className="flex-1 min-w-0 flex-shrink">
-                    <p className="font-medium text-xs md:text-sm truncate">{user.displayName}</p>
-                    <p className="text-[10px] md:text-xs text-muted-foreground">
-                      {user.listens} {user.listens === 1 ? 'listen' : 'listens'}
-                    </p>
-                  </div>
+                      {/* Name */}
+                      <div className="flex-1 min-w-0 flex-shrink">
+                        <p className="font-medium text-xs md:text-sm truncate">{user.displayName}</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground">
+                          {user.listens} {user.listens === 1 ? 'listen' : 'listens'}
+                        </p>
+                      </div>
 
-                  {/* Category Badge */}
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'flex items-center gap-1 flex-shrink-0',
-                      // Mobile: icon only - more padding around icon
-                      isMobile ? 'px-2 py-1.5' : 'px-2 md:px-2.5 py-1 md:py-1.5',
-                      categoryConfig.color
-                    )}
-                  >
-                    <CategoryIcon className={cn(
-                      'flex-shrink-0',
-                      isMobile ? 'w-3 h-3' : 'w-2.5 h-2.5 md:w-3 md:h-3'
-                    )} />
-                    {!isMobile && (
-                      <span className="text-[10px] md:text-[11px] whitespace-nowrap font-medium">
-                        {categoryConfig.label}
-                      </span>
-                    )}
-                  </Badge>
+                      {/* Category Badge */}
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'flex items-center gap-1 flex-shrink-0',
+                          // Mobile: icon only - more padding around icon
+                          isMobile ? 'px-2 py-1.5' : 'px-2 md:px-2.5 py-1 md:py-1.5',
+                          categoryConfig.color
+                        )}
+                      >
+                        <CategoryIcon className={cn(
+                          'flex-shrink-0',
+                          isMobile ? 'w-3 h-3' : 'w-2.5 h-2.5 md:w-3 md:h-3'
+                        )} />
+                        {!isMobile && (
+                          <span className="text-[10px] md:text-[11px] whitespace-nowrap font-medium">
+                            {categoryConfig.label}
+                          </span>
+                        )}
+                      </Badge>
 
-                  {/* Median Time */}
-                  <div className="flex-shrink-0 text-right min-w-[60px] md:min-w-0">
-                    <p className="text-xs md:text-sm font-semibold whitespace-nowrap">{formatTime(user.medianMs)}</p>
-                    <p className="text-[10px] md:text-xs text-muted-foreground">median</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                      {/* Median Time */}
+                      <div className="flex-shrink-0 text-right min-w-[60px] md:min-w-0">
+                        <p className="text-xs md:text-sm font-semibold whitespace-nowrap">{formatTime(user.medianMs)}</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground">median</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
     </>

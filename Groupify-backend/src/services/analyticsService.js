@@ -12,6 +12,88 @@ const Group = require('../models/Group');
  */
 class AnalyticsService {
   /**
+   * Calculate median from sorted array
+   * @param {number[]} values - Array of numbers
+   * @returns {number|null} Median value or null if empty
+   */
+  static median(values) {
+    if (!values || values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = sorted.length / 2;
+    if (sorted.length % 2 === 0) {
+      return (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+    return sorted[Math.floor(mid)];
+  }
+
+  /**
+   * Calculate p-th percentile
+   * @param {number[]} values - Array of numbers
+   * @param {number} percentile - Percentile (0-100)
+   * @returns {number|null} Percentile value or null if empty
+   */
+  static percentile(values, percentile) {
+    if (!values || values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    
+    if (percentile === 50) {
+      const mid = sorted.length / 2;
+      if (sorted.length % 2 === 0) {
+        return (sorted[mid - 1] + sorted[mid]) / 2;
+      }
+      return sorted[Math.floor(mid)];
+    }
+    
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  }
+
+  /**
+   * Calculate arithmetic mean
+   * @param {number[]} values - Array of numbers
+   * @returns {number} Mean value (0 if empty)
+   */
+  static mean(values) {
+    if (!values || values.length === 0) return 0;
+    return values.reduce((sum, val) => sum + val, 0) / values.length;
+  }
+
+  /**
+   * Calculate standard deviation
+   * @param {number[]} values - Array of numbers
+   * @returns {number} Standard deviation (0 if empty or single value)
+   */
+  static std(values) {
+    if (!values || values.length === 0 || values.length === 1) return 0;
+    const avg = this.mean(values);
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  /**
+   * Clamp value to range [min, max]
+   * @param {number} value - Value to clamp
+   * @param {number} min - Minimum value
+   * @param {number} max - Maximum value
+   * @returns {number} Clamped value
+   */
+  static clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  /**
+   * Log-normalized scaling with +1 offset to avoid log(0)
+   * @param {number} value - Value to normalize
+   * @param {number} maxValue - Maximum value for normalization
+   * @returns {number} Normalized value in [0, 1] range
+   */
+  static logNormalize(value, maxValue) {
+    if (maxValue <= 0) return 1;
+    const logValue = Math.log(value + 1);
+    const logMax = Math.log(maxValue + 1);
+    return this.clamp(logValue / logMax, 0, 1);
+  }
+  /**
    * Get aggregated activity for a group (waveform data)
    * @param {string} groupId
    * @param {string} timeRange - '24h' | '7d' | '30d' | '90d' | 'all'
@@ -1304,6 +1386,304 @@ class AnalyticsService {
       users: usersArray,
       ringData,
       summary
+    };
+  }
+
+  /**
+   * Compute Listener Reflex Radar Profiles
+   * Calculates 5-axis radar profiles (Speed, Consistency, Recency, Volume, Burstiness) for group members
+   * @param {string} groupId - Group ID
+   * @param {string} timeWindow - Time window: '7d' | '30d' | '90d' | 'all'
+   * @param {string} mode - Analysis mode: 'received' | 'shared'
+   * @returns {Promise<Object>} Radar profiles for all members
+   */
+  static async computeListenerReflexRadar(groupId, timeWindow = '30d', mode = 'received') {
+    const gid = new mongoose.Types.ObjectId(groupId);
+    const now = new Date();
+    let startDate = new Date();
+
+    // Calculate start date based on timeWindow
+    if (timeWindow === '7d') {
+      startDate.setDate(now.getDate() - 7);
+    } else if (timeWindow === '30d') {
+      startDate.setDate(now.getDate() - 30);
+    } else if (timeWindow === '90d') {
+      startDate.setDate(now.getDate() - 90);
+    } else if (timeWindow === 'all') {
+      // For 'all', use earliest share or cap to 90 days for performance
+      const earliest = await Share.findOne({ group: gid })
+        .sort({ createdAt: 1 })
+        .select('createdAt')
+        .lean();
+      
+      if (earliest?.createdAt) {
+        startDate = new Date(earliest.createdAt);
+        const days = (now.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
+        if (days > 90) {
+          startDate.setDate(now.getDate() - 90);
+        }
+      } else {
+        startDate.setDate(now.getDate() - 90);
+      }
+    } else {
+      // Default to 30d
+      startDate.setDate(now.getDate() - 30);
+    }
+
+    // Calculate maxLatencySeconds (cap at 90 days for 'all' or use timeWindow duration)
+    let maxLatencySeconds;
+    if (timeWindow === 'all') {
+      maxLatencySeconds = 90 * 24 * 60 * 60; // 90 days in seconds
+    } else if (timeWindow === '7d') {
+      maxLatencySeconds = 7 * 24 * 60 * 60;
+    } else if (timeWindow === '30d') {
+      maxLatencySeconds = 30 * 24 * 60 * 60;
+    } else if (timeWindow === '90d') {
+      maxLatencySeconds = 90 * 24 * 60 * 60;
+    } else {
+      maxLatencySeconds = 30 * 24 * 60 * 60; // Default 30 days
+    }
+
+    // Get group members
+    const group = await Group.findById(gid).select('members').lean();
+    if (!group) {
+      throw new Error('Group not found');
+    }
+
+    const memberIds = group.members.map(m => new mongoose.Types.ObjectId(m));
+
+    // Build aggregation pipeline to get share and listen data
+    let pipeline;
+    if (mode === 'received') {
+      // Received mode: How fast each member listens to songs shared in the group
+      pipeline = [
+        {
+          $match: {
+            group: gid,
+            createdAt: { $gte: startDate }
+          }
+        },
+        { $unwind: '$listeners' },
+        {
+          $match: {
+            'listeners.user': { $in: memberIds },
+            'listeners.timeToListen': { $ne: null, $exists: true },
+            'listeners.listenedAt': { $exists: true }
+          }
+        },
+        {
+          $project: {
+            listenerId: '$listeners.user',
+            sharerId: '$sharedBy',
+            sharedAt: '$createdAt',
+            listenedAt: '$listeners.listenedAt',
+            timeToListenMs: '$listeners.timeToListen'
+          }
+        }
+      ];
+    } else {
+      // Shared mode: How fast others listen to songs shared by that member
+      pipeline = [
+        {
+          $match: {
+            group: gid,
+            sharedBy: { $in: memberIds },
+            createdAt: { $gte: startDate }
+          }
+        },
+        { $unwind: '$listeners' },
+        {
+          $match: {
+            'listeners.timeToListen': { $ne: null, $exists: true },
+            'listeners.listenedAt': { $exists: true }
+          }
+        },
+        {
+          $project: {
+            listenerId: '$listeners.user',
+            sharerId: '$sharedBy',
+            sharedAt: '$createdAt',
+            listenedAt: '$listeners.listenedAt',
+            timeToListenMs: '$listeners.timeToListen'
+          }
+        }
+      ];
+    }
+
+    // Execute aggregation
+    const reactions = await Share.aggregate(pipeline);
+
+    // Process reactions: calculate latencySeconds and group by member
+    const memberReactionsMap = new Map();
+
+    for (const reaction of reactions) {
+      const memberId = mode === 'received' 
+        ? reaction.listenerId.toString() 
+        : reaction.sharerId.toString();
+      
+      if (!memberReactionsMap.has(memberId)) {
+        memberReactionsMap.set(memberId, []);
+      }
+
+      const sharedAt = new Date(reaction.sharedAt);
+      const listenedAt = new Date(reaction.listenedAt);
+      const latencySeconds = Math.max(0, (listenedAt.getTime() - sharedAt.getTime()) / 1000);
+
+      memberReactionsMap.get(memberId).push({
+        latencySeconds,
+        listenedAt: listenedAt
+      });
+    }
+
+    // Calculate radar profiles for each member
+    const memberProfiles = [];
+    const allLatencies = [];
+    const allIQRs = [];
+    const allReactionCounts = [];
+    const allCVs = [];
+
+    // First pass: collect all metrics for normalization
+    for (const [userId, reactions] of memberReactionsMap.entries()) {
+      if (reactions.length === 0) continue;
+
+      const latencies = reactions.map(r => r.latencySeconds);
+      allLatencies.push(...latencies);
+      
+      const sortedLatencies = [...latencies].sort((a, b) => a - b);
+      const p25 = this.percentile(sortedLatencies, 25) || 0;
+      const p75 = this.percentile(sortedLatencies, 75) || 0;
+      const iqr = p75 - p25;
+      allIQRs.push(iqr);
+
+      allReactionCounts.push(reactions.length);
+
+      // Calculate burstiness (CV of gaps between listenedAt timestamps)
+      if (reactions.length >= 2) {
+        const sortedListenedAt = [...reactions]
+          .map(r => r.listenedAt.getTime())
+          .sort((a, b) => a - b);
+        
+        const gaps = [];
+        for (let i = 1; i < sortedListenedAt.length; i++) {
+          gaps.push((sortedListenedAt[i] - sortedListenedAt[i - 1]) / 1000); // Convert to seconds
+        }
+        
+        if (gaps.length >= 2) {
+          const meanGap = this.mean(gaps);
+          const stdGap = this.std(gaps);
+          const cv = meanGap > 0 ? stdGap / meanGap : 0;
+          allCVs.push(cv);
+        }
+      }
+    }
+
+    // Calculate max values for normalization
+    const maxIQR = allIQRs.length > 0 ? Math.max(...allIQRs) : maxLatencySeconds;
+    const maxReactionCount = allReactionCounts.length > 0 ? Math.max(...allReactionCounts) : 1;
+    const maxCV = allCVs.length > 0 ? Math.max(...allCVs) : 2.0;
+
+    // Second pass: calculate axes for each member
+    for (const [userId, reactions] of memberReactionsMap.entries()) {
+      if (reactions.length === 0) continue;
+
+      const latencies = reactions.map(r => r.latencySeconds);
+      const sortedLatencies = [...latencies].sort((a, b) => a - b);
+      
+      const medianLatency = this.median(sortedLatencies) || 0;
+      const p25 = this.percentile(sortedLatencies, 25) || 0;
+      const p75 = this.percentile(sortedLatencies, 75) || 0;
+      const iqr = p75 - p25;
+      const reactionCount = reactions.length;
+
+      // 1. Speed axis (0-100, higher = faster)
+      const speed = 100 * (1 - this.logNormalize(medianLatency, maxLatencySeconds));
+
+      // 2. Consistency axis (0-100, higher = more predictable)
+      const consistency = 100 * (1 - this.logNormalize(iqr, maxIQR));
+
+      // 3. Recency Bias axis (0-100, higher = reacts to new shares)
+      const freshnessValues = latencies.map(latency => 
+        this.clamp(1 - latency / maxLatencySeconds, 0, 1)
+      );
+      const recency = 100 * this.mean(freshnessValues);
+
+      // 4. Engagement Volume axis (0-100, higher = reacts more)
+      const volume = 100 * this.logNormalize(reactionCount, maxReactionCount);
+
+      // 5. Burstiness axis (0-100, higher = reacts in streaks)
+      let burstiness = 0;
+      if (reactions.length >= 2) {
+        const sortedListenedAt = [...reactions]
+          .map(r => r.listenedAt.getTime())
+          .sort((a, b) => a - b);
+        
+        const gaps = [];
+        for (let i = 1; i < sortedListenedAt.length; i++) {
+          gaps.push((sortedListenedAt[i] - sortedListenedAt[i - 1]) / 1000);
+        }
+        
+        if (gaps.length >= 2) {
+          const meanGap = this.mean(gaps);
+          const stdGap = this.std(gaps);
+          const cv = meanGap > 0 ? stdGap / meanGap : 0;
+          burstiness = 100 * this.clamp(cv / maxCV, 0, 1);
+        }
+      }
+
+      // Mark as low data if reactionCount < 3
+      const lowData = reactionCount < 3;
+
+      memberProfiles.push({
+        userId,
+        axes: {
+          speed: Math.round(speed),
+          consistency: Math.round(consistency),
+          recency: Math.round(recency),
+          volume: Math.round(volume),
+          burstiness: Math.round(burstiness)
+        },
+        raw: {
+          reactionCount,
+          medianLatencySeconds: Math.round(medianLatency),
+          iqrSeconds: Math.round(iqr)
+        },
+        lowData
+      });
+    }
+
+    // Get user details
+    const userIds = memberProfiles.map(p => new mongoose.Types.ObjectId(p.userId));
+    const users = await User.find({ _id: { $in: userIds } })
+      .select('displayName profileImage')
+      .lean();
+
+    const userDetailsMap = new Map();
+    users.forEach(user => {
+      userDetailsMap.set(user._id.toString(), {
+        displayName: user.displayName,
+        avatarUrl: user.profileImage || null
+      });
+    });
+
+    // Add user details to profiles
+    const members = memberProfiles.map(profile => {
+      const userDetails = userDetailsMap.get(profile.userId) || {
+        displayName: 'Unknown',
+        avatarUrl: null
+      };
+      
+      return {
+        ...profile,
+        displayName: userDetails.displayName,
+        avatarUrl: userDetails.avatarUrl
+      };
+    });
+
+    return {
+      window: timeWindow,
+      mode,
+      maxLatencySeconds,
+      members
     };
   }
 }

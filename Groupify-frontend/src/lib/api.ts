@@ -856,6 +856,29 @@ export const getListenerReflex = async (
   return data.data;
 };
 
+/**
+ * Get listener reflex radar profiles
+ * @param groupId - Group ID
+ * @param window - Time window: '7d' | '30d' | '90d' | 'all'
+ * @param mode - Analysis mode: 'received' | 'shared'
+ */
+export const getListenerReflexRadar = async (
+  groupId: string,
+  window: string = '30d',
+  mode: string = 'received'
+): Promise<import('../types').ListenerReflexRadarData> => {
+  const response = await fetchWithAuth(
+    `/analytics/listener-reflex/radar?groupId=${groupId}&window=${window}&mode=${mode}`
+  );
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch radar data');
+  }
+
+  return data.data;
+};
+
 // ==================== GROUP SETTINGS OPERATIONS ====================
 
 /**

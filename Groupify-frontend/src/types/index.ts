@@ -164,3 +164,29 @@ export interface ListenerReflexData {
     instantReactorCount: number;
   };
 }
+
+export interface RadarProfile {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  axes: {
+    speed: number;
+    consistency: number;
+    recency: number;
+    volume: number;
+    burstiness: number;
+  };
+  raw: {
+    reactionCount: number;
+    medianLatencySeconds: number;
+    iqrSeconds: number;
+  };
+  lowData: boolean;
+}
+
+export interface ListenerReflexRadarData {
+  window: '7d' | '30d' | '90d' | 'all';
+  mode: 'received' | 'shared';
+  maxLatencySeconds: number;
+  members: RadarProfile[];
+}

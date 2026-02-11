@@ -3,7 +3,7 @@ import { getListenerReflex } from '../lib/api';
 import { logger } from '../utils/logger';
 import type { ListenerReflexData } from '../types';
 
-export type ListenerReflexRange = '24h' | '7d' | '30d' | '90d';
+export type ListenerReflexRange = '24h' | '7d' | '30d' | '90d' | 'all';
 export type ListenerReflexMode = 'received' | 'shared';
 
 export const useListenerReflex = (

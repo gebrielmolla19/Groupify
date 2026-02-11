@@ -10,6 +10,9 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 // Initiate Spotify OAuth login
 router.get('/login', AuthController.login);
 
+// Test-only login for E2E (only when NODE_ENV=test or E2E_TEST_LOGIN=true)
+router.get('/test-login', AuthController.testLogin);
+
 // Handle Spotify OAuth callback
 router.get('/callback', AuthController.callback);
 

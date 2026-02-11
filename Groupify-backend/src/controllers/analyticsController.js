@@ -128,6 +128,51 @@ class AnalyticsController {
       next(error);
     }
   }
+
+  /**
+   * Get listener reflex radar profiles
+   * GET /api/v1/analytics/listener-reflex/radar?groupId=...&window=7d&mode=received
+   */
+  static async getListenerReflexRadar(req, res, next) {
+    try {
+      const { groupId } = req.query;
+      const { window = '30d', mode = 'received' } = req.query;
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'groupId is required'
+        });
+      }
+
+      // Validate window
+      const validWindows = ['7d', '30d', '90d', 'all'];
+      if (!validWindows.includes(window)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid window. Must be one of: ${validWindows.join(', ')}`
+        });
+      }
+
+      // Validate mode
+      const validModes = ['received', 'shared'];
+      if (!validModes.includes(mode)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid mode. Must be one of: ${validModes.join(', ')}`
+        });
+      }
+
+      const data = await AnalyticsService.computeListenerReflexRadar(groupId, window, mode);
+
+      res.json({
+        success: true,
+        data
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = AnalyticsController;

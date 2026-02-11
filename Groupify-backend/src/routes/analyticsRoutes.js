@@ -32,5 +32,12 @@ router.get('/:id/listener-reflex', authMiddleware, (req, res, next) => {
   next();
 }, isGroupMember, AnalyticsController.getListenerReflex);
 
+// Get listener reflex radar profiles
+// Note: isGroupMember expects req.params.groupId, so we need to map query param to groupId
+router.get('/listener-reflex/radar', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.query.groupId;
+  next();
+}, isGroupMember, AnalyticsController.getListenerReflexRadar);
+
 module.exports = router;
 

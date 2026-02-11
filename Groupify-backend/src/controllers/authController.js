@@ -149,6 +149,43 @@ class AuthController {
   }
 
   /**
+   * Test-only login: create/find a test user and redirect to frontend with JWT.
+   * Only enabled when NODE_ENV=test or E2E_TEST_LOGIN=true.
+   * Used by E2E tests to log in without Spotify OAuth.
+   */
+  static async testLogin(req, res, next) {
+    const allowed = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_LOGIN === 'true';
+    if (!allowed) {
+      return res.status(404).json({ success: false, message: 'Not found' });
+    }
+
+    try {
+      const spotifyId = 'e2e-test-user';
+      let user = await User.findOne({ spotifyId });
+
+      if (!user) {
+        const expiresAt = new Date(Date.now() + 3600000);
+        user = new User({
+          spotifyId,
+          displayName: 'E2E Test User',
+          email: 'e2e@test.example',
+          spotifyAccessToken: 'e2e-test-access',
+          spotifyRefreshToken: 'e2e-test-refresh',
+          tokenExpiresAt: expiresAt
+        });
+        await user.save();
+      }
+
+      const jwtToken = generateToken(user._id);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const callbackUrl = `${frontendUrl}/auth/callback?token=${jwtToken}`;
+      res.redirect(callbackUrl);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Refresh user's Spotify access token
    */
   static async refresh(req, res, next) {
