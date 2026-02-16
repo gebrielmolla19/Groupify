@@ -3,6 +3,9 @@ const config = require('./config/env');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 // const { startScheduler } = require('./utils/scheduler');
@@ -33,7 +36,22 @@ const io = new Server(server, {
 // Store io instance in app for use in controllers
 app.set('io', io);
 
-// Middleware
+// Security middleware
+app.use(helmet());
+
+// Compression middleware (gzip responses)
+app.use(compression());
+
+// Rate limiting (skip health check for load balancers)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  skip: (req) => req.path === '/health',
+  message: { success: false, message: 'Too many requests, please try again later.' }
+});
+app.use(limiter);
+
+// CORS and body parsing
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true

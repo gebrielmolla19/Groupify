@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Tests and dev files
+tests/
+*.test.js
+jest.config.js
+.eslintrc*
+.prettierrc
+
+# Environment and secrets
+.env
+.env.*
+
+# Docs and misc
+*.md
+.git/
+.gitignore
+
+# Build artifacts
+coverage/
+.DS_Store

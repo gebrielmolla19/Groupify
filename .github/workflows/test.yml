@@ -26,8 +26,12 @@ jobs:
       - name: Run backend tests
         run: cd Groupify-backend && npm test -- --testPathIgnorePatterns=analyticsService.test.js
         env:
-          JWT_SECRET: test-jwt-secret-for-ci
           NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-for-ci
+          MONGO_URI: mongodb://localhost:27017/groupify-test
+          SPOTIFY_CLIENT_ID: test-client-id
+          SPOTIFY_CLIENT_SECRET: test-client-secret
+          SPOTIFY_REDIRECT_URI: http://localhost:3000/callback
 
   frontend:
     name: Frontend tests
