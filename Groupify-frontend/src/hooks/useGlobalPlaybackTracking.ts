@@ -15,7 +15,7 @@ export const useGlobalPlaybackTracking = () => {
   const { groups } = useGroups();
   const { playback: remotePlayback } = useCurrentPlayback(
     !!user, // Only poll when user is authenticated
-    5000 // Poll every 5 seconds
+    10000 // Poll every 10 seconds (reduces API load)
   );
 
   // Track remote playback for auto-marking as listened

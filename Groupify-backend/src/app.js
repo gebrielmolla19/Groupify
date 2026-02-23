@@ -24,6 +24,9 @@ const playerRoutes = require('./routes/playerRoutes');
 const app = express();
 const server = http.createServer(app);
 
+// Trust proxy (required for correct client IP behind Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
 // Initialize Socket.io with CORS configuration
 const io = new Server(server, {
   cors: {
@@ -42,11 +45,16 @@ app.use(helmet());
 // Compression middleware (gzip responses)
 app.use(compression());
 
-// Rate limiting (skip health check for load balancers)
+// Rate limiting (skip health check and auth - login/callback must always work)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
-  skip: (req) => req.path === '/health',
+  max: process.env.NODE_ENV === 'production' ? 500 : 200,
+  skip: (req) => {
+    if (req.path === '/health') return true;
+    if (req.path.startsWith('/api/v1/auth/')) return true; // login, callback, etc.
+    if (req.path.startsWith('/api/v1/player/')) return true; // playback polled frequently
+    return false;
+  },
   message: { success: false, message: 'Too many requests, please try again later.' }
 });
 app.use(limiter);

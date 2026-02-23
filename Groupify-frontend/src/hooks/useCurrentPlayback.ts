@@ -41,11 +41,11 @@ interface UseCurrentPlaybackReturn {
  * This detects playback on ANY device (phone, desktop, web player, etc.)
  * 
  * @param enabled - Whether to poll for playback (default: true)
- * @param pollInterval - How often to poll in ms (default: 3000 = 3 seconds)
+ * @param pollInterval - How often to poll in ms (default: 8000 = 8 seconds)
  */
 export const useCurrentPlayback = (
   enabled: boolean = true,
-  pollInterval: number = 3000
+  pollInterval: number = 8000
 ): UseCurrentPlaybackReturn => {
   const [playback, setPlayback] = useState<CurrentPlayback | null>(null);
   const [isLoading, setIsLoading] = useState(false);
