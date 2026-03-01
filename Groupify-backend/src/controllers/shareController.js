@@ -1,4 +1,5 @@
 const ShareService = require('../services/shareService');
+const logger = require('../utils/logger');
 
 /**
  * Share Controller
@@ -16,10 +17,15 @@ class ShareController {
 
       // Emit socket event for real-time updates
       if (req.app.get('io')) {
-        req.app.get('io').to(groupId.toString()).emit('songShared', {
-          share
-        });
+        req.app.get('io').to(groupId.toString()).emit('songShared', { share });
       }
+
+      logger.info('[Share] Song shared to group', {
+        userId: req.userId,
+        groupId,
+        spotifyTrackId,
+        shareId: share._id?.toString()
+      });
 
       res.status(201).json({
         success: true,
@@ -45,6 +51,14 @@ class ShareController {
         limit,
         offset
       );
+
+      logger.debug('[Share] Group feed fetched', {
+        userId: req.userId,
+        groupId,
+        limit,
+        offset,
+        count: result.shares?.length ?? 0
+      });
 
       res.json({
         success: true,
@@ -72,6 +86,12 @@ class ShareController {
         });
       }
 
+      logger.info('[Share] Share marked as listened', {
+        userId: req.userId,
+        shareId,
+        listenCount: share.listenCount
+      });
+
       res.json({
         success: true,
         message: 'Marked as listened',
@@ -98,6 +118,12 @@ class ShareController {
           listenCount: share.listenCount
         });
       }
+
+      logger.info('[Share] Share unmarked as listened', {
+        userId: req.userId,
+        shareId,
+        listenCount: share.listenCount
+      });
 
       res.json({
         success: true,
@@ -127,6 +153,14 @@ class ShareController {
         });
       }
 
+      const liked = share.likes?.map(String).includes(String(req.userId));
+      logger.info('[Share] Like toggled on share', {
+        userId: req.userId,
+        shareId,
+        liked,
+        likeCount: share.likeCount
+      });
+
       res.json({
         success: true,
         message: 'Like toggled successfully',
@@ -143,7 +177,7 @@ class ShareController {
   static async removeShare(req, res, next) {
     try {
       const { shareId } = req.params;
-      
+
       const result = await ShareService.removeShare(shareId, req.userId);
 
       // Emit socket event for real-time updates
@@ -153,7 +187,13 @@ class ShareController {
           groupId: result.groupId
         });
       }
-      
+
+      logger.info('[Share] Share removed from group', {
+        userId: req.userId,
+        shareId,
+        groupId: result.groupId?.toString()
+      });
+
       res.json({
         success: true,
         message: 'Song removed from group'
@@ -165,4 +205,3 @@ class ShareController {
 }
 
 module.exports = ShareController;
-

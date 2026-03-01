@@ -2,6 +2,7 @@ const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const { generateToken } = require('../middleware/authMiddleware');
 const config = require('../config/env');
+const logger = require('../utils/logger');
 
 /**
  * Authentication Controller
@@ -24,6 +25,11 @@ class AuthController {
         err.statusCode = 500;
         throw err;
       }
+
+      logger.info('[Auth] Initiating Spotify OAuth login', {
+        appIndex,
+        ip: req.ip
+      });
 
       const scopes = [
         'user-read-email',
@@ -62,6 +68,10 @@ class AuthController {
       const { code, error, state } = req.query;
 
       if (error) {
+        logger.warn('[Auth] Spotify authorization denied by user', {
+          spotifyError: error,
+          ip: req.ip
+        });
         const err = new Error('Spotify authorization failed');
         err.statusCode = 400;
         throw err;
@@ -94,11 +104,10 @@ class AuthController {
       try {
         tokenData = await SpotifyService.exchangeCodeForToken(code, spotifyConfig);
       } catch (error) {
-        console.error('[Auth] Token exchange failed:', {
+        logger.error('[Auth] Token exchange failed', {
           error: error.message,
           spotifyError: error.spotifyError,
-          code: code ? 'provided' : 'missing',
-          timestamp: new Date().toISOString()
+          codeProvided: !!code
         });
         const err = new Error(`Failed to exchange authorization code: ${error.message}`);
         err.statusCode = error.statusCode || 400;
@@ -118,18 +127,13 @@ class AuthController {
       try {
         spotifyProfile = await SpotifyService.getUserProfile(tokenData.accessToken);
       } catch (error) {
-        console.error('[Auth] Failed to fetch user profile:', {
+        logger.error('[Auth] Failed to fetch Spotify user profile', {
           error: error.message,
           spotifyError: error.spotifyError,
           spotifyErrorDetails: error.spotifyErrorDetails,
-          statusCode: error.statusCode,
-          hasAccessToken: !!tokenData.accessToken,
-          tokenLength: tokenData.accessToken?.length,
-          tokenPreview: tokenData.accessToken ? `${tokenData.accessToken.substring(0, 20)}...` : 'N/A',
-          timestamp: new Date().toISOString()
+          statusCode: error.statusCode
         });
 
-        // Re-throw with proper status code
         const err = new Error(error.message || 'Failed to fetch user profile from Spotify');
         err.statusCode = error.statusCode || 500;
         err.spotifyError = error.spotifyError;
@@ -144,9 +148,9 @@ class AuthController {
 
       // Create or update user
       let user = await User.findOne({ spotifyId: spotifyProfile.id });
+      const isNewUser = !user;
 
       if (user) {
-        // Update existing user
         user.spotifyAccessToken = tokenData.accessToken;
         user.spotifyRefreshToken = tokenData.refreshToken;
         user.tokenExpiresAt = expiresAt;
@@ -157,7 +161,6 @@ class AuthController {
         user.spotifyAppIndex = appIndex;
         await user.save();
       } else {
-        // Create new user
         user = new User({
           spotifyId: spotifyProfile.id,
           displayName: spotifyProfile.display_name || spotifyProfile.id,
@@ -171,11 +174,17 @@ class AuthController {
         await user.save();
       }
 
+      logger.info(isNewUser ? '[Auth] New user registered via Spotify' : '[Auth] Existing user logged in', {
+        userId: user._id?.toString(),
+        spotifyId: spotifyProfile.id,
+        displayName: spotifyProfile.display_name,
+        appIndex,
+        isNewUser
+      });
+
       // Generate JWT token
       const jwtToken = generateToken(user._id);
 
-      // Redirect to frontend with token (adjust URL as needed)
-      // In production, you'd want to use a more secure method to pass the token
       res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?token=${jwtToken}`);
     } catch (error) {
       next(error);
@@ -208,6 +217,7 @@ class AuthController {
           tokenExpiresAt: expiresAt
         });
         await user.save();
+        logger.info('[Auth] E2E test user created', { userId: user._id?.toString() });
       }
 
       const jwtToken = generateToken(user._id);
@@ -243,7 +253,6 @@ class AuthController {
       const spotifyConfig = config.spotify.getConfig(user.spotifyAppIndex ?? 0);
       const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken, spotifyConfig);
 
-      // Update user token
       const expiresAt = new Date();
       expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expiresIn);
 
@@ -253,6 +262,11 @@ class AuthController {
       }
       user.tokenExpiresAt = expiresAt;
       await user.save();
+
+      logger.info('[Auth] Spotify token refreshed via API', {
+        userId,
+        newExpiresAt: expiresAt.toISOString()
+      });
 
       res.json({
         success: true,
@@ -279,6 +293,8 @@ class AuthController {
         throw error;
       }
 
+      logger.debug('[Auth] Current user profile fetched', { userId: req.userId });
+
       res.json({
         success: true,
         user
@@ -297,15 +313,19 @@ class AuthController {
       const userId = req.userId;
       const TokenManager = require('../utils/tokenManager');
 
-      // Get valid Spotify access token (handles refresh if needed)
       const spotifyToken = await TokenManager.getValidAccessToken(userId);
+
+      logger.debug('[Auth] Spotify SDK token vended', { userId });
 
       res.json({
         success: true,
         accessToken: spotifyToken
       });
     } catch (error) {
-      console.error('Get Spotify token error:', error);
+      logger.error('[Auth] Failed to vend Spotify SDK token', {
+        userId: req.userId,
+        error: error.message
+      });
       next(error);
     }
   }
@@ -318,6 +338,8 @@ class AuthController {
   static async logout(req, res, next) {
     try {
       const userId = req.userId;
+
+      logger.info('[Auth] User logged out', { userId });
 
       // TODO: If implementing token blacklisting, add token to blacklist here
       // await TokenBlacklist.create({ token: req.token, expiresAt: req.tokenExp });
@@ -333,4 +355,3 @@ class AuthController {
 }
 
 module.exports = AuthController;
-

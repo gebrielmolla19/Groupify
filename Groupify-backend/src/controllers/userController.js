@@ -1,4 +1,5 @@
 const UserService = require('../services/userService');
+const logger = require('../utils/logger');
 
 /**
  * User Controller
@@ -12,6 +13,8 @@ class UserController {
   static async getUserStats(req, res, next) {
     try {
       const stats = await UserService.getUserStats(req.userId);
+
+      logger.debug('[User] User stats fetched', { userId: req.userId });
 
       res.json({
         success: true,
@@ -29,6 +32,11 @@ class UserController {
     try {
       const { displayName } = req.body;
       const updatedUser = await UserService.updateUserProfile(req.userId, displayName);
+
+      logger.info('[User] User profile updated', {
+        userId: req.userId,
+        newDisplayName: displayName
+      });
 
       res.json({
         success: true,

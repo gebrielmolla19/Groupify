@@ -4,6 +4,7 @@ const TokenManager = require('../utils/tokenManager');
 const User = require('../models/User');
 const Share = require('../models/Share');
 const Group = require('../models/Group');
+const logger = require('../utils/logger');
 
 /**
  * Spotify Controller
@@ -23,11 +24,15 @@ class SpotifyController {
         throw error;
       }
 
-      // Get valid access token
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
-
-      // Search Spotify
       const results = await SpotifyService.searchTracks(accessToken, query, parseInt(limit));
+
+      logger.debug('[Spotify] Track search performed', {
+        userId: req.userId,
+        query,
+        limit: parseInt(limit),
+        resultsTotal: results.tracks?.total
+      });
 
       res.json({
         success: true,
@@ -47,15 +52,18 @@ class SpotifyController {
     try {
       const { limit = 20, after } = req.query;
 
-      // Get valid access token
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
-
-      // Get recently played from Spotify
       const results = await SpotifyService.getRecentlyPlayed(
-        accessToken, 
+        accessToken,
         parseInt(limit),
         after ? parseInt(after) : null
       );
+
+      logger.debug('[Spotify] Recently played tracks fetched', {
+        userId: req.userId,
+        limit: parseInt(limit),
+        count: results.items?.length
+      });
 
       res.json({
         success: true,
@@ -100,7 +108,6 @@ class SpotifyController {
         throw error;
       }
 
-      // Get user and valid access token
       const user = await User.findById(req.userId);
       if (!user) {
         const error = new Error('User not found');
@@ -109,37 +116,31 @@ class SpotifyController {
       }
 
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
-
-      // Get user's Spotify profile to get user ID
       const spotifyProfile = await SpotifyService.getUserProfile(accessToken);
-
-      // Convert track IDs to URIs
       const trackUris = shares.map(share => `spotify:track:${share.spotifyTrackId}`);
 
       let playlist;
       let isNewPlaylist = false;
 
-      // Check if group already has a collaborative playlist
       if (group.spotifyPlaylistId) {
-        // Check if current user is the playlist owner
-        const isPlaylistOwner = group.spotifyPlaylistOwnerId && 
+        const isPlaylistOwner = group.spotifyPlaylistOwnerId &&
                                 group.spotifyPlaylistOwnerId.toString() === req.userId.toString();
-        
+
         if (!isPlaylistOwner) {
-          // User is not the owner - they can't update via API
-          // Get playlist info to return it
           try {
             const playlistResponse = await axios.get(
               `https://api.spotify.com/v1/playlists/${group.spotifyPlaylistId}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`
-                }
-              }
+              { headers: { 'Authorization': `Bearer ${accessToken}` } }
             );
-            
+
             playlist = playlistResponse.data;
-            
+
+            logger.info('[Spotify] Non-owner requested playlist export — returning existing playlist', {
+              userId: req.userId,
+              groupId,
+              playlistId: playlist.id
+            });
+
             return res.json({
               success: true,
               message: 'Only the playlist creator can update tracks via Groupify. However, you can add tracks directly in Spotify since this is a collaborative playlist.',
@@ -148,70 +149,63 @@ class SpotifyController {
                 id: playlist.id,
                 name: playlist.name,
                 external_urls: playlist.external_urls,
-                tracks: {
-                  total: playlist.tracks?.total || 0
-                }
+                tracks: { total: playlist.tracks?.total || 0 }
               },
               playlistId: playlist.id,
               playlistUrl: playlist.external_urls?.spotify || null,
               canModify: false
             });
           } catch (getError) {
-            // If we can't view the playlist, return error
             const error = new Error('Unable to access playlist. You may need to follow it first.');
             error.statusCode = 403;
             throw error;
           }
         }
-        
-        // User is the owner - try to update
+
+        // User is the owner — try to update
         try {
-          // First verify playlist exists by trying to get it
           await SpotifyService.getPlaylistTracks(accessToken, group.spotifyPlaylistId);
-          
-          // Playlist exists, replace all tracks
           await SpotifyService.replacePlaylistTracks(accessToken, group.spotifyPlaylistId, trackUris);
-          
-          // Get updated playlist info
+
           const playlistResponse = await axios.get(
             `https://api.spotify.com/v1/playlists/${group.spotifyPlaylistId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`
-              }
-            }
+            { headers: { 'Authorization': `Bearer ${accessToken}` } }
           );
-          
+
           playlist = playlistResponse.data;
           isNewPlaylist = false;
+
+          logger.info('[Spotify] Existing collaborative playlist updated', {
+            userId: req.userId,
+            groupId,
+            playlistId: playlist.id,
+            trackCount: shares.length
+          });
         } catch (error) {
-          // If playlist was deleted (404) or marked as deleted, create a new one
-          if (error.response?.status === 404 || 
-              error.statusCode === 404 || 
+          if (error.response?.status === 404 ||
+              error.statusCode === 404 ||
               error.isPlaylistDeleted ||
               error.message.includes('404') ||
               error.message.includes('not found') ||
               error.message.includes('deleted')) {
-            
-            console.log(`Playlist ${group.spotifyPlaylistId} was deleted on Spotify, creating a new one...`);
-            
-            // Clear the invalid playlist ID
+
+            logger.warn('[Spotify] Existing playlist not found on Spotify — will create a new one', {
+              userId: req.userId,
+              groupId,
+              oldPlaylistId: group.spotifyPlaylistId
+            });
+
             group.spotifyPlaylistId = null;
             group.spotifyPlaylistUrl = null;
             group.spotifyPlaylistOwnerId = null;
             await group.save();
-            
-            // Fall through to create new playlist
+
             playlist = null;
           } else if (error.response?.status === 403) {
-            // Permission error - even though we checked ownership, something changed
             throw new Error('You no longer have permission to modify this playlist. It may have been transferred to another user.');
           } else if (error.response?.status >= 500 && error.response?.status < 600) {
-            // Server errors (502, 503, 504) - don't treat as deleted if user is owner
-            // Just throw the error so user can retry
             throw error;
           } else {
-            // Re-throw other errors (401, etc.)
             throw error;
           }
         }
@@ -222,9 +216,13 @@ class SpotifyController {
         const name = playlistName || `${group.name} - Groupify Collaborative Playlist`;
         const description = `Collaborative playlist from Groupify group: ${group.name}. ${shares.length} tracks shared by group members.`;
 
-        console.log('Creating new collaborative playlist:', { name, userId: spotifyProfile.id });
+        logger.info('[Spotify] Creating new collaborative playlist', {
+          userId: req.userId,
+          groupId,
+          playlistName: name,
+          trackCount: shares.length
+        });
 
-        // Create collaborative playlist (collaborative: true, public: false)
         playlist = await SpotifyService.createPlaylist(
           accessToken,
           spotifyProfile.id,
@@ -234,47 +232,41 @@ class SpotifyController {
           true   // collaborative: true
         );
 
-        console.log('Playlist created:', { playlistId: playlist?.id, playlistName: playlist?.name });
-
-        // Validate playlist was created
         if (!playlist || !playlist.id) {
           throw new Error('Failed to create playlist: No playlist ID returned from Spotify');
         }
 
-        // Add tracks to playlist
         await SpotifyService.addTracksToPlaylist(accessToken, playlist.id, trackUris);
 
-        // Save playlist ID, URL, and owner to group
         group.spotifyPlaylistId = playlist.id;
         group.spotifyPlaylistUrl = playlist.external_urls?.spotify || null;
         group.spotifyPlaylistOwnerId = req.userId;
         await group.save();
 
         isNewPlaylist = true;
+
+        logger.info('[Spotify] Collaborative playlist created', {
+          userId: req.userId,
+          groupId,
+          playlistId: playlist.id,
+          playlistName: playlist.name
+        });
       }
 
       // Invite all group members to collaborate on the playlist
-      // This is done by having each member follow the collaborative playlist
       let invitedCount = 0;
       let failedCount = 0;
       const inviteResults = [];
 
       if (isNewPlaylist) {
-        // Only invite on new playlist creation
         try {
           if (group.members && group.members.length > 0) {
-            // Invite all members (including the creator) to follow the playlist
             const invitePromises = group.members.map(async (member) => {
               try {
-                // Get member ID (handle both ObjectId and populated document)
                 const memberId = member._id ? member._id.toString() : member.toString();
-                
-                // Get valid access token for this member
                 const memberAccessToken = await TokenManager.getValidAccessToken(memberId);
-                
-                // Have them follow the playlist (this enables collaboration)
                 await SpotifyService.followPlaylist(memberAccessToken, playlist.id);
-                
+
                 invitedCount++;
                 inviteResults.push({
                   userId: memberId,
@@ -282,7 +274,6 @@ class SpotifyController {
                   success: true
                 });
               } catch (error) {
-                // Log but don't fail the whole operation if one user fails
                 const memberId = member._id ? member._id.toString() : member.toString();
                 failedCount++;
                 inviteResults.push({
@@ -291,22 +282,36 @@ class SpotifyController {
                   success: false,
                   error: error.message
                 });
-                console.error(`Failed to invite user ${member.displayName || memberId} to playlist:`, error.message);
+                logger.warn('[Spotify] Failed to invite member to collaborative playlist', {
+                  memberId,
+                  displayName: member.displayName,
+                  playlistId: playlist.id,
+                  error: error.message
+                });
               }
             });
 
-            // Wait for all invites to complete (don't fail if some fail)
             await Promise.allSettled(invitePromises);
+
+            logger.info('[Spotify] Collaborative playlist member invitations complete', {
+              userId: req.userId,
+              playlistId: playlist.id,
+              invited: invitedCount,
+              failed: failedCount
+            });
           }
         } catch (error) {
-          // Log but don't fail the whole operation if inviting fails
-          console.error('Error inviting group members to playlist:', error.message);
+          logger.error('[Spotify] Error during group member playlist invitations', {
+            userId: req.userId,
+            playlistId: playlist.id,
+            error: error.message
+          });
         }
       }
 
       res.json({
         success: true,
-        message: isNewPlaylist 
+        message: isNewPlaylist
           ? `Collaborative playlist created successfully${invitedCount > 0 ? ` and ${invitedCount} member${invitedCount > 1 ? 's' : ''} invited` : ''}`
           : 'Playlist updated successfully',
         isNewPlaylist,
@@ -314,9 +319,7 @@ class SpotifyController {
           id: playlist.id,
           name: playlist.name,
           external_urls: playlist.external_urls,
-          tracks: {
-            total: shares.length
-          }
+          tracks: { total: shares.length }
         },
         playlistId: playlist.id,
         playlistUrl: playlist.external_urls?.spotify || null,
@@ -339,7 +342,6 @@ class SpotifyController {
     try {
       const { groupId } = req.params;
 
-      // Verify user is a member of the group
       const group = await Group.findOne({
         _id: groupId,
         members: req.userId,
@@ -358,23 +360,21 @@ class SpotifyController {
         throw error;
       }
 
-      // Get user's valid access token
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
-
-      // Follow the playlist
       await SpotifyService.followPlaylist(accessToken, group.spotifyPlaylistId);
 
-      // Get playlist info
       const playlistResponse = await axios.get(
         `https://api.spotify.com/v1/playlists/${group.spotifyPlaylistId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
       );
 
       const playlist = playlistResponse.data;
+
+      logger.info('[Spotify] User followed collaborative playlist', {
+        userId: req.userId,
+        groupId,
+        playlistId: playlist.id
+      });
 
       res.json({
         success: true,
@@ -383,9 +383,7 @@ class SpotifyController {
           id: playlist.id,
           name: playlist.name,
           external_urls: playlist.external_urls,
-          tracks: {
-            total: playlist.tracks?.total || 0
-          }
+          tracks: { total: playlist.tracks?.total || 0 }
         },
         playlistId: playlist.id,
         playlistUrl: playlist.external_urls?.spotify || null
@@ -397,4 +395,3 @@ class SpotifyController {
 }
 
 module.exports = SpotifyController;
-

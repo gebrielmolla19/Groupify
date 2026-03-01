@@ -1,4 +1,5 @@
 const InviteService = require('../services/inviteService');
+const logger = require('../utils/logger');
 
 /**
  * Invite Controller
@@ -21,6 +22,13 @@ class InviteController {
         invitedByUserId
       );
 
+      logger.info('[Invite] Invite created', {
+        invitedByUserId,
+        groupId,
+        invitedUserSpotifyId,
+        inviteId: invite._id?.toString()
+      });
+
       res.status(201).json({
         success: true,
         message: 'Invite created successfully',
@@ -40,6 +48,13 @@ class InviteController {
       const userId = req.userId;
 
       const group = await InviteService.acceptInvite(inviteId, userId);
+
+      logger.info('[Invite] Invite accepted', {
+        userId,
+        inviteId,
+        groupId,
+        groupName: group?.name
+      });
 
       res.json({
         success: true,
@@ -61,6 +76,12 @@ class InviteController {
 
       const invite = await InviteService.declineInvite(inviteId, userId);
 
+      logger.info('[Invite] Invite declined', {
+        userId,
+        inviteId,
+        groupId
+      });
+
       res.json({
         success: true,
         message: 'Invite declined successfully',
@@ -81,6 +102,12 @@ class InviteController {
 
       const invites = await InviteService.listInvites(groupId, userId);
 
+      logger.debug('[Invite] Group invites listed', {
+        userId,
+        groupId,
+        count: invites?.length ?? 0
+      });
+
       res.json({
         success: true,
         invites
@@ -99,6 +126,11 @@ class InviteController {
 
       const invites = await InviteService.getUserInvites(userId);
 
+      logger.debug('[Invite] User pending invites fetched', {
+        userId,
+        count: invites?.length ?? 0
+      });
+
       res.json({
         success: true,
         invites
@@ -110,4 +142,3 @@ class InviteController {
 }
 
 module.exports = InviteController;
-

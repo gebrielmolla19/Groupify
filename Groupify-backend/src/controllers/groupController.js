@@ -1,4 +1,5 @@
 const GroupService = require('../services/groupService');
+const logger = require('../utils/logger');
 
 /**
  * Group Controller
@@ -13,6 +14,12 @@ class GroupController {
     try {
       const { name, description } = req.body;
       const group = await GroupService.createGroup(req.userId, name, description);
+
+      logger.info('[Group] Group created', {
+        userId: req.userId,
+        groupId: group._id?.toString(),
+        groupName: group.name
+      });
 
       res.status(201).json({
         success: true,
@@ -31,6 +38,11 @@ class GroupController {
     try {
       const groups = await GroupService.getUserGroups(req.userId);
 
+      logger.debug('[Group] User groups fetched', {
+        userId: req.userId,
+        count: groups?.length ?? 0
+      });
+
       res.json({
         success: true,
         groups
@@ -48,6 +60,11 @@ class GroupController {
       const { id } = req.params;
       const group = await GroupService.getGroupById(id, req.userId);
 
+      logger.debug('[Group] Group details fetched', {
+        userId: req.userId,
+        groupId: id
+      });
+
       res.json({
         success: true,
         group
@@ -64,6 +81,12 @@ class GroupController {
     try {
       const { inviteCode } = req.body;
       const group = await GroupService.joinGroup(req.userId, inviteCode);
+
+      logger.info('[Group] User joined group via invite code', {
+        userId: req.userId,
+        groupId: group._id?.toString(),
+        groupName: group.name
+      });
 
       res.json({
         success: true,
@@ -83,6 +106,12 @@ class GroupController {
       const { inviteCode } = req.body;
       const group = await GroupService.joinGroup(req.userId, inviteCode);
 
+      logger.info('[Group] User joined group', {
+        userId: req.userId,
+        groupId: group._id?.toString(),
+        groupName: group.name
+      });
+
       res.json({
         success: true,
         message: 'Successfully joined group',
@@ -101,6 +130,11 @@ class GroupController {
       const { id } = req.params;
       const result = await GroupService.leaveGroup(id, req.userId);
 
+      logger.info('[Group] User left group', {
+        userId: req.userId,
+        groupId: id
+      });
+
       res.json({
         success: true,
         ...result
@@ -118,6 +152,11 @@ class GroupController {
       const { groupId } = req.params;
       const settings = await GroupService.getGroupSettings(groupId, req.userId);
 
+      logger.debug('[Group] Group settings fetched', {
+        userId: req.userId,
+        groupId
+      });
+
       res.json({
         success: true,
         data: settings
@@ -134,12 +173,18 @@ class GroupController {
     try {
       const { groupId } = req.params;
       const { name, description } = req.body;
-      
+
       const updates = {};
       if (name !== undefined) updates.name = name;
       if (description !== undefined) updates.description = description;
 
       const settings = await GroupService.updateGroupSettings(groupId, req.userId, updates);
+
+      logger.info('[Group] Group settings updated', {
+        userId: req.userId,
+        groupId,
+        updatedFields: Object.keys(updates)
+      });
 
       res.json({
         success: true,
@@ -159,6 +204,12 @@ class GroupController {
       const { groupId, memberId } = req.params;
       const result = await GroupService.removeGroupMember(groupId, req.userId, memberId);
 
+      logger.info('[Group] Member removed from group', {
+        requestedByUserId: req.userId,
+        removedMemberId: memberId,
+        groupId
+      });
+
       res.json({
         success: true,
         message: result.message
@@ -176,6 +227,12 @@ class GroupController {
       const { id } = req.params;
       const result = await GroupService.deleteGroup(id, req.userId);
 
+      logger.info('[Group] Group deleted', {
+        userId: req.userId,
+        groupId: result.groupId?.toString(),
+        groupName: result.groupName
+      });
+
       res.json({
         success: true,
         message: result.message,
@@ -191,4 +248,3 @@ class GroupController {
 }
 
 module.exports = GroupController;
-

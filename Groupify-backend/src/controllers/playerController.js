@@ -1,6 +1,7 @@
 const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const TokenManager = require('../utils/tokenManager');
+const logger = require('../utils/logger');
 
 /**
  * Player Controller
@@ -9,9 +10,6 @@ const TokenManager = require('../utils/tokenManager');
 class PlayerController {
   /**
    * Get the user's available Spotify Connect devices
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Express next middleware function
    */
   static async getAvailableDevices(req, res, next) {
     try {
@@ -23,17 +21,19 @@ class PlayerController {
         throw error;
       }
 
-      // Get valid Spotify access token (handles refresh if needed)
       const accessToken = await TokenManager.getValidAccessToken(userId);
-
       const devices = await SpotifyService.getAvailableDevices(accessToken);
+
+      logger.debug('[Player] Available devices fetched', {
+        userId,
+        deviceCount: devices?.length ?? 0
+      });
 
       res.json({
         success: true,
         devices
       });
     } catch (error) {
-      // If error already has statusCode, pass it through
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
@@ -41,11 +41,10 @@ class PlayerController {
         });
       }
 
-      // Log error for debugging
-      console.error('Get available devices error:', {
-        error: error.message,
+      logger.error('[Player] Failed to get available devices', {
         userId: req.userId,
-        timestamp: new Date().toISOString()
+        error: error.message,
+        stack: error.stack
       });
 
       next(error);
@@ -54,15 +53,11 @@ class PlayerController {
 
   /**
    * Transfer playback to a specific device
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Express next middleware function
    */
   static async transferPlayback(req, res, next) {
     try {
       const { device_id, play } = req.body;
 
-      // Validate device_id is provided
       if (!device_id || typeof device_id !== 'string' || device_id.trim() === '') {
         return res.status(400).json({
           success: false,
@@ -78,13 +73,9 @@ class PlayerController {
         throw error;
       }
 
-      // Get valid Spotify access token (handles refresh if needed)
       const accessToken = await TokenManager.getValidAccessToken(userId);
-
-      // Transfer playback to device (with optional play parameter)
       await SpotifyService.transferPlayback(accessToken, device_id.trim(), Boolean(play));
 
-      // Update user's current device ID
       const user = await User.findById(userId);
       if (!user) {
         const error = new Error('User not found');
@@ -95,15 +86,18 @@ class PlayerController {
       user.currentDeviceId = device_id.trim();
       await user.save();
 
+      logger.info('[Player] Playback transferred to device', {
+        userId,
+        deviceId: device_id.trim(),
+        play: Boolean(play)
+      });
+
       res.json({
         success: true,
         message: play ? 'Playback transferred and resumed' : 'Playback transferred successfully',
-        data: {
-          deviceId: device_id.trim()
-        }
+        data: { deviceId: device_id.trim() }
       });
     } catch (error) {
-      // If error already has statusCode, pass it through
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
@@ -111,24 +105,19 @@ class PlayerController {
         });
       }
 
-      // Log error for debugging
-      console.error('Transfer playback error:', {
-        error: error.message,
+      logger.error('[Player] Failed to transfer playback', {
         userId: req.userId,
         deviceId: req.body?.device_id,
-        timestamp: new Date().toISOString()
+        error: error.message,
+        stack: error.stack
       });
 
-      // Pass to error middleware
       next(error);
     }
   }
 
   /**
    * Get current playback state (what's playing on any device)
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Express next middleware function
    */
   static async getCurrentPlayback(req, res, next) {
     try {
@@ -140,17 +129,20 @@ class PlayerController {
         throw error;
       }
 
-      // Get valid Spotify access token (handles refresh if needed)
       const accessToken = await TokenManager.getValidAccessToken(userId);
-
       const playback = await SpotifyService.getCurrentPlayback(accessToken);
+
+      logger.debug('[Player] Current playback state fetched', {
+        userId,
+        isPlaying: playback?.is_playing ?? false,
+        trackId: playback?.item?.id
+      });
 
       res.json({
         success: true,
-        playback: playback || null // null means nothing is playing
+        playback: playback || null
       });
     } catch (error) {
-      // If error already has statusCode, pass it through
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
@@ -158,11 +150,10 @@ class PlayerController {
         });
       }
 
-      // Log error for debugging
-      console.error('Get current playback error:', {
-        error: error.message,
+      logger.error('[Player] Failed to get current playback', {
         userId: req.userId,
-        timestamp: new Date().toISOString()
+        error: error.message,
+        stack: error.stack
       });
 
       next(error);
@@ -171,15 +162,11 @@ class PlayerController {
 
   /**
    * Play a specific track on the user's device
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Express next middleware function
    */
   static async playTrack(req, res, next) {
     try {
       const { device_id, track_uri } = req.body;
 
-      // Validate required fields
       if (!device_id || typeof device_id !== 'string' || device_id.trim() === '') {
         return res.status(400).json({
           success: false,
@@ -194,7 +181,6 @@ class PlayerController {
         });
       }
 
-      // Validate track URI format (should be spotify:track:xxx)
       if (!track_uri.startsWith('spotify:track:')) {
         return res.status(400).json({
           success: false,
@@ -210,11 +196,14 @@ class PlayerController {
         throw error;
       }
 
-      // Get valid Spotify access token (handles refresh if needed)
       const accessToken = await TokenManager.getValidAccessToken(userId);
-
-      // Play the track
       await SpotifyService.playTrack(accessToken, device_id.trim(), track_uri.trim());
+
+      logger.info('[Player] Track playback started', {
+        userId,
+        deviceId: device_id.trim(),
+        trackUri: track_uri.trim()
+      });
 
       res.json({
         success: true,
@@ -225,7 +214,6 @@ class PlayerController {
         }
       });
     } catch (error) {
-      // If error already has statusCode, pass it through
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
@@ -233,20 +221,17 @@ class PlayerController {
         });
       }
 
-      // Log error for debugging
-      console.error('Play track error:', {
-        error: error.message,
+      logger.error('[Player] Failed to start track playback', {
         userId: req.userId,
         deviceId: req.body?.device_id,
         trackUri: req.body?.track_uri,
-        timestamp: new Date().toISOString()
+        error: error.message,
+        stack: error.stack
       });
 
-      // Pass to error middleware
       next(error);
     }
   }
 }
 
 module.exports = PlayerController;
-

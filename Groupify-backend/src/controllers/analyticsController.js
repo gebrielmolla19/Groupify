@@ -1,4 +1,5 @@
 const AnalyticsService = require('../services/analyticsService');
+const logger = require('../utils/logger');
 
 /**
  * Analytics Controller
@@ -13,8 +14,15 @@ class AnalyticsController {
   static async getGroupActivity(req, res, next) {
     try {
       const { id } = req.params;
-      const { timeRange, mode } = req.query; // mode: 'shares' | 'engagement' (default: 'shares')
+      const { timeRange, mode } = req.query;
       const data = await AnalyticsService.getGroupActivity(id, timeRange, mode);
+
+      logger.debug('[Analytics] Group activity fetched', {
+        userId: req.userId,
+        groupId: id,
+        timeRange,
+        mode
+      });
 
       res.json({
         success: true,
@@ -32,8 +40,14 @@ class AnalyticsController {
   static async getMemberVibes(req, res, next) {
     try {
       const { id } = req.params;
-      const { timeRange } = req.query; // '24h' | '7d' | '30d' | '90d' | 'all'
+      const { timeRange } = req.query;
       const data = await AnalyticsService.getMemberVibes(id, timeRange || 'all');
+
+      logger.debug('[Analytics] Member vibes fetched', {
+        userId: req.userId,
+        groupId: id,
+        timeRange: timeRange || 'all'
+      });
 
       res.json({
         success: true,
@@ -53,6 +67,11 @@ class AnalyticsController {
       const { id } = req.params;
       const data = await AnalyticsService.getSuperlatives(id);
 
+      logger.debug('[Analytics] Superlatives fetched', {
+        userId: req.userId,
+        groupId: id
+      });
+
       res.json({
         success: true,
         data
@@ -71,9 +90,15 @@ class AnalyticsController {
       const { id } = req.params;
       const { timeRange = '7d' } = req.query;
 
-      // Validate timeRange
       const validRanges = ['7d', '30d', '90d', 'all'];
       if (!validRanges.includes(timeRange)) {
+        logger.warn('[Analytics] Invalid timeRange for taste gravity', {
+          userId: req.userId,
+          groupId: id,
+          provided: timeRange,
+          valid: validRanges
+        });
+
         return res.status(400).json({
           success: false,
           message: `Invalid timeRange. Must be one of: ${validRanges.join(', ')}`
@@ -81,6 +106,12 @@ class AnalyticsController {
       }
 
       const data = await AnalyticsService.getTasteGravity(id, timeRange);
+
+      logger.debug('[Analytics] Taste gravity fetched', {
+        userId: req.userId,
+        groupId: id,
+        timeRange
+      });
 
       res.json({
         success: true,
@@ -100,18 +131,28 @@ class AnalyticsController {
       const { id } = req.params;
       const { range = '30d', mode = 'received' } = req.query;
 
-      // Validate range
       const validRanges = ['24h', '7d', '30d', '90d'];
       if (!validRanges.includes(range)) {
+        logger.warn('[Analytics] Invalid range for listener reflex', {
+          userId: req.userId,
+          groupId: id,
+          provided: range
+        });
+
         return res.status(400).json({
           success: false,
           message: `Invalid range. Must be one of: ${validRanges.join(', ')}`
         });
       }
 
-      // Validate mode
       const validModes = ['received', 'shared'];
       if (!validModes.includes(mode)) {
+        logger.warn('[Analytics] Invalid mode for listener reflex', {
+          userId: req.userId,
+          groupId: id,
+          provided: mode
+        });
+
         return res.status(400).json({
           success: false,
           message: `Invalid mode. Must be one of: ${validModes.join(', ')}`
@@ -119,6 +160,13 @@ class AnalyticsController {
       }
 
       const data = await AnalyticsService.computeListenerReflex(id, range, mode);
+
+      logger.debug('[Analytics] Listener reflex computed', {
+        userId: req.userId,
+        groupId: id,
+        range,
+        mode
+      });
 
       res.json({
         success: true,
@@ -139,13 +187,16 @@ class AnalyticsController {
       const { window = '30d', mode = 'received' } = req.query;
 
       if (!groupId) {
+        logger.warn('[Analytics] Missing groupId for listener reflex radar', {
+          userId: req.userId
+        });
+
         return res.status(400).json({
           success: false,
           message: 'groupId is required'
         });
       }
 
-      // Validate window
       const validWindows = ['7d', '30d', '90d', 'all'];
       if (!validWindows.includes(window)) {
         return res.status(400).json({
@@ -154,7 +205,6 @@ class AnalyticsController {
         });
       }
 
-      // Validate mode
       const validModes = ['received', 'shared'];
       if (!validModes.includes(mode)) {
         return res.status(400).json({
@@ -164,6 +214,13 @@ class AnalyticsController {
       }
 
       const data = await AnalyticsService.computeListenerReflexRadar(groupId, window, mode);
+
+      logger.debug('[Analytics] Listener reflex radar computed', {
+        userId: req.userId,
+        groupId,
+        window,
+        mode
+      });
 
       res.json({
         success: true,

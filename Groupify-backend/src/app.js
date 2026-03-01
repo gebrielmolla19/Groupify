@@ -8,6 +8,8 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
+const logger = require('./utils/logger');
+const requestLoggerMiddleware = require('./middleware/requestLoggerMiddleware');
 // const { startScheduler } = require('./utils/scheduler');
 
 // Import routes
@@ -38,6 +40,9 @@ const io = new Server(server, {
 
 // Store io instance in app for use in controllers
 app.set('io', io);
+
+// HTTP request/response logging (mount early, before routes)
+app.use(requestLoggerMiddleware);
 
 // Security middleware
 app.use(helmet());
@@ -128,13 +133,15 @@ app.use('/api/v1/player', playerRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  // Join group room when user connects to a group
+  logger.debug('[Socket.io] Client connected', { socketId: socket.id });
+
   socket.on('joinGroup', (groupId) => {
+    logger.debug('[Socket.io] Client joined group room', { socketId: socket.id, groupId });
     socket.join(groupId);
   });
 
-  // Leave group room
   socket.on('leaveGroup', (groupId) => {
+    logger.debug('[Socket.io] Client left group room', { socketId: socket.id, groupId });
     socket.leave(groupId);
   });
 
@@ -152,13 +159,13 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnection
-  socket.on('disconnect', () => {
-    // User disconnected
+  socket.on('disconnect', (reason) => {
+    logger.debug('[Socket.io] Client disconnected', { socketId: socket.id, reason });
   });
 
   // Error handling
   socket.on('error', (error) => {
-    console.error(`[Socket.io] Error for socket ${socket.id}:`, error);
+    logger.error('[Socket.io] Socket error', { socketId: socket.id, error: error.message });
   });
 });
 
@@ -177,36 +184,36 @@ const connectDB = async () => {
       retryReads: true,
     };
 
-    console.log(`[MongoDB] Connecting to ${isAtlas ? 'MongoDB Atlas' : 'MongoDB'}...`);
+    logger.info(`[MongoDB] Connecting to ${isAtlas ? 'MongoDB Atlas' : 'MongoDB'}...`);
     
     await mongoose.connect(config.mongo.uri, options);
     
-    console.log('[MongoDB] Connected successfully');
-    console.log(`[MongoDB] Database: ${mongoose.connection.name}`);
+    logger.info('[MongoDB] Connected successfully', { database: mongoose.connection.name });
     
     return mongoose.connection;
   } catch (error) {
-    console.error('[MongoDB] Connection error:', error.message);
-    
+    const context = { error: error.message };
+
     if (error.message.includes('SSL') || error.message.includes('TLS')) {
-      console.error('[MongoDB] SSL/TLS Error - Check connection string and network settings');
+      context.hint = 'SSL/TLS Error - Check connection string and network settings';
     } else if (error.message.includes('authentication')) {
-      console.error('[MongoDB] Authentication Error - Check username and password');
+      context.hint = 'Authentication Error - Check username and password';
     } else if (error.message.includes('timeout') || error.message.includes('ENOTFOUND')) {
-      console.error('[MongoDB] Network Error - Check internet connection and hostname');
+      context.hint = 'Network Error - Check internet connection and hostname';
     }
-    
+
+    logger.error('[MongoDB] Connection error', context);
     throw error;
   }
 };
 
 // MongoDB connection event handlers
 mongoose.connection.on('disconnected', () => {
-  console.warn('[MongoDB] Disconnected from database');
+  logger.warn('[MongoDB] Disconnected from database');
 });
 
 mongoose.connection.on('error', (error) => {
-  console.error('[MongoDB] Database error:', error);
+  logger.error('[MongoDB] Database error', { error: error.message, stack: error.stack });
 });
 
 // Start scheduled tasks (cron jobs)
