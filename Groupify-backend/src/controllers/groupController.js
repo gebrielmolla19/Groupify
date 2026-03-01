@@ -62,7 +62,8 @@ class GroupController {
 
       logger.debug('[Group] Group details fetched', {
         userId: req.userId,
-        groupId: id
+        groupId: id,
+        groupName: group.name
       });
 
       res.json({
@@ -132,7 +133,8 @@ class GroupController {
 
       logger.info('[Group] User left group', {
         userId: req.userId,
-        groupId: id
+        groupId: id,
+        groupName: result.groupName
       });
 
       res.json({
@@ -154,7 +156,8 @@ class GroupController {
 
       logger.debug('[Group] Group settings fetched', {
         userId: req.userId,
-        groupId
+        groupId,
+        groupName: settings.name
       });
 
       res.json({
@@ -183,6 +186,7 @@ class GroupController {
       logger.info('[Group] Group settings updated', {
         userId: req.userId,
         groupId,
+        groupName: settings.name,
         updatedFields: Object.keys(updates)
       });
 
@@ -207,7 +211,8 @@ class GroupController {
       logger.info('[Group] Member removed from group', {
         requestedByUserId: req.userId,
         removedMemberId: memberId,
-        groupId
+        groupId,
+        groupName: result.groupName
       });
 
       res.json({

@@ -29,6 +29,7 @@ class SpotifyController {
 
       logger.debug('[Spotify] Track search performed', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         query,
         limit: parseInt(limit),
         resultsTotal: results.tracks?.total
@@ -61,6 +62,7 @@ class SpotifyController {
 
       logger.debug('[Spotify] Recently played tracks fetched', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         limit: parseInt(limit),
         count: results.items?.length
       });
@@ -137,7 +139,9 @@ class SpotifyController {
 
             logger.info('[Spotify] Non-owner requested playlist export — returning existing playlist', {
               userId: req.userId,
+              userDisplayName: req.user?.displayName,
               groupId,
+              groupName: group.name,
               playlistId: playlist.id
             });
 
@@ -177,7 +181,9 @@ class SpotifyController {
 
           logger.info('[Spotify] Existing collaborative playlist updated', {
             userId: req.userId,
+            userDisplayName: req.user?.displayName,
             groupId,
+            groupName: group.name,
             playlistId: playlist.id,
             trackCount: shares.length
           });
@@ -191,7 +197,9 @@ class SpotifyController {
 
             logger.warn('[Spotify] Existing playlist not found on Spotify — will create a new one', {
               userId: req.userId,
+              userDisplayName: req.user?.displayName,
               groupId,
+              groupName: group.name,
               oldPlaylistId: group.spotifyPlaylistId
             });
 
@@ -218,7 +226,9 @@ class SpotifyController {
 
         logger.info('[Spotify] Creating new collaborative playlist', {
           userId: req.userId,
+          userDisplayName: req.user?.displayName,
           groupId,
+          groupName: group.name,
           playlistName: name,
           trackCount: shares.length
         });
@@ -247,7 +257,9 @@ class SpotifyController {
 
         logger.info('[Spotify] Collaborative playlist created', {
           userId: req.userId,
+          userDisplayName: req.user?.displayName,
           groupId,
+          groupName: group.name,
           playlistId: playlist.id,
           playlistName: playlist.name
         });
@@ -295,6 +307,8 @@ class SpotifyController {
 
             logger.info('[Spotify] Collaborative playlist member invitations complete', {
               userId: req.userId,
+              userDisplayName: req.user?.displayName,
+              groupName: group.name,
               playlistId: playlist.id,
               invited: invitedCount,
               failed: failedCount
@@ -303,6 +317,8 @@ class SpotifyController {
         } catch (error) {
           logger.error('[Spotify] Error during group member playlist invitations', {
             userId: req.userId,
+            userDisplayName: req.user?.displayName,
+            groupName: group.name,
             playlistId: playlist.id,
             error: error.message
           });
@@ -372,8 +388,11 @@ class SpotifyController {
 
       logger.info('[Spotify] User followed collaborative playlist', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId,
-        playlistId: playlist.id
+        groupName: group.name,
+        playlistId: playlist.id,
+        playlistName: playlist.name
       });
 
       res.json({

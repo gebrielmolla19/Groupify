@@ -265,6 +265,7 @@ class AuthController {
 
       logger.info('[Auth] Spotify token refreshed via API', {
         userId,
+        userDisplayName: user.displayName,
         newExpiresAt: expiresAt.toISOString()
       });
 
@@ -293,7 +294,10 @@ class AuthController {
         throw error;
       }
 
-      logger.debug('[Auth] Current user profile fetched', { userId: req.userId });
+      logger.debug('[Auth] Current user profile fetched', {
+        userId: req.userId,
+        userDisplayName: user.displayName
+      });
 
       res.json({
         success: true,
@@ -315,7 +319,10 @@ class AuthController {
 
       const spotifyToken = await TokenManager.getValidAccessToken(userId);
 
-      logger.debug('[Auth] Spotify SDK token vended', { userId });
+      logger.debug('[Auth] Spotify SDK token vended', {
+        userId,
+        userDisplayName: req.user?.displayName
+      });
 
       res.json({
         success: true,
@@ -339,7 +346,10 @@ class AuthController {
     try {
       const userId = req.userId;
 
-      logger.info('[Auth] User logged out', { userId });
+      logger.info('[Auth] User logged out', {
+        userId,
+        userDisplayName: req.user?.displayName
+      });
 
       // TODO: If implementing token blacklisting, add token to blacklist here
       // await TokenBlacklist.create({ token: req.token, expiresAt: req.tokenExp });

@@ -26,6 +26,7 @@ class PlayerController {
 
       logger.debug('[Player] Available devices fetched', {
         userId,
+        userDisplayName: req.user?.displayName,
         deviceCount: devices?.length ?? 0
       });
 
@@ -43,6 +44,7 @@ class PlayerController {
 
       logger.error('[Player] Failed to get available devices', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         error: error.message,
         stack: error.stack
       });
@@ -88,6 +90,7 @@ class PlayerController {
 
       logger.info('[Player] Playback transferred to device', {
         userId,
+        userDisplayName: req.user?.displayName,
         deviceId: device_id.trim(),
         play: Boolean(play)
       });
@@ -107,6 +110,7 @@ class PlayerController {
 
       logger.error('[Player] Failed to transfer playback', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         deviceId: req.body?.device_id,
         error: error.message,
         stack: error.stack
@@ -134,8 +138,10 @@ class PlayerController {
 
       logger.debug('[Player] Current playback state fetched', {
         userId,
+        userDisplayName: req.user?.displayName,
         isPlaying: playback?.is_playing ?? false,
-        trackId: playback?.item?.id
+        trackId: playback?.item?.id,
+        trackName: playback?.item?.name
       });
 
       res.json({
@@ -152,6 +158,7 @@ class PlayerController {
 
       logger.error('[Player] Failed to get current playback', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         error: error.message,
         stack: error.stack
       });
@@ -201,6 +208,7 @@ class PlayerController {
 
       logger.info('[Player] Track playback started', {
         userId,
+        userDisplayName: req.user?.displayName,
         deviceId: device_id.trim(),
         trackUri: track_uri.trim()
       });
@@ -223,6 +231,7 @@ class PlayerController {
 
       logger.error('[Player] Failed to start track playback', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         deviceId: req.body?.device_id,
         trackUri: req.body?.track_uri,
         error: error.message,

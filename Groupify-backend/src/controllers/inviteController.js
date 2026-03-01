@@ -24,8 +24,11 @@ class InviteController {
 
       logger.info('[Invite] Invite created', {
         invitedByUserId,
+        invitedByDisplayName: invite.invitedBy?.displayName,
         groupId,
+        groupName: invite.group?.name,
         invitedUserSpotifyId,
+        invitedUserDisplayName: invite.invitedUser?.displayName,
         inviteId: invite._id?.toString()
       });
 
@@ -79,7 +82,8 @@ class InviteController {
       logger.info('[Invite] Invite declined', {
         userId,
         inviteId,
-        groupId
+        groupId,
+        groupName: invite.group?.name
       });
 
       res.json({

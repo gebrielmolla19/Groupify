@@ -14,7 +14,10 @@ class UserController {
     try {
       const stats = await UserService.getUserStats(req.userId);
 
-      logger.debug('[User] User stats fetched', { userId: req.userId });
+      logger.debug('[User] User stats fetched', {
+        userId: req.userId,
+        userDisplayName: req.user?.displayName
+      });
 
       res.json({
         success: true,
@@ -35,6 +38,7 @@ class UserController {
 
       logger.info('[User] User profile updated', {
         userId: req.userId,
+        userDisplayName: updatedUser.displayName,
         newDisplayName: displayName
       });
 

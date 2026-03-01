@@ -394,6 +394,7 @@ class GroupService {
     return {
       message: 'Member removed successfully',
       groupId: group._id.toString(),
+      groupName: group.name,
       memberId: memberId
     };
   }

@@ -19,6 +19,7 @@ class AnalyticsController {
 
       logger.debug('[Analytics] Group activity fetched', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId: id,
         timeRange,
         mode
@@ -45,6 +46,7 @@ class AnalyticsController {
 
       logger.debug('[Analytics] Member vibes fetched', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId: id,
         timeRange: timeRange || 'all'
       });
@@ -69,6 +71,7 @@ class AnalyticsController {
 
       logger.debug('[Analytics] Superlatives fetched', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId: id
       });
 
@@ -109,6 +112,7 @@ class AnalyticsController {
 
       logger.debug('[Analytics] Taste gravity fetched', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId: id,
         timeRange
       });
@@ -163,6 +167,7 @@ class AnalyticsController {
 
       logger.debug('[Analytics] Listener reflex computed', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId: id,
         range,
         mode
@@ -217,6 +222,7 @@ class AnalyticsController {
 
       logger.debug('[Analytics] Listener reflex radar computed', {
         userId: req.userId,
+        userDisplayName: req.user?.displayName,
         groupId,
         window,
         mode

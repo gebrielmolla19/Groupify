@@ -22,8 +22,12 @@ class ShareController {
 
       logger.info('[Share] Song shared to group', {
         userId: req.userId,
+        userDisplayName: share.sharedBy?.displayName,
         groupId,
+        groupName: share.group?.name,
         spotifyTrackId,
+        trackName: share.trackName,
+        artistName: share.artistName,
         shareId: share._id?.toString()
       });
 
@@ -89,6 +93,8 @@ class ShareController {
       logger.info('[Share] Share marked as listened', {
         userId: req.userId,
         shareId,
+        trackName: share.trackName,
+        groupName: share.group?.name,
         listenCount: share.listenCount
       });
 
@@ -122,6 +128,8 @@ class ShareController {
       logger.info('[Share] Share unmarked as listened', {
         userId: req.userId,
         shareId,
+        trackName: share.trackName,
+        groupName: share.group?.name,
         listenCount: share.listenCount
       });
 
@@ -157,6 +165,8 @@ class ShareController {
       logger.info('[Share] Like toggled on share', {
         userId: req.userId,
         shareId,
+        trackName: share.trackName,
+        groupName: share.group?.name,
         liked,
         likeCount: share.likeCount
       });
@@ -191,7 +201,9 @@ class ShareController {
       logger.info('[Share] Share removed from group', {
         userId: req.userId,
         shareId,
-        groupId: result.groupId?.toString()
+        groupId: result.groupId?.toString(),
+        groupName: result.groupName,
+        trackName: result.trackName
       });
 
       res.json({

@@ -284,7 +284,7 @@ class ShareService {
    */
   static async removeShare(shareId, userId) {
     const share = await Share.findById(shareId)
-      .populate('group', 'createdBy');
+      .populate('group', 'createdBy name');
 
     if (!share) {
       const error = new Error('Share not found');
@@ -303,8 +303,10 @@ class ShareService {
     }
 
     const groupId = share.group._id;
+    const groupName = share.group.name;
+    const trackName = share.trackName;
     await Share.findByIdAndDelete(shareId);
-    return { success: true, groupId };
+    return { success: true, groupId, groupName, trackName };
   }
 }
 
