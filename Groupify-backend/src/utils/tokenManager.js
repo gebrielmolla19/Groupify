@@ -1,9 +1,11 @@
 const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
+const config = require('../config/env');
 
 /**
  * Token Manager Utility
  * Handles Spotify token refresh and validation
+ * Supports multi-app workaround: uses correct credentials per user.spotifyAppIndex
  */
 class TokenManager {
   /**
@@ -48,7 +50,8 @@ class TokenManager {
         throw new Error('User not found');
       }
 
-      const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken);
+      const spotifyConfig = config.spotify.getConfig(user.spotifyAppIndex ?? 0);
+      const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken, spotifyConfig);
 
       // Calculate expiration time
       const expiresAt = new Date();

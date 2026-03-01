@@ -121,16 +121,22 @@ export const getSpotifyAccessToken = async (): Promise<string> => {
 
 /**
  * Get the Spotify OAuth login URL
+ * @param appIndex - Optional app slot (0, 1, 2...) for multi-app workaround. Users 6-10 use app=1, users 11-15 use app=2.
  */
-export const getLoginUrl = (): string => {
-  return `${API_BASE_URL}/auth/login`;
+export const getLoginUrl = (appIndex?: number): string => {
+  const base = `${API_BASE_URL}/auth/login`;
+  if (appIndex != null && appIndex > 0) {
+    return `${base}?app=${appIndex}`;
+  }
+  return base;
 };
 
 /**
  * Initiate Spotify login by redirecting to backend
+ * @param appIndex - Optional app slot for multi-app workaround (see getLoginUrl)
  */
-export const login = (): void => {
-  window.location.href = getLoginUrl();
+export const login = (appIndex?: number): void => {
+  window.location.href = getLoginUrl(appIndex);
 };
 
 /**

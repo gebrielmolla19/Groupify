@@ -1,18 +1,30 @@
 const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const { generateToken } = require('../middleware/authMiddleware');
+const config = require('../config/env');
 
 /**
  * Authentication Controller
  * Handles Spotify OAuth flow and user authentication
+ * Supports multiple Spotify apps (Option 1 workaround for 5-user dev mode limit)
  */
 class AuthController {
   /**
    * Initiate Spotify OAuth login
    * Redirects user to Spotify authorization page
+   * Query param: ?app=0|1|2 - which Spotify app to use (default 0)
    */
   static async login(req, res, next) {
     try {
+      const appIndex = Math.max(0, parseInt(req.query.app, 10) || 0);
+      const spotifyConfig = config.spotify.getConfig(appIndex);
+
+      if (!spotifyConfig) {
+        const err = new Error('Spotify app configuration not found');
+        err.statusCode = 500;
+        throw err;
+      }
+
       const scopes = [
         'user-read-email',
         'user-read-private',
@@ -25,11 +37,15 @@ class AuthController {
         'streaming'
       ].join(' ');
 
+      // Pass app index in state so callback knows which credentials to use
+      const state = `app:${appIndex}`;
+
       const authUrl = `https://accounts.spotify.com/authorize?` +
-        `client_id=${process.env.SPOTIFY_CLIENT_ID}&` +
+        `client_id=${spotifyConfig.clientId}&` +
         `response_type=code&` +
-        `redirect_uri=${encodeURIComponent(process.env.SPOTIFY_REDIRECT_URI)}&` +
-        `scope=${encodeURIComponent(scopes)}`;
+        `redirect_uri=${encodeURIComponent(config.spotify.redirectUri)}&` +
+        `scope=${encodeURIComponent(scopes)}&` +
+        `state=${encodeURIComponent(state)}`;
 
       res.redirect(authUrl);
     } catch (error) {
@@ -43,7 +59,7 @@ class AuthController {
    */
   static async callback(req, res, next) {
     try {
-      const { code, error } = req.query;
+      const { code, error, state } = req.query;
 
       if (error) {
         const err = new Error('Spotify authorization failed');
@@ -57,10 +73,26 @@ class AuthController {
         throw err;
       }
 
-      // Exchange code for tokens
+      // Parse app index from state (multi-app workaround)
+      let appIndex = 0;
+      if (state && typeof state === 'string' && state.startsWith('app:')) {
+        const parsed = parseInt(state.replace('app:', ''), 10);
+        if (!Number.isNaN(parsed) && parsed >= 0) {
+          appIndex = parsed;
+        }
+      }
+
+      const spotifyConfig = config.spotify.getConfig(appIndex);
+      if (!spotifyConfig) {
+        const err = new Error('Spotify app configuration not found');
+        err.statusCode = 500;
+        throw err;
+      }
+
+      // Exchange code for tokens (use credentials for this app)
       let tokenData;
       try {
-        tokenData = await SpotifyService.exchangeCodeForToken(code);
+        tokenData = await SpotifyService.exchangeCodeForToken(code, spotifyConfig);
       } catch (error) {
         console.error('[Auth] Token exchange failed:', {
           error: error.message,
@@ -122,6 +154,7 @@ class AuthController {
         user.email = spotifyProfile.email || user.email;
         user.profileImage = spotifyProfile.images?.[0]?.url || user.profileImage;
         user.isActive = true;
+        user.spotifyAppIndex = appIndex;
         await user.save();
       } else {
         // Create new user
@@ -132,7 +165,8 @@ class AuthController {
           profileImage: spotifyProfile.images?.[0]?.url || null,
           spotifyAccessToken: tokenData.accessToken,
           spotifyRefreshToken: tokenData.refreshToken,
-          tokenExpiresAt: expiresAt
+          tokenExpiresAt: expiresAt,
+          spotifyAppIndex: appIndex
         });
         await user.save();
       }
@@ -206,7 +240,8 @@ class AuthController {
         throw error;
       }
 
-      const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken);
+      const spotifyConfig = config.spotify.getConfig(user.spotifyAppIndex ?? 0);
+      const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken, spotifyConfig);
 
       // Update user token
       const expiresAt = new Date();

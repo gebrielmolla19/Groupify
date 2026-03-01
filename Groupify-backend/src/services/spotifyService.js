@@ -251,12 +251,15 @@ class SpotifyService {
   /**
    * Exchange authorization code for access token
    * @param {string} code - Authorization code from OAuth callback
+   * @param {{ clientId: string, clientSecret: string }} [credentials] - Optional app credentials (for multi-app workaround)
    * @returns {Promise<Object>} Token data with access_token and refresh_token
    */
-  static async exchangeCodeForToken(code) {
+  static async exchangeCodeForToken(code, credentials = null) {
     try {
-      // Validate environment variables
-      if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+      const clientId = credentials?.clientId || process.env.SPOTIFY_CLIENT_ID;
+      const clientSecret = credentials?.clientSecret || process.env.SPOTIFY_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
         throw new Error('Spotify client credentials not configured');
       }
 
@@ -264,8 +267,8 @@ class SpotifyService {
         throw new Error('Spotify redirect URI not configured');
       }
 
-      const credentials = Buffer.from(
-        `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+      const authCredentials = Buffer.from(
+        `${clientId}:${clientSecret}`
       ).toString('base64');
 
       const response = await axios.post(
@@ -277,7 +280,7 @@ class SpotifyService {
         }),
         {
           headers: {
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Basic ${authCredentials}`,
             'Content-Type': 'application/x-www-form-urlencoded'
           }
         }
@@ -337,12 +340,16 @@ class SpotifyService {
   /**
    * Refresh access token using refresh token
    * @param {string} refreshToken - Spotify refresh token
+   * @param {{ clientId: string, clientSecret: string }} [credentials] - Optional app credentials (must match app that issued the refresh token)
    * @returns {Promise<Object>} New token data
    */
-  static async refreshAccessToken(refreshToken) {
+  static async refreshAccessToken(refreshToken, credentials = null) {
     try {
-      const credentials = Buffer.from(
-        `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+      const clientId = credentials?.clientId || process.env.SPOTIFY_CLIENT_ID;
+      const clientSecret = credentials?.clientSecret || process.env.SPOTIFY_CLIENT_SECRET;
+
+      const authCredentials = Buffer.from(
+        `${clientId}:${clientSecret}`
       ).toString('base64');
 
       const response = await axios.post(
@@ -353,7 +360,7 @@ class SpotifyService {
         }),
         {
           headers: {
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Basic ${authCredentials}`,
             'Content-Type': 'application/x-www-form-urlencoded'
           }
         }

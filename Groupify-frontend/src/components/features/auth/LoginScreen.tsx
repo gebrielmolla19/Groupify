@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "../../ui/button";
 import { Music, Waves } from "lucide-react";
 import { login } from "../../../lib/api";
@@ -7,12 +8,16 @@ import { logger } from "../../../utils/logger";
 
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  // Multi-app workaround: ?app=1 or ?app=2 for users 6-10, 11-15
+  const appParam = searchParams.get("app");
+  const appIndex = appParam ? parseInt(appParam, 10) : undefined;
 
   const handleLogin = async () => {
     try {
-      logger.info('Login initiated');
+      logger.info('Login initiated', appIndex != null ? { appIndex } : {});
       setIsLoading(true);
-      await login();
+      login(appIndex);
       // Login redirects, so no need to handle success here
     } catch (error) {
       logger.error('Login failed:', error);

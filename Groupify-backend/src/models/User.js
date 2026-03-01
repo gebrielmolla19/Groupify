@@ -42,6 +42,12 @@ const userSchema = new mongoose.Schema({
   currentDeviceId: {
     type: String,
     default: null
+  },
+  // Multi-app workaround: which Spotify app (0, 1, 2...) this user belongs to.
+  // Each app has its own 5-user allowlist in development mode.
+  spotifyAppIndex: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
