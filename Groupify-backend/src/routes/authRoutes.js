@@ -16,6 +16,9 @@ router.get('/test-login', AuthController.testLogin);
 // Handle Spotify OAuth callback
 router.get('/callback', AuthController.callback);
 
+// Exchange one-time auth code for JWT (no auth required)
+router.post('/exchange-code', AuthController.exchangeCode);
+
 // Refresh Spotify access token (protected)
 router.post('/refresh', authMiddleware, AuthController.refresh);
 

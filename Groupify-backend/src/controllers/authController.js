@@ -1,8 +1,22 @@
+const crypto = require('crypto');
 const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const { generateToken } = require('../middleware/authMiddleware');
 const config = require('../config/env');
 const logger = require('../utils/logger');
+
+// In-memory store for one-time auth codes (single-server dev use)
+const authCodes = new Map();
+
+// Purge expired codes every 60 seconds to prevent map growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, entry] of authCodes) {
+    if (entry.expiresAt <= now) {
+      authCodes.delete(code);
+    }
+  }
+}, 60_000);
 
 /**
  * Authentication Controller
@@ -182,17 +196,18 @@ class AuthController {
         isNewUser
       });
 
-      // Generate JWT token
-      const jwtToken = generateToken(user._id);
+      // Generate one-time auth code instead of exposing JWT in URL
+      const authCode = crypto.randomBytes(16).toString('hex');
+      authCodes.set(authCode, { userId: user._id.toString(), expiresAt: Date.now() + 30_000 });
 
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?token=${jwtToken}`);
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?code=${authCode}`);
     } catch (error) {
       next(error);
     }
   }
 
   /**
-   * Test-only login: create/find a test user and redirect to frontend with JWT.
+   * Test-only login: create/find a test user and redirect to frontend with one-time code.
    * Only enabled when NODE_ENV=test or E2E_TEST_LOGIN=true.
    * Used by E2E tests to log in without Spotify OAuth.
    */
@@ -220,10 +235,44 @@ class AuthController {
         logger.info('[Auth] E2E test user created', { userId: user._id?.toString() });
       }
 
-      const jwtToken = generateToken(user._id);
+      const authCode = crypto.randomBytes(16).toString('hex');
+      authCodes.set(authCode, { userId: user._id.toString(), expiresAt: Date.now() + 30_000 });
+
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const callbackUrl = `${frontendUrl}/auth/callback?token=${jwtToken}`;
-      res.redirect(callbackUrl);
+      res.redirect(`${frontendUrl}/auth/callback?code=${authCode}`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Exchange a one-time auth code for a JWT token
+   */
+  static async exchangeCode(req, res, next) {
+    try {
+      const { code } = req.body;
+
+      if (!code) {
+        const error = new Error('Auth code required');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const entry = authCodes.get(code);
+
+      if (!entry || entry.expiresAt <= Date.now()) {
+        authCodes.delete(code);
+        const error = new Error('Invalid or expired auth code');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // One-time use: delete immediately
+      authCodes.delete(code);
+
+      const token = generateToken(entry.userId);
+
+      res.json({ success: true, token });
     } catch (error) {
       next(error);
     }
@@ -234,7 +283,7 @@ class AuthController {
    */
   static async refresh(req, res, next) {
     try {
-      const userId = req.userId || req.body.userId;
+      const userId = req.userId;
 
       if (!userId) {
         const error = new Error('User ID required');

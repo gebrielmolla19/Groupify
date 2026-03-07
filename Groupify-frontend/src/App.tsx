@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { UserProvider, useUser } from "./contexts/UserContext";
+import { SocketProvider } from "./contexts/SocketContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
 import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
 import LoginScreen from "./components/features/auth/LoginScreen";
@@ -92,8 +93,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <UserProvider>
-        <AppContent />
-        <Toaster />
+        {/* SocketProvider is inside UserProvider so it can read the auth token */}
+        <SocketProvider>
+          <AppContent />
+          <Toaster />
+        </SocketProvider>
       </UserProvider>
     </BrowserRouter>
   );

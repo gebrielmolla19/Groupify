@@ -4,7 +4,8 @@
  */
 
 import { API_BASE_URL } from './config';
-import { User, SpotifyDevice } from '../types';
+import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData } from '../types';
+import { TasteGravityResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -78,6 +79,25 @@ export const fetchWithAuth = async (
     }
     throw error;
   }
+};
+
+/**
+ * Exchange a one-time auth code for a JWT token
+ */
+export const exchangeCode = async (code: string): Promise<string> => {
+  const response = await fetch(`${API_BASE_URL}/auth/exchange-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to exchange auth code');
+  }
+
+  return data.token;
 };
 
 /**
@@ -161,7 +181,7 @@ export const logout = async (): Promise<void> => {
 /**
  * Get user statistics
  */
-export const getUserStats = async (): Promise<import('../types').UserStats> => {
+export const getUserStats = async (): Promise<UserStats> => {
   const response = await fetchWithAuth('/users/stats');
   const data = await response.json();
 
@@ -207,7 +227,7 @@ export const updateUserProfile = async (updates: {
 /**
  * Get all user's groups
  */
-export const getUserGroups = async (): Promise<import('../types').Group[]> => {
+export const getUserGroups = async (): Promise<Group[]> => {
   const response = await fetchWithAuth('/groups');
   const data = await response.json();
 
@@ -224,7 +244,7 @@ export const getUserGroups = async (): Promise<import('../types').Group[]> => {
 /**
  * Get group by ID
  */
-export const getGroupById = async (groupId: string): Promise<import('../types').Group> => {
+export const getGroupById = async (groupId: string): Promise<Group> => {
   const response = await fetchWithAuth(`/groups/${groupId}`);
   const data = await response.json();
 
@@ -244,7 +264,7 @@ export const getGroupById = async (groupId: string): Promise<import('../types').
 export const createGroup = async (groupData: {
   name: string;
   description?: string;
-}): Promise<import('../types').Group> => {
+}): Promise<Group> => {
   const response = await fetchWithAuth('/groups', {
     method: 'POST',
     body: JSON.stringify(groupData),
@@ -265,7 +285,7 @@ export const createGroup = async (groupData: {
 /**
  * Join group with invite code only (no groupId required)
  */
-export const joinGroupByCode = async (inviteCode: string): Promise<import('../types').Group> => {
+export const joinGroupByCode = async (inviteCode: string): Promise<Group> => {
   const response = await fetchWithAuth('/groups/join', {
     method: 'POST',
     body: JSON.stringify({ inviteCode }),
@@ -286,7 +306,7 @@ export const joinGroupByCode = async (inviteCode: string): Promise<import('../ty
 /**
  * Join group with invite code (with groupId - for backward compatibility)
  */
-export const joinGroup = async (groupId: string, inviteCode: string): Promise<import('../types').Group> => {
+export const joinGroup = async (groupId: string, inviteCode: string): Promise<Group> => {
   const response = await fetchWithAuth(`/groups/${groupId}/join`, {
     method: 'POST',
     body: JSON.stringify({ inviteCode }),
@@ -350,7 +370,7 @@ export const deleteGroup = async (groupId: string): Promise<{ message: string; g
 export const createInvite = async (
   groupId: string,
   invitedUserSpotifyId: string
-): Promise<import('../types').Invite> => {
+): Promise<Invite> => {
   const response = await fetchWithAuth(`/groups/${groupId}/invite`, {
     method: 'POST',
     body: JSON.stringify({ invitedUserSpotifyId }),
@@ -374,7 +394,7 @@ export const createInvite = async (
 export const acceptInvite = async (
   groupId: string,
   inviteId: string
-): Promise<import('../types').Group> => {
+): Promise<Group> => {
   const response = await fetchWithAuth(`/groups/${groupId}/invite/${inviteId}/accept`, {
     method: 'POST',
   });
@@ -397,7 +417,7 @@ export const acceptInvite = async (
 export const declineInvite = async (
   groupId: string,
   inviteId: string
-): Promise<import('../types').Invite> => {
+): Promise<Invite> => {
   const response = await fetchWithAuth(`/groups/${groupId}/invite/${inviteId}/decline`, {
     method: 'POST',
   });
@@ -419,7 +439,7 @@ export const declineInvite = async (
  */
 export const getGroupInvites = async (
   groupId: string
-): Promise<import('../types').Invite[]> => {
+): Promise<Invite[]> => {
   const response = await fetchWithAuth(`/groups/${groupId}/invites`);
   const data = await response.json();
 
@@ -436,7 +456,7 @@ export const getGroupInvites = async (
 /**
  * Get all pending invites for the current user (across all groups)
  */
-export const getUserInvites = async (): Promise<import('../types').Invite[]> => {
+export const getUserInvites = async (): Promise<Invite[]> => {
   const response = await fetchWithAuth(`/groups/user/invites`);
   const data = await response.json();
 
@@ -458,7 +478,7 @@ export const getUserInvites = async (): Promise<import('../types').Invite[]> => 
 export const shareSong = async (
   groupId: string,
   spotifyTrackId: string
-): Promise<import('../types').Share> => {
+): Promise<Share> => {
   const response = await fetchWithAuth('/shares', {
     method: 'POST',
     body: JSON.stringify({ groupId, spotifyTrackId }),
@@ -483,7 +503,7 @@ export const getGroupFeed = async (
   groupId: string,
   limit: number = 50,
   offset: number = 0
-): Promise<{ shares: import('../types').Share[]; total: number; limit: number; offset: number }> => {
+): Promise<{ shares: Share[]; total: number; limit: number; offset: number }> => {
   const response = await fetchWithAuth(
     `/shares/groups/${groupId}?limit=${limit}&offset=${offset}`
   );
@@ -507,7 +527,7 @@ export const getGroupFeed = async (
 /**
  * Mark share as listened
  */
-export const markAsListened = async (shareId: string): Promise<import('../types').Share> => {
+export const markAsListened = async (shareId: string): Promise<Share> => {
   const response = await fetchWithAuth(`/shares/${shareId}/listen`, {
     method: 'POST',
   });
@@ -527,7 +547,7 @@ export const markAsListened = async (shareId: string): Promise<import('../types'
 /**
  * Unmark share as listened
  */
-export const unmarkAsListened = async (shareId: string): Promise<import('../types').Share> => {
+export const unmarkAsListened = async (shareId: string): Promise<Share> => {
   const response = await fetchWithAuth(`/shares/${shareId}/listen`, {
     method: 'DELETE',
   });
@@ -547,7 +567,7 @@ export const unmarkAsListened = async (shareId: string): Promise<import('../type
 /**
  * Toggle like on a share
  */
-export const toggleLike = async (shareId: string): Promise<import('../types').Share> => {
+export const toggleLike = async (shareId: string): Promise<Share> => {
   const response = await fetchWithAuth(`/shares/${shareId}/like`, {
     method: 'PUT',
   });
@@ -589,7 +609,7 @@ export const removeShare = async (shareId: string): Promise<{ success: boolean; 
 export const searchSpotifyTracks = async (
   query: string,
   limit: number = 20
-): Promise<import('../types').SpotifyTrack[]> => {
+): Promise<SpotifyTrack[]> => {
   const response = await fetchWithAuth(
     `/spotify/search?q=${encodeURIComponent(query)}&limit=${limit}`
   );
@@ -607,7 +627,7 @@ export const searchSpotifyTracks = async (
  */
 export const getRecentlyPlayed = async (
   limit: number = 20
-): Promise<import('../types').SpotifyTrack[]> => {
+): Promise<SpotifyTrack[]> => {
   const response = await fetchWithAuth(`/spotify/recently-played?limit=${limit}`);
   const data = await response.json();
 
@@ -828,7 +848,7 @@ export const getSuperlatives = async (groupId: string): Promise<any> => {
 export const getTasteGravity = async (
   groupId: string,
   timeRange: '7d' | '30d' | '90d' | 'all' = '7d'
-): Promise<import('../types/analytics').TasteGravityResponse> => {
+): Promise<TasteGravityResponse> => {
   const response = await fetchWithAuth(`/analytics/${groupId}/taste-gravity?timeRange=${timeRange}`);
   const data = await response.json();
 
@@ -872,7 +892,7 @@ export const getListenerReflexRadar = async (
   groupId: string,
   window: string = '30d',
   mode: string = 'received'
-): Promise<import('../types').ListenerReflexRadarData> => {
+): Promise<ListenerReflexRadarData> => {
   const response = await fetchWithAuth(
     `/analytics/listener-reflex/radar?groupId=${groupId}&window=${window}&mode=${mode}`
   );
@@ -890,7 +910,7 @@ export const getListenerReflexRadar = async (
 /**
  * Get group settings
  */
-export const getGroupSettings = async (groupId: string): Promise<import('../types').GroupSettings> => {
+export const getGroupSettings = async (groupId: string): Promise<GroupSettings> => {
   const response = await fetchWithAuth(`/groups/${groupId}/settings`);
   const data = await response.json();
 
@@ -907,7 +927,7 @@ export const getGroupSettings = async (groupId: string): Promise<import('../type
 export const updateGroupSettings = async (
   groupId: string,
   updates: { name?: string; description?: string }
-): Promise<import('../types').GroupSettings> => {
+): Promise<GroupSettings> => {
   const response = await fetchWithAuth(`/groups/${groupId}/settings`, {
     method: 'PATCH',
     body: JSON.stringify(updates),

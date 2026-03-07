@@ -10,12 +10,14 @@ import {
 } from '../lib/api';
 import { toast } from 'sonner';
 import { logger } from '../utils/logger';
+import { useSocket } from '../contexts/SocketContext';
 
 export const useGroupFeed = (groupId: string) => {
   const [shares, setShares] = useState<Share[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const { socket, joinGroup, leaveGroup } = useSocket();
 
   const fetchFeed = useCallback(async (limit: number = 50, offset: number = 0) => {
     if (!groupId) return;
@@ -69,11 +71,6 @@ export const useGroupFeed = (groupId: string) => {
       logger.info('Track marked as listened:', { shareId, trackName: updatedShare.trackName });
       toast.success('Marked as listened');
 
-      // Dispatch global event for other listeners
-      window.dispatchEvent(new CustomEvent('trackListened', {
-        detail: { groupId, shareId, updatedShare }
-      }));
-
       return updatedShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to mark as listened';
@@ -93,11 +90,6 @@ export const useGroupFeed = (groupId: string) => {
       logger.info('Track unmarked as listened:', { shareId, trackName: updatedShare.trackName });
       toast.success('Unmarked as listened');
 
-      // Dispatch global event for other listeners
-      window.dispatchEvent(new CustomEvent('trackUnlistened', {
-        detail: { groupId, shareId, updatedShare }
-      }));
-
       return updatedShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to unmark as listened';
@@ -108,20 +100,6 @@ export const useGroupFeed = (groupId: string) => {
 
   const toggleLike = useCallback(async (shareId: string) => {
     try {
-      // Optimistic update
-      setShares(prev =>
-        prev.map(share => {
-          if (share._id === shareId) {
-            // Check if user already liked
-            // Note: We don't have easy access to current user ID here without context
-            // So we'll rely on the API response for the final state, but we can try to be optimistic
-            // For now, let's just wait for the API response to be safe and accurate
-            return share;
-          }
-          return share;
-        })
-      );
-
       const updatedShare = await apiToggleLike(shareId);
 
       setShares(prev =>
@@ -151,46 +129,79 @@ export const useGroupFeed = (groupId: string) => {
     }
   }, []);
 
+  // Initial data fetch
   useEffect(() => {
     fetchFeed();
+  }, [fetchFeed]);
 
-    // Listen for global track listened events to sync UI across hooks
-    const handleGlobalListened = (event: any) => {
-      const { groupId: eventGroupId, shareId, updatedShare } = event.detail;
-      
-      if (eventGroupId === groupId) {
-        if (updatedShare) {
-          // If we have the updated share data, update it directly in the state
-          setShares(prev =>
-            prev.map(share =>
-              share._id === shareId ? updatedShare : share
-            )
-          );
-        } else {
-          // Otherwise refetch the whole feed to be safe
-          fetchFeed();
-        }
-      }
+  // Socket.io real-time listeners — updates from other users in the same group room
+  useEffect(() => {
+    if (!socket || !groupId) return;
+
+    joinGroup(groupId);
+
+    const onSongShared = (payload: { share: Share }) => {
+      const incomingShare = payload.share;
+      setShares(prev => {
+        // Deduplicate: if this user's optimistic update is already in state, skip
+        const alreadyExists = prev.some(s => s._id === incomingShare._id);
+        if (alreadyExists) return prev;
+        return [incomingShare, ...prev];
+      });
+      setTotal(prev => prev + 1);
+      logger.debug('Socket songShared received:', incomingShare._id);
     };
 
-    window.addEventListener('trackListened', handleGlobalListened);
-    
-    // Listen for global track removed events to sync UI across hooks
-    const handleGlobalRemoved = (event: any) => {
-      const { groupId: eventGroupId, shareId } = event.detail;
-      if (eventGroupId === groupId) {
-        setShares(prev => prev.filter(share => share._id !== shareId));
-        setTotal(prev => prev - 1);
-      }
+    const onSongLiked = (payload: { shareId: string; userId: string; likeCount: number; likes: string[] }) => {
+      setShares(prev =>
+        prev.map(s =>
+          s._id === payload.shareId
+            ? { ...s, likeCount: payload.likeCount, likes: payload.likes }
+            : s
+        )
+      );
+      logger.debug('Socket songLiked received:', payload.shareId);
     };
 
-    window.addEventListener('trackRemoved', handleGlobalRemoved);
+    const onSongRemoved = (payload: { shareId: string; groupId: string }) => {
+      setShares(prev => prev.filter(s => s._id !== payload.shareId));
+      setTotal(prev => Math.max(0, prev - 1));
+      logger.debug('Socket songRemoved received:', payload.shareId);
+    };
+
+    const onSongListened = (payload: { shareId: string; userId: string; listenCount: number }) => {
+      setShares(prev =>
+        prev.map(s =>
+          s._id === payload.shareId ? { ...s, listenCount: payload.listenCount } : s
+        )
+      );
+      logger.debug('Socket songListened received:', payload.shareId);
+    };
+
+    const onSongUnlistened = (payload: { shareId: string; userId: string; listenCount: number }) => {
+      setShares(prev =>
+        prev.map(s =>
+          s._id === payload.shareId ? { ...s, listenCount: payload.listenCount } : s
+        )
+      );
+      logger.debug('Socket songUnlistened received:', payload.shareId);
+    };
+
+    socket.on('songShared', onSongShared);
+    socket.on('songLiked', onSongLiked);
+    socket.on('songRemoved', onSongRemoved);
+    socket.on('songListened', onSongListened);
+    socket.on('songUnlistened', onSongUnlistened);
 
     return () => {
-      window.removeEventListener('trackListened', handleGlobalListened);
-      window.removeEventListener('trackRemoved', handleGlobalRemoved);
+      leaveGroup(groupId);
+      socket.off('songShared', onSongShared);
+      socket.off('songLiked', onSongLiked);
+      socket.off('songRemoved', onSongRemoved);
+      socket.off('songListened', onSongListened);
+      socket.off('songUnlistened', onSongUnlistened);
     };
-  }, [fetchFeed, groupId]);
+  }, [socket, groupId, joinGroup, leaveGroup]);
 
   return {
     shares,

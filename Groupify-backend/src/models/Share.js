@@ -10,8 +10,7 @@ const shareSchema = new mongoose.Schema({
   sharedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
   },
   spotifyTrackId: {
     type: String,
@@ -93,6 +92,13 @@ const shareSchema = new mongoose.Schema({
 shareSchema.index({ group: 1, createdAt: -1 });
 shareSchema.index({ sharedBy: 1 });
 shareSchema.index({ spotifyTrackId: 1 });
+
+// Auto-sync counts from array lengths on every save
+shareSchema.pre('save', function (next) {
+  this.likeCount = this.likes.length;
+  this.listenCount = this.listeners.length;
+  next();
+});
 
 module.exports = mongoose.model('Share', shareSchema);
 

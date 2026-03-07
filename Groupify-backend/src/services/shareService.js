@@ -155,9 +155,6 @@ class ShareService {
       timeToListen
     });
 
-    // Increment listen count
-    share.listenCount = share.listeners.length;
-
     await share.save();
 
     const populatedShare = await Share.findById(share._id)
@@ -206,9 +203,6 @@ class ShareService {
 
     // Remove listener
     share.listeners.splice(listenerIndex, 1);
-
-    // Update listen count
-    share.listenCount = share.listeners.length;
 
     await share.save();
 
@@ -260,9 +254,6 @@ class ShareService {
         likedAt: new Date()
       });
     }
-
-    // Update like count
-    share.likeCount = share.likes.length;
 
     await share.save();
 

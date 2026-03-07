@@ -4,8 +4,7 @@ const userSchema = new mongoose.Schema({
   spotifyId: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   displayName: {
     type: String,
@@ -54,7 +53,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-userSchema.index({ spotifyId: 1 });
 userSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('User', userSchema);
