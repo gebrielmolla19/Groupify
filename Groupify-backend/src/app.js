@@ -8,8 +8,11 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 const logger = require('./utils/logger');
 const requestLoggerMiddleware = require('./middleware/requestLoggerMiddleware');
+const User = require('./models/User');
+const Group = require('./models/Group');
 // const { startScheduler } = require('./utils/scheduler');
 
 // Import routes
@@ -83,15 +86,7 @@ app.use((req, res, next) => {
   if (mongoose.connection.readyState !== 1) {
     return res.status(503).json({
       success: false,
-      message: 'Database connection not ready. Please try again in a moment.',
-      readyState: mongoose.connection.readyState,
-      // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-      states: {
-        0: 'disconnected',
-        1: 'connected',
-        2: 'connecting',
-        3: 'disconnecting'
-      }
+      message: 'Service temporarily unavailable. Please try again.'
     });
   }
   
@@ -131,11 +126,28 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/spotify', spotifyRoutes);
 app.use('/api/v1/player', playerRoutes);
 
+// Socket.io authentication middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('Authentication required'));
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('_id isActive');
+    if (!user || !user.isActive) return next(new Error('Invalid token'));
+    socket.userId = decoded.userId.toString();
+    next();
+  } catch {
+    next(new Error('Authentication failed'));
+  }
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   logger.debug('[Socket.io] Client connected', { socketId: socket.id });
 
-  socket.on('joinGroup', (groupId) => {
+  socket.on('joinGroup', async (groupId) => {
+    const group = await Group.findOne({ _id: groupId, members: socket.userId, isActive: true });
+    if (!group) return;
     logger.debug('[Socket.io] Client joined group room', { socketId: socket.id, groupId });
     socket.join(groupId);
   });
@@ -175,8 +187,6 @@ const connectDB = async () => {
     const isAtlas = config.mongo.uri.includes('mongodb+srv://');
     
     const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000,

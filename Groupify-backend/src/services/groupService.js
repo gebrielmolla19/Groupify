@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Invite = require('../models/Invite');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+const logger = require('../utils/logger');
 
 /**
  * Group Service
@@ -178,7 +179,7 @@ class GroupService {
       await invite.save();
     } catch (inviteError) {
       // Log error but don't fail the join if invite record creation fails
-      console.error('Failed to create invite record for code join:', inviteError);
+      logger.error('[Group] Failed to create invite record for code join', { error: inviteError.message });
     }
 
     const populatedGroup = await Group.findById(group._id)
@@ -298,23 +299,11 @@ class GroupService {
 
     // Update fields if provided
     if (updates.name !== undefined) {
-      const trimmedName = updates.name.trim();
-      if (trimmedName.length > 100) {
-        const error = new Error('Group name cannot exceed 100 characters');
-        error.statusCode = 400;
-        throw error;
-      }
-      group.name = trimmedName;
+      group.name = updates.name.trim();
     }
 
     if (updates.description !== undefined) {
-      const trimmedDescription = updates.description.trim();
-      if (trimmedDescription.length > 500) {
-        const error = new Error('Description cannot exceed 500 characters');
-        error.statusCode = 400;
-        throw error;
-      }
-      group.description = trimmedDescription;
+      group.description = updates.description.trim();
     }
 
     await group.save();

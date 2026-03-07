@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useUser } from "../../../contexts/UserContext";
+import { exchangeCode } from '../../../lib/api';
 import { toast } from 'sonner';
 import { logger } from '../../../utils/logger';
 import { useNavigate } from 'react-router-dom';
@@ -26,9 +27,9 @@ export default function AuthCallbackScreen() {
 
       try {
         logger.info('Auth callback received');
-        // Extract token from URL query params
+        // Extract one-time code from URL query params
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        const code = urlParams.get('code');
         const errorParam = urlParams.get('error');
 
         if (errorParam) {
@@ -39,15 +40,16 @@ export default function AuthCallbackScreen() {
           return;
         }
 
-        if (!token) {
-          const errorMsg = 'No authentication token received';
-          logger.error('Auth callback failed:', { error: 'No token' });
+        if (!code) {
+          const errorMsg = 'No authentication code received';
+          logger.error('Auth callback failed:', { error: 'No code' });
           setError(errorMsg);
           toast.error(errorMsg);
           return;
         }
 
-        // Login with the token
+        // Exchange one-time code for JWT, then login
+        const token = await exchangeCode(code);
         await login(token);
 
         // Show success message

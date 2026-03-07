@@ -71,11 +71,6 @@ export const useGroupFeed = (groupId: string) => {
       logger.info('Track marked as listened:', { shareId, trackName: updatedShare.trackName });
       toast.success('Marked as listened');
 
-      // Dispatch global event for other listeners
-      window.dispatchEvent(new CustomEvent('trackListened', {
-        detail: { groupId, shareId, updatedShare }
-      }));
-
       return updatedShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to mark as listened';
@@ -95,11 +90,6 @@ export const useGroupFeed = (groupId: string) => {
       logger.info('Track unmarked as listened:', { shareId, trackName: updatedShare.trackName });
       toast.success('Unmarked as listened');
 
-      // Dispatch global event for other listeners
-      window.dispatchEvent(new CustomEvent('trackUnlistened', {
-        detail: { groupId, shareId, updatedShare }
-      }));
-
       return updatedShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to unmark as listened';
@@ -110,20 +100,6 @@ export const useGroupFeed = (groupId: string) => {
 
   const toggleLike = useCallback(async (shareId: string) => {
     try {
-      // Optimistic update
-      setShares(prev =>
-        prev.map(share => {
-          if (share._id === shareId) {
-            // Check if user already liked
-            // Note: We don't have easy access to current user ID here without context
-            // So we'll rely on the API response for the final state, but we can try to be optimistic
-            // For now, let's just wait for the API response to be safe and accurate
-            return share;
-          }
-          return share;
-        })
-      );
-
       const updatedShare = await apiToggleLike(shareId);
 
       setShares(prev =>
@@ -157,35 +133,6 @@ export const useGroupFeed = (groupId: string) => {
   useEffect(() => {
     fetchFeed();
   }, [fetchFeed]);
-
-  // Window event listeners for same-tab cross-hook sync (legacy, kept for compatibility)
-  useEffect(() => {
-    const handleGlobalListened = (event: CustomEvent) => {
-      const { groupId: eventGroupId, shareId, updatedShare } = event.detail;
-      if (eventGroupId !== groupId) return;
-
-      if (updatedShare) {
-        setShares(prev => prev.map(s => (s._id === shareId ? updatedShare : s)));
-      } else {
-        fetchFeed();
-      }
-    };
-
-    const handleGlobalRemoved = (event: CustomEvent) => {
-      const { groupId: eventGroupId, shareId } = event.detail;
-      if (eventGroupId !== groupId) return;
-      setShares(prev => prev.filter(s => s._id !== shareId));
-      setTotal(prev => prev - 1);
-    };
-
-    window.addEventListener('trackListened', handleGlobalListened as EventListener);
-    window.addEventListener('trackRemoved', handleGlobalRemoved as EventListener);
-
-    return () => {
-      window.removeEventListener('trackListened', handleGlobalListened as EventListener);
-      window.removeEventListener('trackRemoved', handleGlobalRemoved as EventListener);
-    };
-  }, [fetchFeed, groupId]);
 
   // Socket.io real-time listeners — updates from other users in the same group room
   useEffect(() => {

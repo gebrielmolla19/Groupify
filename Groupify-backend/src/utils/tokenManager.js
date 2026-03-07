@@ -33,7 +33,7 @@ class TokenManager {
           expiresAt: expiresAt.toISOString(),
           bufferMs: bufferTime
         });
-        return await this.refreshUserToken(userId);
+        return await this.refreshUserToken(userId, user);
       }
 
       logger.debug('[TokenManager] Returning existing valid Spotify token', {
@@ -56,11 +56,11 @@ class TokenManager {
    * @param {string} userId - User MongoDB ID
    * @returns {Promise<string>} New access token
    */
-  static async refreshUserToken(userId) {
+  static async refreshUserToken(userId, existingUser = null) {
     try {
       logger.info('[TokenManager] Refreshing Spotify access token', { userId });
 
-      const user = await User.findById(userId);
+      const user = existingUser ?? await User.findById(userId);
 
       if (!user) {
         throw new Error('User not found');
