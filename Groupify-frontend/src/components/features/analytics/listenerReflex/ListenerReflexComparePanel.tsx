@@ -29,18 +29,6 @@ export default function ListenerReflexComparePanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [showGroupMedian, setShowGroupMedian] = useState(false);
   
-  // Debug: Log data to help diagnose
-  useEffect(() => {
-    if (data) {
-      console.log('ListenerReflexComparePanel: Data loaded', {
-        membersCount: data.members?.length,
-        members: data.members?.map(m => ({ userId: m.userId, displayName: m.displayName, axes: m.axes })),
-        selectedMemberIds,
-        window,
-        mode
-      });
-    }
-  }, [data, selectedMemberIds, window, mode]);
 
   // Initialize selection with first 2 members when data loads
   useEffect(() => {
