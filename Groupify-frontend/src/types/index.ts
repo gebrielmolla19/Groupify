@@ -142,7 +142,7 @@ export interface ListenerReflexUser {
 
 export interface ListenerReflexData {
   groupId: string;
-  range: '7d' | '30d' | '90d';
+  range: '24h' | '7d' | '30d' | '90d' | 'all';
   mode: 'received' | 'shared';
   generatedAt: string;
   buckets: {

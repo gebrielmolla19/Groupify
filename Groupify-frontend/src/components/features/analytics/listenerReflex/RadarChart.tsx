@@ -2,6 +2,17 @@ import { useMemo } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import type { RadarProfile } from '../../../../types';
 
+interface TooltipPayloadItem {
+  dataKey: string;
+  value: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
 interface RadarChartProps {
   profiles: RadarProfile[];
   selectedMemberIds: string[];
@@ -29,7 +40,7 @@ const COLORS = RADAR_CHART_COLORS;
 
 // Create custom tooltip component
 const createCustomTooltip = (profiles: RadarProfile[]) => {
-  return ({ active, payload, label }: any) => {
+  return ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload || !payload.length) return null;
 
     const axis = AXIS_CONFIG.find(a => a.label === label);
@@ -40,7 +51,7 @@ const createCustomTooltip = (profiles: RadarProfile[]) => {
         <p className="text-sm font-semibold text-foreground mb-2 border-b border-border pb-1">
           {label}
         </p>
-        {payload.map((item: any, index: number) => {
+        {payload.map((item: TooltipPayloadItem, index: number) => {
           const memberId = item.dataKey;
           const value = item.value;
           const profile = profiles.find(p => String(p.userId) === String(memberId));
@@ -114,12 +125,6 @@ export default function ListenerReflexRadarChart({
       }
 
       return point;
-    });
-    
-    console.log('RadarChart: Generated chartData', {
-      chartData: result,
-      selectedMemberIds,
-      profiles: profiles.map(p => ({ userId: p.userId, displayName: p.displayName }))
     });
     
     return result;

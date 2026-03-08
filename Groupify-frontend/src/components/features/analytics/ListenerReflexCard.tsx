@@ -471,8 +471,22 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
           </span>
         </div>
 
+        {/* Headline stat — fastest listener */}
+        {data.users.length > 0 && (
+          <div className="mt-4 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-sm">
+              <span className="text-muted-foreground">
+                {mode === 'received' ? 'Fastest listener: ' : 'Fastest reactor: '}
+              </span>
+              <span className="font-semibold text-foreground">{data.users[0].displayName}</span>
+              <span className="text-muted-foreground"> with a median of </span>
+              <span className="font-semibold text-primary">{formatTime(data.users[0].medianMs)}</span>
+            </p>
+          </div>
+        )}
+
         {/* Summary Line */}
-        <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
+        <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">Group Median:</span>
             <span className="font-semibold text-foreground">
@@ -491,10 +505,15 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
       <CardContent className="space-y-6">
         {/* Compare Mode Panel */}
         {isCompareMode ? (
-          <div className="transition-all duration-200">
+          <div className="transition-all duration-200 space-y-3">
+            {range === '24h' && (
+              <p className="text-xs text-muted-foreground px-1">
+                Compare uses <span className="text-foreground font-medium">7-day</span> data — the 24h window is too narrow for a meaningful radar comparison.
+              </p>
+            )}
             <ListenerReflexComparePanel
               groupId={groupId}
-              window={range === '24h' ? '7d' : (range === 'all' ? 'all' : range)} // Map 24h to 7d for radar
+              window={range === '24h' ? '7d' : (range === 'all' ? 'all' : range)}
               mode={mode}
             />
           </div>
