@@ -1137,7 +1137,7 @@ class AnalyticsService {
     const now = new Date();
     let startDate = new Date();
 
-    // Calculate start date based on range
+    // Calculate start date based on range ('all' means no date filter)
     if (range === '24h') {
       startDate.setTime(now.getTime() - 24 * 60 * 60 * 1000);
     } else if (range === '7d') {
@@ -1147,8 +1147,7 @@ class AnalyticsService {
     } else if (range === '90d') {
       startDate.setDate(now.getDate() - 90);
     } else {
-      // Default to 30d
-      startDate.setDate(now.getDate() - 30);
+      startDate = null; // 'all' — no date filter
     }
 
     // Get group members
@@ -1168,7 +1167,7 @@ class AnalyticsService {
         {
           $match: {
             group: gid,
-            createdAt: { $gte: startDate }
+            ...(startDate && { createdAt: { $gte: startDate } })
           }
         },
         { $unwind: '$listeners' },
@@ -1199,7 +1198,7 @@ class AnalyticsService {
           $match: {
             group: gid,
             sharedBy: { $in: memberIds },
-            createdAt: { $gte: startDate }
+            ...(startDate && { createdAt: { $gte: startDate } })
           }
         },
         { $unwind: '$listeners' },

@@ -335,13 +335,54 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
     return (
       <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            Listener Reflex
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              Listener Reflex
+            </CardTitle>
+            <div className="flex gap-2">
+              {(['24h', '7d', '30d', '90d', 'all'] as ListenerReflexRange[]).map((r) => (
+                <Button
+                  key={r}
+                  size="sm"
+                  variant={range === r ? 'default' : 'outline'}
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    'h-8 px-3 text-xs',
+                    range === r
+                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      : 'border-primary/30 hover:bg-primary/10'
+                  )}
+                >
+                  {r}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-muted-foreground">Mode:</span>
+            <div className="flex gap-2">
+              {(['received', 'shared'] as ListenerReflexMode[]).map((m) => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={mode === m ? 'default' : 'outline'}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    'h-8 px-3 text-xs',
+                    mode === m
+                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      : 'border-primary/30 hover:bg-primary/10'
+                  )}
+                >
+                  {m === 'received' ? 'Received' : 'Shared'}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-sm">No listener data available yet.</p>
+          <p className="text-muted-foreground text-sm">No listener data available for this range.</p>
         </CardContent>
       </Card>
     );

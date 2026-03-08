@@ -48,8 +48,8 @@ export const useGroupFeed = (groupId: string) => {
   const shareTrack = useCallback(async (spotifyTrackId: string) => {
     try {
       const newShare = await apiShareSong(groupId, spotifyTrackId);
-      setShares(prev => [newShare, ...prev]);
-      setTotal(prev => prev + 1);
+      // Don't add to state here — the socket `songShared` event handles it for all
+      // clients in the room including the sharer, preventing duplicates.
       logger.info('Track shared:', { groupId, trackId: spotifyTrackId, trackName: newShare.trackName });
       toast.success('Track shared successfully');
       return newShare;
