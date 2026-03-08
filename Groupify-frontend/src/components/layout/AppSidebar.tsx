@@ -18,7 +18,6 @@ import {
   useSidebar,
 } from "../ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { useUser } from "../../contexts/UserContext";
 import { toast } from "sonner";
@@ -155,22 +154,20 @@ export default function AppSidebar() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-                className={`hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 cursor-pointer transition-colors min-h-[44px] ${
-                  isCollapsed ? "!w-8 !h-8 !p-0 !justify-center !mx-auto min-w-[44px] min-h-[44px]" : "w-full justify-start text-xs md:text-sm"
+              <button
+                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors min-h-[44px] ${
+                  isCollapsed ? "w-full justify-center" : "w-full text-left text-xs md:text-sm"
                 }`}
-          onClick={handleLogout}
-          aria-label="Logout from Groupify"
-        >
+                onClick={handleLogout}
+                aria-label="Logout from Groupify"
+              >
                 <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span className={`truncate transition-opacity duration-200 ${
-                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 ml-2"
+                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
                 }`}>
                   Logout
                 </span>
-        </Button>
+              </button>
             </TooltipTrigger>
             {isCollapsed && (
               <TooltipContent side="right" align="center">
