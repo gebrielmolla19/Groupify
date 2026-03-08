@@ -135,7 +135,7 @@ class AnalyticsController {
       const { id } = req.params;
       const { range = '30d', mode = 'received' } = req.query;
 
-      const validRanges = ['24h', '7d', '30d', '90d'];
+      const validRanges = ['24h', '7d', '30d', '90d', 'all'];
       if (!validRanges.includes(range)) {
         logger.warn('[Analytics] Invalid range for listener reflex', {
           userId: req.userId,

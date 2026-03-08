@@ -53,25 +53,28 @@ app.use(helmet());
 // Compression middleware (gzip responses)
 app.use(compression());
 
-// Rate limiting (skip health check and auth - login/callback must always work)
+// CORS must come before rate limiter so that 429 responses still include
+// Access-Control-Allow-Origin headers (otherwise browsers report CORS errors
+// instead of the actual 429).
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
+// Rate limiting (skip health check, auth, and frequently-polled endpoints)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 500 : 200,
+  max: process.env.NODE_ENV === 'production' ? 2000 : 500,
   skip: (req) => {
     if (req.path === '/health') return true;
     if (req.path.startsWith('/api/v1/auth/')) return true; // login, callback, etc.
     if (req.path.startsWith('/api/v1/player/')) return true; // playback polled frequently
+    if (req.method === 'OPTIONS') return true; // always allow preflight
     return false;
   },
   message: { success: false, message: 'Too many requests, please try again later.' }
 });
 app.use(limiter);
-
-// CORS and body parsing
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
