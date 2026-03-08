@@ -15,7 +15,6 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-  SidebarSeparator,
   useSidebar,
 } from "../ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -98,13 +97,6 @@ export default function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarSeparator />
-        <SidebarGroup className={isCollapsed ? "!p-0 px-3 py-2" : ""}>
-          <SidebarGroupContent className={isCollapsed ? "!p-0" : ""}>
-            <SidebarMenu className={isCollapsed ? "!gap-1 items-center" : ""}>
               <SidebarMenuItem className={isCollapsed ? "flex justify-center" : ""}>
                 <SidebarMenuButton
                   onClick={startTour}
