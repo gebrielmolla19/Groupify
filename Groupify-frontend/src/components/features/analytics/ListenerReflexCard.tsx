@@ -649,16 +649,21 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                           };
                           
                           return (
-                            <div
-                              className="w-fit inline-flex items-center gap-1.5 px-2 py-1 border rounded-md text-xs font-medium"
-                              style={{
-                                backgroundColor: getBgValue(styleLabel.badge.bgColor),
-                                borderColor: getBorderValue(styleLabel.badge.borderColor),
-                                color: getColorValue(styleLabel.badge.color),
-                              }}
-                            >
-                              <BadgeIcon className="w-3 h-3 shrink-0" />
-                              <span>{styleLabel.title}</span>
+                            <div className="flex flex-col gap-2">
+                              <div
+                                className="w-fit inline-flex items-center gap-1.5 px-2 py-1 border rounded-md text-xs font-medium"
+                                style={{
+                                  backgroundColor: getBgValue(styleLabel.badge.bgColor),
+                                  borderColor: getBorderValue(styleLabel.badge.borderColor),
+                                  color: getColorValue(styleLabel.badge.color),
+                                }}
+                              >
+                                <BadgeIcon className="w-3 h-3 shrink-0" />
+                                <span>{styleLabel.title}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {styleLabel.description}
+                              </p>
                             </div>
                           );
                         })()}
