@@ -27,11 +27,16 @@ import { useIsMobile } from "../ui/use-mobile";
 
 export default function AppSidebar() {
   const { user, logout } = useUser();
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
   const isCollapsed = state === "collapsed" && !isMobile;
+
+  const handleStartTour = () => {
+    setOpenMobile(false);
+    startTour();
+  };
   
   const menuItems = [
     { path: "/", label: "Groups", icon: Home },
@@ -100,7 +105,7 @@ export default function AppSidebar() {
               })}
               <SidebarMenuItem className={isCollapsed ? "flex justify-center" : ""}>
                 <SidebarMenuButton
-                  onClick={startTour}
+                  onClick={handleStartTour}
                   tooltip="Take the Tour"
                   className={`text-muted-foreground hover:text-foreground ${
                     isCollapsed ? "!p-0 !w-8 !h-8 !justify-center !mx-0 min-w-[44px] min-h-[44px]" : "min-h-[44px]"
