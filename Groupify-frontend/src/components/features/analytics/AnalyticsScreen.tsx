@@ -4,7 +4,6 @@ import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
 import { useGroupAnalytics } from "../../../hooks/useGroupAnalytics";
 import ActivityWave from "./ActivityWave";
-import VibeRadar from "./VibeRadar";
 import SuperlativeCard from "./SuperlativeCard";
 import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
@@ -23,14 +22,13 @@ export default function AnalyticsScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { data, isLoading, isActivityLoading, isVibesLoading, error, activityRange, activityMode, vibesRange, changeTimeRange, changeActivityMode, changeVibesRange } = useGroupAnalytics(groupId || '');
+  const { data, isLoading, isActivityLoading, error, activityRange, activityMode, changeTimeRange, changeActivityMode } = useGroupAnalytics(groupId || '');
 
   // Taste Gravity time range state
   const [tasteGravityRange, setTasteGravityRange] = useState<TasteGravityTimeRange>('7d');
 
   // Helper to safely access data
   const activityData = data?.activity || [];
-  const vibeData = data?.vibes || [];
   const superlatives = data?.superlatives || {};
 
   // Time range options
@@ -138,107 +136,78 @@ export default function AnalyticsScreen() {
           </Card>
         )}
 
-        {/* Top Section: Visualization & Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 h-auto lg:h-[500px]">
-
-          {/* 1. Vibe Radar (Personality) */}
-          <div className="flex flex-col gap-3 md:gap-4">
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
-                <span className="text-xl md:text-2xl">📡</span>
-                Vibe Radar
-              </h2>
-              <span className="text-xs text-muted-foreground hidden sm:inline">Compare member personalities</span>
-            </div>
-            <Card className="flex-1 bg-black/40 border-white/5 overflow-hidden relative group">
-              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
-              <CardContent className="h-full flex items-center justify-center p-0">
-                <VibeRadar 
-                  data={vibeData} 
-                  isLoading={isLoading} 
-                  isVibesLoading={isVibesLoading}
-                  vibesRange={vibesRange}
-                  changeVibesRange={changeVibesRange}
-                />
-              </CardContent>
-            </Card>
+        {/* Resonance Frequency */}
+        <div className="flex flex-col gap-3 md:gap-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
+              <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+              Resonance Frequency
+            </h2>
           </div>
 
-          {/* 2. Waveform (Activity) */}
-          <div className="flex flex-col gap-3 md:gap-4">
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
-                <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                Resonance Frequency
-              </h2>
+          {/* Time Range Selector and Mode Toggle */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 px-2">
+            <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+              {timeRanges.map((range) => (
+                <Button
+                  key={range.value}
+                  size="sm"
+                  variant={activityRange === range.value ? 'default' : 'outline'}
+                  onClick={() => changeTimeRange(range.value)}
+                  className={
+                    activityRange === range.value
+                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                      : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                  }
+                >
+                  {range.label}
+                </Button>
+              ))}
             </div>
-            
-            {/* Time Range Selector and Mode Toggle */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 px-2">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                  {timeRanges.map((range) => (
-                    <Button
-                      key={range.value}
-                      size="sm"
-                      variant={activityRange === range.value ? 'default' : 'outline'}
-                      onClick={() => changeTimeRange(range.value)}
-                      className={
-                        activityRange === range.value
-                          ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
-                          : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
-                      }
-                    >
-                      {range.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Mode Toggle */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                <span className="text-xs text-muted-foreground">View:</span>
-                <div className="flex gap-1 border border-white/10 rounded-md p-0.5 w-full sm:w-auto">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => changeActivityMode('shares')}
-                    disabled={isActivityLoading}
-                    className={
-                      activityMode === 'shares'
-                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
-                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
-                    }
-                  >
-                    Shares Posted
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => changeActivityMode('engagement')}
-                    disabled={isActivityLoading}
-                    className={
-                      activityMode === 'engagement'
-                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
-                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
-                    }
-                  >
-                    Engagement
-                  </Button>
-                </div>
+
+            {/* Mode Toggle */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs text-muted-foreground">View:</span>
+              <div className="flex gap-1 border border-white/10 rounded-md p-0.5 w-full sm:w-auto">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => changeActivityMode('shares')}
+                  disabled={isActivityLoading}
+                  className={
+                    activityMode === 'shares'
+                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                  }
+                >
+                  Shares Posted
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => changeActivityMode('engagement')}
+                  disabled={isActivityLoading}
+                  className={
+                    activityMode === 'engagement'
+                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                  }
+                >
+                  Engagement
+                </Button>
               </div>
             </div>
-            <Card className="flex-1 bg-black/20 border-white/5 overflow-hidden flex flex-col relative">
-              {isActivityLoading && !isLoading && (
-                <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-20 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                </div>
-              )}
-              <CardContent className="flex-1 p-0 flex items-stretch w-full">
-                <ActivityWave data={activityData} isLoading={false} />
-              </CardContent>
-            </Card>
           </div>
+          <Card className="bg-black/20 border-white/5 overflow-hidden flex flex-col relative">
+            {isActivityLoading && !isLoading && (
+              <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-20 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            )}
+            <CardContent className="flex-1 p-0 flex items-stretch w-full">
+              <ActivityWave data={activityData} isLoading={false} />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Listener Reflex Section */}

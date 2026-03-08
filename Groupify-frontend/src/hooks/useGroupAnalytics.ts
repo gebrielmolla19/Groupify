@@ -46,15 +46,14 @@ export const useGroupAnalytics = (groupId: string) => {
       setIsLoading(true);
       setError(null);
 
-      const [activity, vibes, superlatives] = await Promise.all([
+      const [activity, superlatives] = await Promise.all([
         getGroupActivity(fetchGroupId, '30d', 'shares'),
-        getMemberVibes(fetchGroupId, 'all'),
         getSuperlatives(fetchGroupId)
       ]);
 
       // Only set data if groupId hasn't changed during the fetch
       if (fetchGroupId === groupId) {
-      setData({ activity, vibes, superlatives });
+      setData({ activity, vibes: [], superlatives });
         dataGroupIdRef.current = fetchGroupId;
         setActivityRange('30d');
         setVibesRange('all');
