@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  SidebarSeparator,
   useSidebar,
 } from "../ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -100,6 +101,26 @@ export default function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <SidebarSeparator />
+        <SidebarGroup className={isCollapsed ? "!p-0 px-3 py-2" : ""}>
+          <SidebarGroupContent className={isCollapsed ? "!p-0" : ""}>
+            <SidebarMenu className={isCollapsed ? "!gap-1 items-center" : ""}>
+              <SidebarMenuItem className={isCollapsed ? "flex justify-center" : ""}>
+                <SidebarMenuButton
+                  onClick={startTour}
+                  tooltip="Take the Tour"
+                  className={`text-muted-foreground hover:text-foreground ${
+                    isCollapsed ? "!p-0 !w-8 !h-8 !justify-center !mx-0 min-w-[44px] min-h-[44px]" : "min-h-[44px]"
+                  }`}
+                  aria-label="Take the tour"
+                >
+                  <HelpCircle className="w-4 h-4" aria-hidden="true" />
+                  <span>Take the Tour</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className={`border-t border-border transition-all duration-200 ${
         isCollapsed ? "px-3 py-2" : "p-3 md:p-4"
@@ -137,31 +158,6 @@ export default function AppSidebar() {
             {isCollapsed && (
               <TooltipContent side="right" align="center">
                 <p>{user?.displayName || 'User'}</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`hover:bg-primary/10 hover:text-primary cursor-pointer transition-colors min-h-[44px] mb-1 ${
-                  isCollapsed ? "!w-8 !h-8 !p-0 !justify-center !mx-auto min-w-[44px] min-h-[44px]" : "w-full justify-start text-xs md:text-sm"
-                }`}
-                onClick={startTour}
-                aria-label="Take the tour"
-              >
-                <HelpCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className={`truncate transition-opacity duration-200 ${
-                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 ml-2"
-                }`}>
-                  Take the Tour
-                </span>
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right" align="center">
-                <p>Take the Tour</p>
               </TooltipContent>
             )}
           </Tooltip>
