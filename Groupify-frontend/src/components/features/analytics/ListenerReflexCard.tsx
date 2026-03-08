@@ -505,10 +505,15 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
       <CardContent className="space-y-6">
         {/* Compare Mode Panel */}
         {isCompareMode ? (
-          <div className="transition-all duration-200">
+          <div className="transition-all duration-200 space-y-3">
+            {range === '24h' && (
+              <p className="text-xs text-muted-foreground px-1">
+                Compare uses <span className="text-foreground font-medium">7-day</span> data — the 24h window is too narrow for a meaningful radar comparison.
+              </p>
+            )}
             <ListenerReflexComparePanel
               groupId={groupId}
-              window={range === '24h' ? '7d' : (range === 'all' ? 'all' : range)} // Map 24h to 7d for radar
+              window={range === '24h' ? '7d' : (range === 'all' ? 'all' : range)}
               mode={mode}
             />
           </div>
