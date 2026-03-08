@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Trophy } from 'lucide-react';
+import { useIsMobile } from '../../ui/use-mobile';
 
 // Format date in UTC to avoid timezone issues with daily buckets
 // This ensures that 2025-12-13T00:00:00.000Z displays as "Dec 13" regardless of local timezone
@@ -30,9 +31,9 @@ interface ActivityWaveProps {
     isLoading?: boolean;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-        const date = new Date(Number(label));
+        const date = new Date(payload[0].payload.ts);
         return (
             <div className="bg-background/95 border border-border p-3 rounded-lg shadow-xl backdrop-blur-md">
                 <p className="text-sm font-medium text-foreground mb-1">
@@ -51,8 +52,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
+    const isMobile = useIsMobile();
     const gradientId = useMemo(() => `wave-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
-    
+
     const chartData = useMemo(() => {
         if (!Array.isArray(data)) return [];
         return data.map((d) => ({
@@ -62,7 +64,36 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
             shares: Number(d.shares) || 0,
         }));
     }, [data]);
-    
+
+    // On mobile, aggregate into weekly buckets when there are more than 10 data points
+    // so all bars fit on screen without scrolling.
+    // Uses a string label key so recharts treats it as categorical — equal bar widths.
+    const mobileChartData = useMemo(() => {
+        const base = chartData.length <= 10 ? chartData : (() => {
+            const weeks: { label: string; ts: number; activity: number; shares: number }[] = [];
+            for (let i = 0; i < chartData.length; i += 7) {
+                const slice = chartData.slice(i, i + 7);
+                weeks.push({
+                    label: formatDateUTC(new Date(slice[0].ts), 'MMM d'),
+                    ts: slice[0].ts,
+                    activity: slice.reduce((s, d) => s + d.activity, 0),
+                    shares: slice.reduce((s, d) => s + d.shares, 0),
+                });
+            }
+            return weeks;
+        })();
+        // Add label to daily data too for consistent categorical rendering
+        return base.map(d => ({
+            ...d,
+            label: 'label' in d ? d.label : formatDateUTC(new Date(d.ts), 'MMM d'),
+        }));
+    }, [isMobile, chartData]);
+
+    const mobileMaxActivity = useMemo(
+        () => mobileChartData.reduce((max, d) => Math.max(max, d.activity), 0),
+        [mobileChartData]
+    );
+
     const maxActivity = useMemo(() => {
         if (!chartData?.length) return 0;
         return chartData.reduce((max, d) => Math.max(max, Number(d.activity) || 0), 0);
@@ -118,13 +149,46 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
     return (
         <div className="w-full flex-1 flex flex-col min-h-0">
             <CardHeader className="pb-2 shrink-0">
-                <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+                <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase flex items-center gap-2">
                     Group Frequency
+                    {isMobile && chartData.length > 10 && (
+                        <span className="normal-case text-[10px] font-normal text-muted-foreground/60 tracking-normal">· weekly view</span>
+                    )}
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 p-4 flex gap-4" style={{ minHeight: '250px' }}>
-                <div className="flex-1 h-full" style={{ minHeight: '200px' }}>
-                    <ResponsiveContainer width="100%" height={250}>
+            <CardContent className="flex-1 p-4 flex flex-col gap-4">
+                {/* Mobile: aggregated bar chart (weekly buckets when > 10 days) — fits screen without scrolling */}
+                {isMobile ? (
+                    <div>
+                        <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={mobileChartData} margin={{ top: 8, right: 8, bottom: 24, left: 0 }} barCategoryGap="30%">
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                                <XAxis
+                                    dataKey="label"
+                                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                                    stroke="rgba(255,255,255,0.1)"
+                                    interval="preserveStartEnd"
+                                />
+                                <YAxis hide />
+                                <Tooltip
+                                    content={<CustomTooltip />}
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                />
+                                <Bar dataKey="activity" radius={[3, 3, 0, 0]}>
+                                    {mobileChartData.map((entry, index) => (
+                                        <Cell
+                                            key={index}
+                                            fill={entry.activity === mobileMaxActivity ? '#00FF88' : 'rgba(0,255,136,0.45)'}
+                                        />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                /* Desktop: area chart */
+                <div className="w-full" style={{ minHeight: '200px' }}>
+                    <ResponsiveContainer width="100%" height={220}>
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -132,10 +196,10 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                     <stop offset="95%" stopColor="#00FF88" stopOpacity={0.05} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid 
-                                strokeDasharray="3 3" 
-                                stroke="rgba(255,255,255,0.08)" 
-                                vertical={false} 
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="rgba(255,255,255,0.08)"
+                                vertical={false}
                             />
                             <XAxis
                                 dataKey="ts"
@@ -156,9 +220,9 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 axisLine={{ strokeWidth: 1 }}
                                 width={30}
                             />
-                            <Tooltip 
-                                content={<CustomTooltip />} 
-                                cursor={{ stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }} 
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{ stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }}
                             />
                             <Area
                                 type="monotone"
@@ -167,37 +231,41 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 fill={`url(#${gradientId})`}
                                 strokeWidth={3}
                                 dot={false}
-                                activeDot={{ 
-                                    r: 5, 
-                                    fill: '#00FF88', 
-                                    stroke: '#FFFFFF', 
-                                    strokeWidth: 2 
+                                activeDot={{
+                                    r: 5,
+                                    fill: '#00FF88',
+                                    stroke: '#FFFFFF',
+                                    strokeWidth: 2
                                 }}
                                 animationDuration={1200}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-                {/* Stats Panel on the right */}
-                <div className="flex flex-col gap-4 justify-center px-4 border-l border-white/5 min-w-[140px]">
-                    <div>
-                        <div className="text-muted-foreground uppercase tracking-wider mb-1 text-xs">Total Shares</div>
-                        <div className="text-xl font-bold">{totalShares}</div>
+                )}
+                {/* Stats — horizontal row below the chart */}
+                <div className="flex items-stretch border-t border-white/10 pt-4">
+                    <div className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[11px] text-muted-foreground">Shares</span>
+                        <span className="text-2xl font-bold">{totalShares}</span>
                     </div>
-                    <div>
-                        <div className="text-muted-foreground uppercase tracking-wider mb-1 text-xs">Total Noise</div>
-                        <div className="text-xl font-bold text-primary">{totalNoise}</div>
+                    <div className="w-px bg-white/10 mx-2" />
+                    <div className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[11px] text-muted-foreground">Noise</span>
+                        <span className="text-2xl font-bold text-primary">{totalNoise}</span>
                     </div>
                     {peakDay && peakDay.activity > 0 && (
-                        <div>
-                            <div className="text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1 text-xs">
-                                <Trophy className="w-3 h-3 text-primary" />
-                                Peak Day
+                        <>
+                            <div className="w-px bg-white/10 mx-2" />
+                            <div className="flex-1 flex flex-col items-center gap-1">
+                                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                    <Trophy className="w-3 h-3 text-primary" /> Peak
+                                </span>
+                                <span className="text-2xl font-bold text-primary">
+                                    {formatDateUTC(new Date(peakDay.ts), 'MMM d')}
+                                </span>
                             </div>
-                            <div className="text-xl font-bold text-primary">
-                                {formatDateUTC(new Date(peakDay.ts), 'MMM d')}
-                            </div>
-                        </div>
+                        </>
                     )}
                 </div>
             </CardContent>

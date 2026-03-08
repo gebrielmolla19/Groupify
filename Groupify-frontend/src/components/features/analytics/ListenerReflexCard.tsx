@@ -398,47 +398,45 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
       `}</style>
       <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" />
             Listener Reflex
           </CardTitle>
-          
-          {/* Range Selector and Compare Toggle */}
-          <div className="flex items-center gap-2">
-            <div className="flex gap-2">
-              {(['24h', '7d', '30d', '90d', 'all'] as ListenerReflexRange[]).map((r) => (
-                <Button
-                  key={r}
-                  size="sm"
-                  variant={range === r ? 'default' : 'outline'}
-                  onClick={() => setRange(r)}
-                  className={cn(
-                    'h-8 px-3 text-xs',
-                    range === r
-                      ? 'bg-primary hover:bg-primary/90 text-black'
-                      : 'border-primary/30 hover:bg-primary/10'
-                  )}
-                >
-                  {r}
-                </Button>
-              ))}
-            </div>
+          <Button
+            size="sm"
+            variant={isCompareMode ? 'default' : 'outline'}
+            onClick={() => setIsCompareMode(!isCompareMode)}
+            className={cn(
+              'h-8 px-3 text-xs flex items-center gap-1.5',
+              isCompareMode
+                ? 'bg-primary hover:bg-primary/90 text-black'
+                : 'border-primary/30 hover:bg-primary/10'
+            )}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            Compare
+          </Button>
+        </div>
+
+        {/* Range Selector */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          {(['24h', '7d', '30d', '90d', 'all'] as ListenerReflexRange[]).map((r) => (
             <Button
+              key={r}
               size="sm"
-              variant={isCompareMode ? 'default' : 'outline'}
-              onClick={() => setIsCompareMode(!isCompareMode)}
+              variant={range === r ? 'default' : 'outline'}
+              onClick={() => setRange(r)}
               className={cn(
-                'h-8 px-3 text-xs flex items-center gap-1.5',
-                isCompareMode
+                'h-8 px-3 text-xs',
+                range === r
                   ? 'bg-primary hover:bg-primary/90 text-black'
                   : 'border-primary/30 hover:bg-primary/10'
               )}
             >
-              <BarChart3 className="h-3.5 w-3.5" />
-              Compare
+              {r}
             </Button>
-          </div>
+          ))}
         </div>
 
         {/* Mode Toggle */}
@@ -462,15 +460,15 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
               </Button>
             ))}
           </div>
-          {/* Mode Indicator */}
-          <div className="flex items-center gap-1.5 ml-2 px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
-            <div className="w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs font-medium text-primary">
-              {mode === 'received' 
-                ? 'How fast members listen to shared songs' 
-                : 'How fast others react to this member\'s shares'}
-            </span>
-          </div>
+        </div>
+        {/* Mode Indicator — own row so it never overflows */}
+        <div className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 w-fit max-w-full">
+          <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+          <span className="text-xs font-medium text-primary">
+            {mode === 'received'
+              ? 'How fast members listen to shared songs'
+              : 'How fast others react to this member\'s shares'}
+          </span>
         </div>
 
         {/* Summary Line */}
