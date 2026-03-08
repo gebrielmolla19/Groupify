@@ -258,6 +258,16 @@ export default function OnboardingWalkthrough() {
     }
   }, []);
 
+  // Allow on-demand trigger from anywhere via custom event
+  useEffect(() => {
+    const handler = () => {
+      setStep(0);
+      setOpen(true);
+    };
+    window.addEventListener('groupify:start-tour', handler);
+    return () => window.removeEventListener('groupify:start-tour', handler);
+  }, []);
+
   // Navigate to the relevant page on step change
   useEffect(() => {
     if (!open) return;
@@ -463,6 +473,7 @@ export default function OnboardingWalkthrough() {
   );
 }
 
-export function resetTour(): void {
+export function startTour(): void {
   localStorage.removeItem(TOUR_STORAGE_KEY);
+  window.dispatchEvent(new CustomEvent('groupify:start-tour'));
 }

@@ -3,6 +3,7 @@ import {
   User,
   Music,
   LogOut,
+  HelpCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -22,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { useUser } from "../../contexts/UserContext";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
+import { startTour } from "../features/onboarding/OnboardingWalkthrough";
 
 export default function AppSidebar() {
   const { user, logout } = useUser();
@@ -135,6 +137,31 @@ export default function AppSidebar() {
             {isCollapsed && (
               <TooltipContent side="right" align="center">
                 <p>{user?.displayName || 'User'}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`hover:bg-primary/10 hover:text-primary cursor-pointer transition-colors min-h-[44px] mb-1 ${
+                  isCollapsed ? "!w-8 !h-8 !p-0 !justify-center !mx-auto min-w-[44px] min-h-[44px]" : "w-full justify-start text-xs md:text-sm"
+                }`}
+                onClick={startTour}
+                aria-label="Take the tour"
+              >
+                <HelpCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className={`truncate transition-opacity duration-200 ${
+                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 ml-2"
+                }`}>
+                  Take the Tour
+                </span>
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right" align="center">
+                <p>Take the Tour</p>
               </TooltipContent>
             )}
           </Tooltip>
