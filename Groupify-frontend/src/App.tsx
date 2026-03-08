@@ -17,6 +17,7 @@ import SpotifyPlayerCard from "./components/features/music/SpotifyPlayerCard";
 import AppSidebar from "./components/layout/AppSidebar";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
+import OnboardingWalkthrough from "./components/features/onboarding/OnboardingWalkthrough";
 
 /**
  * Main Layout component for authenticated routes
@@ -58,6 +59,9 @@ function AuthenticatedLayout() {
           
           {/* Persistent Spotify Player */}
           {showPlayer && <SpotifyPlayerCard />}
+
+          {/* First-time user onboarding tour */}
+          <OnboardingWalkthrough />
         </SidebarProvider>
       </div>
     </PlayingGroupProvider>
