@@ -23,13 +23,15 @@ import { useUser } from "../../contexts/UserContext";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
 import { startTour } from "../features/onboarding/OnboardingWalkthrough";
+import { useIsMobile } from "../ui/use-mobile";
 
 export default function AppSidebar() {
   const { user, logout } = useUser();
   const { state } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
-  const isCollapsed = state === "collapsed";
+  const isMobile = useIsMobile();
+  const isCollapsed = state === "collapsed" && !isMobile;
   
   const menuItems = [
     { path: "/", label: "Groups", icon: Home },
@@ -120,30 +122,26 @@ export default function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
         <button
-                className={`flex items-center gap-2 md:gap-3 mb-2 p-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors min-h-[44px] ${
-                  isCollapsed ? "w-full justify-center min-w-[44px]" : "w-full text-left"
-                } ${location.pathname === '/profile' ? "bg-primary/10" : ""}`}
+          className={`flex items-center mb-2 p-2 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors min-h-[44px] ${
+            isCollapsed ? "w-full justify-center gap-0" : "w-full text-left gap-2 md:gap-3"
+          } ${location.pathname === '/profile' ? "bg-primary/10" : ""}`}
           onClick={() => navigate('/profile')}
           aria-label="View profile"
         >
-          <Avatar className={`border border-primary/30 shrink-0 transition-all duration-200 ${
-            isCollapsed ? "w-8 h-8" : "w-8 h-8 md:w-9 md:h-9"
-          }`}>
+          <Avatar className="border border-primary/30 shrink-0 w-8 h-8 md:w-9 md:h-9">
             <AvatarImage src={user?.profileImage || undefined} />
             <AvatarFallback className="bg-primary/10 text-primary text-xs">
               {user?.displayName ? getInitials(user.displayName) : 'U'}
             </AvatarFallback>
           </Avatar>
-                <div className={`flex-1 min-w-0 transition-opacity duration-200 ${
-                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                }`}>
-            <p className={`text-xs md:text-sm font-medium truncate ${location.pathname === '/profile' ? "text-primary" : ""}`}>
-              {user?.displayName || 'User'}
-            </p>
-          </div>
-                {!isCollapsed && (
-          <User className={`w-4 h-4 shrink-0 ${location.pathname === '/profile' ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
-                )}
+          {!isCollapsed && (
+            <>
+              <p className={`flex-1 min-w-0 text-xs md:text-sm font-medium truncate ${location.pathname === '/profile' ? "text-primary" : ""}`}>
+                {user?.displayName || 'User'}
+              </p>
+              <User className={`w-4 h-4 shrink-0 ${location.pathname === '/profile' ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
+            </>
+          )}
         </button>
             </TooltipTrigger>
             {isCollapsed && (
@@ -155,18 +153,14 @@ export default function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors min-h-[44px] ${
-                  isCollapsed ? "w-full justify-center" : "w-full text-left text-xs md:text-sm"
+                className={`flex items-center p-2 rounded-lg cursor-pointer hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors min-h-[44px] ${
+                  isCollapsed ? "w-full justify-center gap-0" : "w-full text-left gap-2 text-xs md:text-sm"
                 }`}
                 onClick={handleLogout}
                 aria-label="Logout from Groupify"
               >
                 <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className={`truncate transition-opacity duration-200 ${
-                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                }`}>
-                  Logout
-                </span>
+                {!isCollapsed && <span className="truncate">Logout</span>}
               </button>
             </TooltipTrigger>
             {isCollapsed && (
