@@ -74,13 +74,10 @@ const AlertDialogContent = React.forwardRef<
         )}
         style={{
           top: '50%',
-          // Center within the content area (viewport minus sidebar)
           left: isMobile ? '50vw' : `calc(${sidebarOffset / 2}px + 50vw)`,
           transform: 'translate(-50%, -50%)',
           width: 'calc(100vw - 3rem)',
           maxWidth: '28rem',
-          maxHeight: 'calc(100vh - 3rem)',
-          overflowY: 'auto',
           ...style,
         }}
         {...props}
@@ -110,10 +107,7 @@ function AlertDialogFooter({
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-        className,
-      )}
+      className={cn("flex flex-row justify-end gap-2", className)}
       {...props}
     />
   );
@@ -151,7 +145,7 @@ function AlertDialogAction({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
   return (
     <AlertDialogPrimitive.Action
-      className={cn(buttonVariants(), "min-h-[44px] w-full sm:w-auto", className)}
+      className={cn(buttonVariants(), "min-h-[44px]", className)}
       {...props}
     />
   );
@@ -163,7 +157,7 @@ function AlertDialogCancel({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
     <AlertDialogPrimitive.Cancel
-      className={cn(buttonVariants({ variant: "outline" }), "min-h-[44px] w-full sm:w-auto", className)}
+      className={cn(buttonVariants({ variant: "outline" }), "min-h-[44px]", className)}
       {...props}
     />
   );
