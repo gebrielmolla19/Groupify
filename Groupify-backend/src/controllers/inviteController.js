@@ -1,4 +1,5 @@
 const InviteService = require('../services/inviteService');
+const notificationService = require('../services/notificationService');
 const logger = require('../utils/logger');
 
 /**
@@ -31,6 +32,22 @@ class InviteController {
         invitedUserDisplayName: invite.invitedUser?.displayName,
         inviteId: invite._id?.toString()
       });
+
+      // Notify the invited user
+      const io = req.app.get('io');
+      if (io && invite.invitedUser?._id) {
+        notificationService.createNotificationForUser(
+          io,
+          'group_invite',
+          invitedByUserId,
+          invite.invitedUser._id,
+          groupId,
+          {
+            groupName: invite.group?.name || '',
+            inviteId: invite._id.toString(),
+          }
+        );
+      }
 
       res.status(201).json({
         success: true,

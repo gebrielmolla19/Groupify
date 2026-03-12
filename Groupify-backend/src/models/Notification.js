@@ -9,7 +9,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['song_shared', 'member_joined'],
+      enum: ['song_shared', 'member_joined', 'group_invite'],
       required: true,
     },
     group: {
@@ -27,6 +27,7 @@ const notificationSchema = new mongoose.Schema(
       artistName: { type: String, default: null },
       memberName: { type: String, default: null },
       groupName: { type: String, default: null },
+      inviteId: { type: String, default: null },
     },
     read: {
       type: Boolean,

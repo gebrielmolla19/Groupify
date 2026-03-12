@@ -4,10 +4,13 @@ import {
   getNotifications as apiGetNotifications,
   markNotificationRead as apiMarkRead,
   markAllNotificationsRead as apiMarkAllRead,
+  acceptInvite as apiAcceptInvite,
+  declineInvite as apiDeclineInvite,
   getToken,
 } from '../lib/api';
 import { useSocket } from '../contexts/SocketContext';
 import { useUser } from '../contexts/UserContext';
+import { toast } from 'sonner';
 
 export function useNotifications() {
   const { isAuthenticated } = useUser();
@@ -48,6 +51,9 @@ export function useNotifications() {
     return () => { socket.off('notification', handler); };
   }, [socket]);
 
+  const removeNotification = (id: string) =>
+    setNotifications((prev) => prev.filter((n) => n._id !== id));
+
   const markRead = useCallback(async (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, read: true } : n))
@@ -68,7 +74,39 @@ export function useNotifications() {
     }
   }, []);
 
+  const acceptInvite = useCallback(async (notification: AppNotification) => {
+    const groupId = notification.group?._id;
+    const inviteId = notification.metadata?.inviteId;
+    if (!groupId || !inviteId) return null;
+    try {
+      const group = await apiAcceptInvite(groupId, inviteId);
+      removeNotification(notification._id);
+      await apiMarkRead(notification._id).catch(() => {});
+      toast.success(`Joined ${notification.metadata?.groupName || 'group'}!`);
+      return group;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to accept invite';
+      toast.error(msg);
+      return null;
+    }
+  }, []);
+
+  const declineInvite = useCallback(async (notification: AppNotification) => {
+    const groupId = notification.group?._id;
+    const inviteId = notification.metadata?.inviteId;
+    if (!groupId || !inviteId) return;
+    try {
+      await apiDeclineInvite(groupId, inviteId);
+      removeNotification(notification._id);
+      await apiMarkRead(notification._id).catch(() => {});
+      toast.success('Invite declined');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to decline invite';
+      toast.error(msg);
+    }
+  }, []);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  return { notifications, unreadCount, loading, markRead, markAllRead };
+  return { notifications, unreadCount, loading, markRead, markAllRead, acceptInvite, declineInvite };
 }

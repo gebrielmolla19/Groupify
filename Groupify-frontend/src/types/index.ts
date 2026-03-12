@@ -73,7 +73,7 @@ export interface Invite {
 
 export interface AppNotification {
   _id: string;
-  type: 'song_shared' | 'member_joined';
+  type: 'song_shared' | 'member_joined' | 'group_invite';
   group: { _id: string; name: string };
   actor: { _id: string; displayName: string; profileImage?: string | null };
   metadata: {
@@ -81,6 +81,7 @@ export interface AppNotification {
     artistName?: string;
     memberName?: string;
     groupName?: string;
+    inviteId?: string;
   };
   read: boolean;
   readAt?: string;

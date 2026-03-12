@@ -22,6 +22,13 @@ function buildPushPayload(type, metadata, actorDisplayName) {
       url: '/',
     };
   }
+  if (type === 'group_invite') {
+    return {
+      title: 'Group invitation',
+      body: `${actorDisplayName} invited you to join ${metadata.groupName}`,
+      url: '/',
+    };
+  }
   return { title: 'Groupify', body: '', url: '/' };
 }
 
@@ -147,8 +154,49 @@ async function deleteSubscription(userId, endpoint) {
   await PushSubscription.deleteOne({ user: userId, 'subscription.endpoint': endpoint });
 }
 
+/**
+ * Send a notification to a single user (e.g. a group invite).
+ */
+async function createNotificationForUser(io, type, actorId, recipientId, groupId, metadata) {
+  try {
+    const [notification] = await Notification.insertMany([{
+      recipient: recipientId,
+      type,
+      group: groupId,
+      actor: actorId,
+      metadata,
+    }]);
+
+    const populated = await Notification.findById(notification._id)
+      .populate('actor', 'displayName profileImage')
+      .populate('group', 'name')
+      .lean();
+
+    const actorDisplayName = populated?.actor?.displayName || 'Someone';
+    const pushPayload = buildPushPayload(type, metadata, actorDisplayName);
+
+    // Socket to personal room
+    io.to(recipientId.toString()).emit('notification', populated);
+
+    // Web push
+    const subs = await PushSubscription.find({ user: recipientId }).lean();
+    for (const sub of subs) {
+      try {
+        await webPush.sendNotification(sub.subscription, JSON.stringify(pushPayload));
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await PushSubscription.deleteOne({ _id: sub._id });
+        }
+      }
+    }
+  } catch (error) {
+    logger.error('[Notifications] Failed to create user notification', { error: error.message });
+  }
+}
+
 module.exports = {
   createNotificationsForGroup,
+  createNotificationForUser,
   getUserNotifications,
   markAsRead,
   markAllAsRead,

@@ -1,35 +1,47 @@
-import { Bell } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, Music, UserPlus, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '../../ui/dropdown-menu';
 import { Button } from '../../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { ScrollArea } from '../../ui/scroll-area';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { AppNotification } from '../../../types';
+import { useNavigate } from 'react-router-dom';
 
 function notificationText(n: AppNotification): string {
+  const group = n.metadata?.groupName ?? n.group?.name ?? 'your group';
   if (n.type === 'song_shared') {
-    const actor = n.actor?.displayName ?? 'Someone';
-    const track = n.metadata?.trackName ?? 'a song';
-    const group = n.metadata?.groupName ?? n.group?.name ?? 'your group';
-    return `${actor} shared "${track}" in ${group}`;
+    return `shared "${n.metadata?.trackName ?? 'a song'}" in ${group}`;
   }
   if (n.type === 'member_joined') {
-    const member = n.metadata?.memberName ?? 'Someone';
-    const group = n.metadata?.groupName ?? n.group?.name ?? 'your group';
-    return `${member} joined ${group}`;
+    return `joined ${group}`;
   }
-  return 'New notification';
+  if (n.type === 'group_invite') {
+    return `invited you to join ${group}`;
+  }
+  return 'sent you a notification';
+}
+
+function NotificationIcon({ type }: { type: AppNotification['type'] }) {
+  if (type === 'song_shared') return <Music className="w-3.5 h-3.5 text-primary" />;
+  if (type === 'member_joined') return <Users className="w-3.5 h-3.5 text-blue-400" />;
+  if (type === 'group_invite') return <UserPlus className="w-3.5 h-3.5 text-violet-400" />;
+  return null;
 }
 
 export default function NotificationsDropdown() {
-  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const navigate = useNavigate();
+  const { notifications, unreadCount, markRead, markAllRead, acceptInvite, declineInvite } =
+    useNotifications();
+
+  const handleAccept = async (n: AppNotification) => {
+    const group = await acceptInvite(n);
+    if (group) navigate(`/groups/${group._id}`);
+  };
 
   return (
     <DropdownMenu>
@@ -41,7 +53,7 @@ export default function NotificationsDropdown() {
         >
           <Bell className="w-4 h-4" aria-hidden="true" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white pointer-events-none">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -51,59 +63,92 @@ export default function NotificationsDropdown() {
       <DropdownMenuContent align="end" className="w-80 p-0" sideOffset={8}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <span className="text-sm font-medium">Notifications</span>
+          <span className="text-sm font-semibold">Notifications</span>
           {unreadCount > 0 && (
             <button
               onClick={markAllRead}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Mark all as read
+              Mark all read
             </button>
           )}
         </div>
 
         {/* List */}
         {notifications.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            No notifications yet
+          <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+            <Bell className="w-8 h-8 opacity-20" />
+            <p className="text-sm">No notifications yet</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[360px]">
-            {notifications.map((n, index) => (
-              <div key={n._id}>
-                <DropdownMenuItem
-                  className={`flex gap-3 px-4 py-3 cursor-pointer focus:bg-muted/50 ${
-                    !n.read ? 'bg-primary/5' : ''
+          <ScrollArea className="max-h-[400px]">
+            <div className="py-1">
+              {notifications.map((n) => (
+                <div
+                  key={n._id}
+                  className={`flex gap-3 px-4 py-3 transition-colors ${
+                    !n.read ? 'bg-primary/5' : 'hover:bg-muted/40'
                   }`}
-                  onSelect={() => { if (!n.read) markRead(n._id); }}
+                  onClick={() => { if (!n.read && n.type !== 'group_invite') markRead(n._id); }}
+                  role={n.type !== 'group_invite' ? 'button' : undefined}
+                  style={n.type !== 'group_invite' ? { cursor: 'pointer' } : undefined}
                 >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    {n.actor?.profileImage && (
-                      <AvatarImage src={n.actor.profileImage} alt={n.actor.displayName} />
-                    )}
-                    <AvatarFallback className="text-xs bg-muted">
-                      {n.actor?.displayName?.charAt(0)?.toUpperCase() ?? '?'}
-                    </AvatarFallback>
-                  </Avatar>
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <Avatar className="h-8 w-8">
+                      {n.actor?.profileImage && (
+                        <AvatarImage src={n.actor.profileImage} alt={n.actor.displayName} />
+                      )}
+                      <AvatarFallback className="text-xs bg-muted">
+                        {n.actor?.displayName?.charAt(0)?.toUpperCase() ?? '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                      <NotificationIcon type={n.type} />
+                    </span>
+                  </div>
 
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm leading-snug text-foreground break-words whitespace-normal">
-                      {notificationText(n)}
+                    <p className="text-sm leading-snug break-words whitespace-normal">
+                      <span className="font-medium">{n.actor?.displayName ?? 'Someone'}</span>{' '}
+                      <span className="text-muted-foreground">{notificationText(n)}</span>
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                     </p>
+
+                    {/* Invite actions */}
+                    {n.type === 'group_invite' && (
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          size="sm"
+                          className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-black"
+                          onClick={(e) => { e.stopPropagation(); handleAccept(n); }}
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-3 text-xs border-muted-foreground/30 hover:bg-destructive/10 hover:border-destructive/50"
+                          onClick={(e) => { e.stopPropagation(); declineInvite(n); }}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Decline
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
-                  {!n.read && (
-                    <span className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" aria-hidden="true" />
+                  {/* Unread dot */}
+                  {!n.read && n.type !== 'group_invite' && (
+                    <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
                   )}
-                </DropdownMenuItem>
-                {index < notifications.length - 1 && (
-                  <DropdownMenuSeparator className="my-0" />
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </ScrollArea>
         )}
       </DropdownMenuContent>

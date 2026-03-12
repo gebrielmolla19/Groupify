@@ -6,12 +6,10 @@ import { Skeleton } from "../../ui/skeleton";
 import { SidebarTrigger } from "../../ui/sidebar";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
-import InvitesDropdown from "../groups/InvitesDropdown";
 import NotificationsDropdown from "../notifications/NotificationsDropdown";
 import GroupThumbnail from "../groups/GroupThumbnail";
 import { Group } from "../../../types";
 import { useGroups } from "../../../hooks/useGroups";
-import { useUserInvites } from "../../../hooks/useUserInvites";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -20,13 +18,6 @@ import { logger } from "../../../utils/logger";
 export default function DashboardScreen() {
   const navigate = useNavigate();
   const { groups, isLoading, error, createGroup, joinGroupByCode } = useGroups();
-  const {
-    invites: userInvites,
-    isLoading: isLoadingInvites,
-    error: invitesError,
-    acceptInvite,
-    declineInvite
-  } = useUserInvites();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -96,13 +87,6 @@ export default function DashboardScreen() {
               </div>
               <div className="flex gap-2 shrink-0">
                 <NotificationsDropdown />
-                <InvitesDropdown
-                  invites={userInvites}
-                  onAcceptInvite={acceptInvite}
-                  onDeclineInvite={declineInvite}
-                  isLoading={isLoadingInvites}
-                  error={invitesError}
-                />
                 <Button
                   variant="outline"
                   className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 min-h-[44px] px-2 sm:px-4"
