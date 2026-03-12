@@ -1,4 +1,5 @@
 const ShareService = require('../services/shareService');
+const notificationService = require('../services/notificationService');
 const logger = require('../utils/logger');
 
 /**
@@ -16,8 +17,16 @@ class ShareController {
       const share = await ShareService.shareSong(req.userId, groupId, spotifyTrackId);
 
       // Emit socket event for real-time updates
-      if (req.app.get('io')) {
-        req.app.get('io').to(groupId.toString()).emit('songShared', { share });
+      const io = req.app.get('io');
+      if (io) {
+        io.to(groupId.toString()).emit('songShared', { share });
+
+        // Fan-out notifications to other group members
+        notificationService.createNotificationsForGroup(io, 'song_shared', req.userId, groupId, {
+          trackName: share.trackName,
+          artistName: share.artistName,
+          groupName: share.group?.name || '',
+        });
       }
 
       logger.info('[Share] Song shared to group', {

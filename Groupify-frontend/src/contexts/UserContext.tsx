@@ -6,6 +6,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { getToken, setToken, getCurrentUser, logout as apiLogout, removeToken } from '../lib/api';
+import { registerServiceWorker, requestPermissionAndSubscribe } from '../lib/pushNotifications';
 import { logger } from '../utils/logger';
 
 interface UserContextType {
@@ -37,6 +38,8 @@ export function UserProvider({ children }: UserProviderProps) {
         setTokenState(storedToken);
         try {
           await fetchUserData(storedToken);
+          // Re-register SW for returning users (non-blocking)
+          registerServiceWorker().then(() => requestPermissionAndSubscribe()).catch(() => {});
         } catch (error) {
           // Token might be invalid, clear it
           logger.warn('Token invalid, clearing auth state');
@@ -72,6 +75,9 @@ export function UserProvider({ children }: UserProviderProps) {
     setTokenState(newToken);
     const userData = await fetchUserData(newToken);
     logger.info('User logged in:', { userId: userData._id, displayName: userData.displayName });
+
+    // Register service worker and request push permission (non-blocking)
+    registerServiceWorker().then(() => requestPermissionAndSubscribe()).catch(() => {});
   };
 
   const handleLogout = async () => {

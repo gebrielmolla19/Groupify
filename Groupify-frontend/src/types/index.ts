@@ -71,6 +71,22 @@ export interface Invite {
   updatedAt: string;
 }
 
+export interface AppNotification {
+  _id: string;
+  type: 'song_shared' | 'member_joined';
+  group: { _id: string; name: string };
+  actor: { _id: string; displayName: string; profileImage?: string | null };
+  metadata: {
+    trackName?: string;
+    artistName?: string;
+    memberName?: string;
+    groupName?: string;
+  };
+  read: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
 export interface SpotifyTrack {
   id: string;
   name: string;

@@ -905,6 +905,23 @@ export const getListenerReflexRadar = async (
   return data.data;
 };
 
+// ==================== NOTIFICATION OPERATIONS ====================
+
+export const getNotifications = async () => {
+  const response = await fetchWithAuth('/notifications');
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to fetch notifications');
+  return data.notifications;
+};
+
+export const markNotificationRead = async (id: string): Promise<void> => {
+  await fetchWithAuth(`/notifications/${id}/read`, { method: 'PUT' });
+};
+
+export const markAllNotificationsRead = async (): Promise<void> => {
+  await fetchWithAuth('/notifications/read-all', { method: 'PUT' });
+};
+
 // ==================== GROUP SETTINGS OPERATIONS ====================
 
 /**

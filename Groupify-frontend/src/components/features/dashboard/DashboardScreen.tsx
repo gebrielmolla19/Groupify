@@ -7,6 +7,7 @@ import { SidebarTrigger } from "../../ui/sidebar";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
 import InvitesDropdown from "../groups/InvitesDropdown";
+import NotificationsDropdown from "../notifications/NotificationsDropdown";
 import GroupThumbnail from "../groups/GroupThumbnail";
 import { Group } from "../../../types";
 import { useGroups } from "../../../hooks/useGroups";
@@ -94,6 +95,7 @@ export default function DashboardScreen() {
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">
+                <NotificationsDropdown />
                 <InvitesDropdown
                   invites={userInvites}
                   onAcceptInvite={acceptInvite}
