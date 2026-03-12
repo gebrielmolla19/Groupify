@@ -39,28 +39,40 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
  * Posts the subscription to the backend. Silently exits if permission is denied.
  */
 export async function requestPermissionAndSubscribe(): Promise<void> {
-  if (!('Notification' in window) || !('PushManager' in window)) return;
+  if (!('Notification' in window)) { console.warn('[PWA] Notification API not supported'); return; }
+  if (!('PushManager' in window)) { console.warn('[PWA] PushManager not supported'); return; }
 
   const permission = await Notification.requestPermission();
+  console.log('[PWA] Notification permission:', permission);
   if (permission !== 'granted') return;
 
   const vapidKey = await getVapidPublicKey();
+  console.log('[PWA] VAPID key fetched:', vapidKey ? 'yes' : 'no');
   if (!vapidKey) return;
 
   const registration = await navigator.serviceWorker.ready;
+  console.log('[PWA] SW ready:', registration.active?.state);
 
   let sub = await registration.pushManager.getSubscription();
   if (!sub) {
-    sub = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
-    });
+    try {
+      sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      console.log('[PWA] New push subscription created');
+    } catch (err) {
+      console.error('[PWA] pushManager.subscribe failed:', err);
+      return;
+    }
+  } else {
+    console.log('[PWA] Existing push subscription found');
   }
 
   const token = getToken();
-  if (!token) return;
+  if (!token) { console.warn('[PWA] No auth token'); return; }
 
-  await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+  const res = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -68,6 +80,7 @@ export async function requestPermissionAndSubscribe(): Promise<void> {
     },
     body: JSON.stringify({ subscription: sub.toJSON() }),
   });
+  console.log('[PWA] Subscribe response:', res.status);
 }
 
 /**
