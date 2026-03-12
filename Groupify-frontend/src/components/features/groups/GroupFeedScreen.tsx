@@ -560,7 +560,7 @@ export default function GroupFeedScreen() {
                                   )}
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent className="max-w-sm mx-4">
+                              <AlertDialogContent style={{ maxWidth: '24rem' }}>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Remove song from group?</AlertDialogTitle>
                                   <AlertDialogDescription>
