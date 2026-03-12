@@ -1,4 +1,5 @@
 const GroupService = require('../services/groupService');
+const notificationService = require('../services/notificationService');
 const logger = require('../utils/logger');
 
 /**
@@ -89,6 +90,15 @@ class GroupController {
         groupName: group.name
       });
 
+      // Notify existing group members
+      const io = req.app.get('io');
+      if (io) {
+        notificationService.createNotificationsForGroup(io, 'member_joined', req.userId, group._id, {
+          memberName: req.user?.displayName || 'Someone',
+          groupName: group.name,
+        });
+      }
+
       res.json({
         success: true,
         message: 'Successfully joined group',
@@ -112,6 +122,15 @@ class GroupController {
         groupId: group._id?.toString(),
         groupName: group.name
       });
+
+      // Notify existing group members
+      const io = req.app.get('io');
+      if (io) {
+        notificationService.createNotificationsForGroup(io, 'member_joined', req.userId, group._id, {
+          memberName: req.user?.displayName || 'Someone',
+          groupName: group.name,
+        });
+      }
 
       res.json({
         success: true,

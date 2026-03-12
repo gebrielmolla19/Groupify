@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const webPush = require('web-push');
 const logger = require('./utils/logger');
 const requestLoggerMiddleware = require('./middleware/requestLoggerMiddleware');
 const User = require('./models/User');
@@ -25,6 +26,16 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const userRoutes = require('./routes/userRoutes');
 const spotifyRoutes = require('./routes/spotifyRoutes');
 const playerRoutes = require('./routes/playerRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+
+// Configure web-push VAPID details
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    process.env.VAPID_MAILTO || 'mailto:groupify@example.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -128,6 +139,7 @@ app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/spotify', spotifyRoutes);
 app.use('/api/v1/player', playerRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // Socket.io authentication middleware
 io.use(async (socket, next) => {
@@ -147,6 +159,9 @@ io.use(async (socket, next) => {
 // Socket.io connection handling
 io.on('connection', (socket) => {
   logger.debug('[Socket.io] Client connected', { socketId: socket.id });
+
+  // Join personal room for targeted notifications
+  socket.join(socket.userId);
 
   socket.on('joinGroup', async (groupId) => {
     const group = await Group.findOne({ _id: groupId, members: socket.userId, isActive: true });
