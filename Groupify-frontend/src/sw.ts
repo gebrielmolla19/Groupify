@@ -9,7 +9,8 @@ cleanupOutdatedCaches();
 
 // ── Push notification handler ──────────────────────────────────────────────
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? {};
+  let data: Record<string, string> = {};
+  try { data = event.data?.json() ?? {}; } catch { data = { body: event.data?.text() ?? '' }; }
   const title: string = data.title ?? 'Groupify';
   const options: NotificationOptions = {
     body: data.body ?? '',
