@@ -277,33 +277,33 @@ export default function ProfileScreen() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-3 gap-4">
-                  <div className="space-y-0.5 flex-1 min-w-0">
+                <div className="py-3 space-y-2">
+                  <div className="flex items-center justify-between gap-4">
                     <Label className="text-sm md:text-base">Push Notifications</Label>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      {pushPermission === 'granted'
-                        ? 'Push notifications are enabled'
-                        : pushPermission === 'denied'
-                        ? 'Notifications are blocked in your browser settings'
-                        : 'Allow Groupify to send you push notifications'}
-                    </p>
+                    {pushPermission === 'granted' && (
+                      <Badge variant="secondary" className="shrink-0">Active</Badge>
+                    )}
+                    {pushPermission === 'denied' && (
+                      <Badge variant="destructive" className="shrink-0">Blocked</Badge>
+                    )}
+                    {pushPermission === 'default' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={handleEnableNotifications}
+                      >
+                        Enable
+                      </Button>
+                    )}
                   </div>
-                  {pushPermission !== 'granted' && pushPermission !== 'denied' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={handleEnableNotifications}
-                    >
-                      Enable
-                    </Button>
-                  )}
-                  {pushPermission === 'granted' && (
-                    <Badge variant="secondary" className="shrink-0">Active</Badge>
-                  )}
-                  {pushPermission === 'denied' && (
-                    <Badge variant="destructive" className="shrink-0">Blocked</Badge>
-                  )}
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    {pushPermission === 'granted'
+                      ? 'You\'ll be notified when friends share songs or invite you to groups.'
+                      : pushPermission === 'denied'
+                      ? 'Notifications are blocked. To enable: open your browser settings, go to Site Settings → Notifications, find this site and set it to Allow, then reload.'
+                      : 'Get notified when friends share songs or invite you to groups.'}
+                  </p>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between py-3 gap-4">
