@@ -101,8 +101,8 @@ export const useGlobalPlaybackTracking = () => {
     const durationMs = remotePlayback.item?.duration_ms || 0;
     const isAtEnd = durationMs > 0 && progressMs >= durationMs - 1000;
 
-    // Track started playing (new track) OR track is playing but we haven't tracked it yet
-    if (wasPlaying && currentTrackId && (currentTrackId !== prevTrackId || remotePlaybackRef.current.shareIds.length === 0) && !isFetchingRef.current) {
+    // Track started playing (new track)
+    if (wasPlaying && currentTrackId && currentTrackId !== prevTrackId && !isFetchingRef.current) {
       // Prevent concurrent fetches
       isFetchingRef.current = true;
       
@@ -154,12 +154,6 @@ export const useGlobalPlaybackTracking = () => {
               validMatches.map(m => m.groupName).join(', '));
           } else {
             logger.warn(`⚠️ Track "${remotePlayback.item?.name}" (${currentTrackId}) not found in any group shares`);
-            
-            // If we have a cached result but no match, clear cache to force refresh on next poll
-            // This helps if a track was just shared
-            if (groups.length > 0) {
-              sharesCacheRef.current.clear();
-            }
           }
         } finally {
           isFetchingRef.current = false;

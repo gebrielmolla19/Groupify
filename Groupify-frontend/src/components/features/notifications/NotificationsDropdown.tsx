@@ -7,7 +7,6 @@ import {
 } from '../../ui/dropdown-menu';
 import { Button } from '../../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
-import { ScrollArea } from '../../ui/scroll-area';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { AppNotification } from '../../../types';
 import { useNavigate } from 'react-router-dom';
@@ -20,10 +19,17 @@ function notificationText(n: AppNotification): string {
   return 'sent you a notification';
 }
 
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 export default function NotificationsDropdown() {
   const navigate = useNavigate();
   const { notifications, unreadCount, markRead, markAllRead, acceptInvite, declineInvite } =
     useNotifications();
+
+  // Show unread notifications always; read notifications only within the past week
+  const visibleNotifications = notifications.filter(
+    (n) => !n.read || Date.now() - new Date(n.createdAt).getTime() < ONE_WEEK_MS
+  );
 
   const handleAccept = async (n: AppNotification) => {
     const group = await acceptInvite(n);
@@ -47,9 +53,19 @@ export default function NotificationsDropdown() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-80 p-0" sideOffset={8}>
+      <DropdownMenuContent
+        align="end"
+        collisionPadding={8}
+        className="p-0 flex flex-col"
+        style={{
+          width: window.innerWidth < 640 ? 'calc(100vw - 1rem)' : '20rem',
+          maxHeight: 'min(400px, 60dvh)',
+          overflow: 'hidden',
+        }}
+        sideOffset={8}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <span className="text-sm font-semibold">Notifications</span>
           {unreadCount > 0 && (
             <button
@@ -62,14 +78,14 @@ export default function NotificationsDropdown() {
         </div>
 
         {/* Empty state */}
-        {notifications.length === 0 ? (
+        {visibleNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
             <Bell className="w-8 h-8 opacity-20" />
             <p className="text-sm">No notifications yet</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[400px]">
-            {notifications.map((n, i) => (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            {visibleNotifications.map((n, i) => (
               <div key={n._id}>
                 {/* Row */}
                 <div
@@ -88,7 +104,7 @@ export default function NotificationsDropdown() {
                   </Avatar>
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm leading-snug">
+                    <p className="text-sm leading-snug line-clamp-2">
                       <span className="font-semibold">{n.actor?.displayName ?? 'Someone'}</span>{' '}
                       <span className="text-muted-foreground">{notificationText(n)}</span>
                     </p>
@@ -123,12 +139,12 @@ export default function NotificationsDropdown() {
                 </div>
 
                 {/* Divider between items */}
-                {i < notifications.length - 1 && (
+                {i < visibleNotifications.length - 1 && (
                   <div className="mx-4 border-b border-border/50" />
                 )}
               </div>
             ))}
-          </ScrollArea>
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

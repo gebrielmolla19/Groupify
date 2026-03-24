@@ -29,7 +29,8 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   try {
     const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     return registration;
-  } catch {
+  } catch (err) {
+    console.error('[PWA] SW registration failed:', err);
     return null;
   }
 }

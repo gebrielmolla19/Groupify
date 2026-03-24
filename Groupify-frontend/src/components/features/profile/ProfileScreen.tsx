@@ -12,6 +12,7 @@ import { Badge } from "../../ui/badge";
 import { UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile } from "../../../lib/api";
+import { requestPermissionAndSubscribe } from "../../../lib/pushNotifications";
 import { toast } from "sonner";
 import { Skeleton } from "../../ui/skeleton";
 import { logger } from "../../../utils/logger";
@@ -25,6 +26,19 @@ export default function ProfileScreen() {
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [isUpdating, setIsUpdating] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(
+    'Notification' in window ? Notification.permission : 'denied'
+  );
+
+  const handleEnableNotifications = async () => {
+    await requestPermissionAndSubscribe();
+    if ('Notification' in window) setPushPermission(Notification.permission);
+    if (Notification.permission === 'granted') {
+      toast.success('Push notifications enabled');
+    } else if (Notification.permission === 'denied') {
+      toast.error('Notifications blocked — enable them in your browser settings');
+    }
+  };
 
   // Get user initials for avatar fallback
   const getInitials = (name: string): string => {
@@ -263,6 +277,35 @@ export default function ProfileScreen() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex items-center justify-between py-3 gap-4">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label className="text-sm md:text-base">Push Notifications</Label>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      {pushPermission === 'granted'
+                        ? 'Push notifications are enabled'
+                        : pushPermission === 'denied'
+                        ? 'Notifications are blocked in your browser settings'
+                        : 'Allow Groupify to send you push notifications'}
+                    </p>
+                  </div>
+                  {pushPermission !== 'granted' && pushPermission !== 'denied' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={handleEnableNotifications}
+                    >
+                      Enable
+                    </Button>
+                  )}
+                  {pushPermission === 'granted' && (
+                    <Badge variant="secondary" className="shrink-0">Active</Badge>
+                  )}
+                  {pushPermission === 'denied' && (
+                    <Badge variant="destructive" className="shrink-0">Blocked</Badge>
+                  )}
+                </div>
+                <Separator />
                 <div className="flex items-center justify-between py-3 gap-4">
                   <div className="space-y-0.5 flex-1 min-w-0">
                     <Label htmlFor="new-tracks" className="text-sm md:text-base">New Track Shares</Label>

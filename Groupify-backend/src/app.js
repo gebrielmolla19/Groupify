@@ -75,7 +75,7 @@ app.use(cors({
 // Rate limiting (skip health check, auth, and frequently-polled endpoints)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 2000 : 500,
+  max: process.env.NODE_ENV === 'production' ? 2000 : 5000,
   skip: (req) => {
     if (req.path === '/health') return true;
     if (req.path.startsWith('/api/v1/auth/')) return true; // login, callback, etc.

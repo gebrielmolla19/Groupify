@@ -38,8 +38,8 @@ export function UserProvider({ children }: UserProviderProps) {
         setTokenState(storedToken);
         try {
           await fetchUserData(storedToken);
-          // Re-register SW for returning users (non-blocking)
-          registerServiceWorker().then(() => requestPermissionAndSubscribe()).catch(() => {});
+          // Re-register SW for returning users (non-blocking, no permission prompt — must come from user gesture)
+          registerServiceWorker().catch(() => {});
         } catch (error) {
           // Token might be invalid, clear it
           logger.warn('Token invalid, clearing auth state');
