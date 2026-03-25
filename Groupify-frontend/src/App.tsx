@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
+import { GroupsProvider } from "./contexts/GroupsContext";
 import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
 import LoginScreen from "./components/features/auth/LoginScreen";
 import DashboardScreen from "./components/features/dashboard/DashboardScreen";
@@ -99,8 +100,10 @@ export default function App() {
       <UserProvider>
         {/* SocketProvider is inside UserProvider so it can read the auth token */}
         <SocketProvider>
-          <AppContent />
-          <Toaster />
+          <GroupsProvider>
+            <AppContent />
+            <Toaster />
+          </GroupsProvider>
         </SocketProvider>
       </UserProvider>
     </BrowserRouter>

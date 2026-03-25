@@ -137,7 +137,7 @@ export default function AnalyticsScreen() {
         )}
 
         {/* Resonance Frequency */}
-        <div className="flex flex-col gap-3 md:gap-4">
+        <div className="flex flex-col gap-3 md:gap-4" data-tour="analytics-resonance">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
               <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
@@ -211,12 +211,12 @@ export default function AnalyticsScreen() {
         </div>
 
         {/* Listener Reflex Section */}
-        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
+        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-reflex">
           <ListenerReflexCard groupId={groupId || ''} />
         </div>
 
         {/* Taste Gravity Section */}
-        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
+        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-taste">
           <div className="flex flex-col gap-4 px-2">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-primary/10">
@@ -254,7 +254,7 @@ export default function AnalyticsScreen() {
         </div>
 
         {/* Bottom Section: Hall of Fame */}
-        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50">
+        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-halloffame">
           <div className="flex items-center gap-2 px-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-primary" />

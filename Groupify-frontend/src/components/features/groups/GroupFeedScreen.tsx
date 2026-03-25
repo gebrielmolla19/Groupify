@@ -272,6 +272,7 @@ export default function GroupFeedScreen() {
                   className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/playlist`)}
                   aria-label="View group playlist"
+                  data-tour="playlist-btn"
                 >
                   <List className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden md:block ml-2">View Playlist</span>
@@ -281,6 +282,7 @@ export default function GroupFeedScreen() {
                   className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/analytics`)}
                   aria-label="View group analytics"
+                  data-tour="analytics-btn"
                 >
                   <TrendingUp className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden md:block ml-2">Analytics</span>
@@ -290,6 +292,7 @@ export default function GroupFeedScreen() {
                   className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/settings`)}
                   aria-label="Group settings"
+                  data-tour="settings-btn"
                 >
                   <Settings className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden md:block ml-2">Settings</span>
@@ -298,6 +301,7 @@ export default function GroupFeedScreen() {
                   className="bg-primary hover:bg-primary/90 text-black shrink-0 rounded-full min-h-[44px] px-2 sm:px-4"
                   aria-label="Invite a friend to group"
                   onClick={() => setIsInviteDialogOpen(true)}
+                  data-tour="invite-btn"
                 >
                   <UserPlus className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden md:block ml-2">Invite</span>
@@ -305,7 +309,7 @@ export default function GroupFeedScreen() {
               </div>
 
               {/* Search Bar */}
-              <div className="relative" ref={searchContainerRef}>
+              <div className="relative" ref={searchContainerRef} data-tour="share-input">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" aria-hidden="true" />
                 <Input
                   value={searchQuery}
@@ -488,6 +492,7 @@ export default function GroupFeedScreen() {
                               }`}
                               onClick={() => handleToggleListened(share._id)}
                               aria-label={hasListened[share._id] ? 'Unmark as listened' : 'Mark as listened'}
+                              data-tour="mark-listened"
                             >
                               {hasListened[share._id] ? (
                                 <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
@@ -507,6 +512,7 @@ export default function GroupFeedScreen() {
                                     size="icon"
                                     className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-white/5 min-w-[44px] min-h-[44px]"
                                     onClick={() => handleToggleLike(share._id)}
+                                    data-tour="like-btn"
                                   >
                                     <img
                                       src={share.likes?.some(like => like.user._id === user?._id || like.user.id === user?.id)

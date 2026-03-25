@@ -92,6 +92,7 @@ export default function DashboardScreen() {
                   className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 min-h-[44px] px-2 sm:px-4"
                   aria-label="Join a group"
                   onClick={handleOpenJoinDialog}
+                  data-tour="join-group"
                 >
                   <UserPlus className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden md:block ml-2">Join Group</span>
@@ -100,6 +101,7 @@ export default function DashboardScreen() {
                   className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px] px-2 sm:px-4"
                   aria-label="Create new group"
                   onClick={handleOpenCreateDialog}
+                  data-tour="create-group"
                 >
                   <Plus className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden md:block ml-2">Create New Group</span>

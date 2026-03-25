@@ -305,7 +305,7 @@ export default function OnboardingWalkthrough() {
     const timer = setTimeout(() => {
       const el = document.querySelector(scrollTarget);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 350);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [step, open]);
@@ -366,7 +366,7 @@ export default function OnboardingWalkthrough() {
       `}</style>
 
       {/* Floating card — fixed at bottom center, no overlay */}
-      <div style={{ position: 'fixed', bottom: '112px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 80px)', left: '50%', transform: 'translateX(-50%) translateZ(0)', willChange: 'transform', zIndex: 9999, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
