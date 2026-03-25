@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
@@ -105,6 +106,7 @@ export default function App() {
             <AppContent />
             <Toaster />
             <Analytics />
+            <SpeedInsights />
           </GroupsProvider>
         </SocketProvider>
       </UserProvider>
