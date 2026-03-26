@@ -240,6 +240,8 @@ export default function SpotifyPlayerCard() {
     if (playingGroup && playlistShares.length > 0) {
       try {
         setIsControlling(true);
+        // Pause immediately so the current song doesn't bleed through during the API round-trip
+        if (player && isPlaying) player.pause().catch(() => {});
         const nextIndex = currentTrackIndex >= 0
           ? (currentTrackIndex + 1) % playlistShares.length
           : 0;
@@ -285,6 +287,8 @@ export default function SpotifyPlayerCard() {
     if (playingGroup && playlistShares.length > 0) {
       try {
         setIsControlling(true);
+        // Pause immediately so the current song doesn't bleed through during the API round-trip
+        if (player && isPlaying) player.pause().catch(() => {});
         const prevIndex = currentTrackIndex > 0
           ? currentTrackIndex - 1
           : playlistShares.length - 1;

@@ -22,7 +22,7 @@ interface PlayingGroupProviderProps {
 
 export function PlayingGroupProvider({ children }: PlayingGroupProviderProps) {
   const [playingGroup, setPlayingGroup] = useState<Group | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>('most-listened');
+  const [sortBy, setSortBy] = useState<SortOption>('recently-added');
 
   const value: PlayingGroupContextType = {
     playingGroup,
