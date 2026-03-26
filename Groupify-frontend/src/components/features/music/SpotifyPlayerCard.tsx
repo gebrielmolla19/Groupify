@@ -13,7 +13,7 @@ import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
 import { SpotifyDevice } from '../../../types';
 import { toast } from 'sonner';
-import { getSpotifyDevices, transferPlayback } from '../../../lib/api';
+import { getSpotifyDevices, transferPlayback, pausePlayback as apiPausePlayback, resumePlayback as apiResumePlayback, skipToNext as apiSkipToNext, skipToPrevious as apiSkipToPrevious } from '../../../lib/api';
 import { logger } from '../../../utils/logger';
 import { useParams } from 'react-router-dom';
 import { useGroups } from '../../../hooks/useGroups';
@@ -197,11 +197,19 @@ export default function SpotifyPlayerCard() {
   const [isControlling, setIsControlling] = useState(false);
 
   const handlePlayPause = async () => {
-    if (!player) return;
-
     try {
       setIsControlling(true);
-      await player.togglePlay();
+      const isRemote = !currentTrack && !!remotePlayback;
+      if (isRemote) {
+        const remoteDeviceId = remotePlayback?.device?.id || undefined;
+        if (displayIsPlaying) {
+          await apiPausePlayback(remoteDeviceId);
+        } else {
+          await apiResumePlayback(remoteDeviceId);
+        }
+      } else if (player) {
+        await player.togglePlay();
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to control playback';
       logger.error('Playback control error:', err);
@@ -226,24 +234,17 @@ export default function SpotifyPlayerCard() {
   }, [currentTrack, playingGroup, playlistShares]);
 
   const handleNextTrack = async () => {
-    if (!player || !deviceId) {
-      toast.error('Player is not ready');
-      return;
-    }
+    const isRemote = !currentTrack && !!remotePlayback;
 
     // If we have a playing group and playlist, navigate through it
     if (playingGroup && playlistShares.length > 0) {
       try {
         setIsControlling(true);
-
-        // Find next track index (loop to first if at end)
         const nextIndex = currentTrackIndex >= 0
           ? (currentTrackIndex + 1) % playlistShares.length
           : 0;
-
         const nextShare = playlistShares[nextIndex];
         const nextTrackUri = `spotify:track:${nextShare.spotifyTrackId}`;
-
         await playTrack(nextTrackUri);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
@@ -252,8 +253,18 @@ export default function SpotifyPlayerCard() {
       } finally {
         setIsControlling(false);
       }
-    } else {
-      // Fallback to Spotify's native next track
+    } else if (isRemote) {
+      try {
+        setIsControlling(true);
+        await apiSkipToNext(remotePlayback?.device?.id || undefined);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
+        logger.error('Next track error:', err);
+        toast.error(errorMsg);
+      } finally {
+        setIsControlling(false);
+      }
+    } else if (player) {
       try {
         setIsControlling(true);
         await player.nextTrack();
@@ -268,24 +279,17 @@ export default function SpotifyPlayerCard() {
   };
 
   const handlePreviousTrack = async () => {
-    if (!player || !deviceId) {
-      toast.error('Player is not ready');
-      return;
-    }
+    const isRemote = !currentTrack && !!remotePlayback;
 
     // If we have a playing group and playlist, navigate through it
     if (playingGroup && playlistShares.length > 0) {
       try {
         setIsControlling(true);
-
-        // Find previous track index (loop to last if at beginning)
         const prevIndex = currentTrackIndex > 0
           ? currentTrackIndex - 1
           : playlistShares.length - 1;
-
         const prevShare = playlistShares[prevIndex];
         const prevTrackUri = `spotify:track:${prevShare.spotifyTrackId}`;
-
         await playTrack(prevTrackUri);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
@@ -294,8 +298,18 @@ export default function SpotifyPlayerCard() {
       } finally {
         setIsControlling(false);
       }
-    } else {
-      // Fallback to Spotify's native previous track
+    } else if (isRemote) {
+      try {
+        setIsControlling(true);
+        await apiSkipToPrevious(remotePlayback?.device?.id || undefined);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
+        logger.error('Previous track error:', err);
+        toast.error(errorMsg);
+      } finally {
+        setIsControlling(false);
+      }
+    } else if (player) {
       try {
         setIsControlling(true);
         await player.previousTrack();
@@ -576,7 +590,7 @@ export default function SpotifyPlayerCard() {
                     variant="ghost"
                     size="icon"
                     onClick={handlePreviousTrack}
-                    disabled={isControlling || isRemotePlayback}
+                    disabled={isControlling}
                     className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50 min-w-[44px] min-h-[44px]"
                     aria-label="Previous track"
                   >
@@ -584,7 +598,7 @@ export default function SpotifyPlayerCard() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{isRemotePlayback ? 'Control on your device' : 'Previous Track'}</p>
+                  <p>Previous Track</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -594,7 +608,7 @@ export default function SpotifyPlayerCard() {
                     variant="ghost"
                     size="icon"
                     onClick={handlePlayPause}
-                    disabled={isControlling || isRemotePlayback}
+                    disabled={isControlling}
                     className="h-12 w-12 md:h-12 md:w-12 rounded-full !bg-white !text-black hover:!bg-white/90 shadow-lg hover:scale-105 transition-all disabled:opacity-50 min-w-[48px] min-h-[48px]"
                     aria-label={displayIsPlaying ? 'Pause' : 'Play'}
                   >
@@ -608,7 +622,7 @@ export default function SpotifyPlayerCard() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{isRemotePlayback ? 'Control playback on your device' : (displayIsPlaying ? 'Pause' : 'Play')}</p>
+                  <p>{displayIsPlaying ? 'Pause' : 'Play'}</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -618,7 +632,7 @@ export default function SpotifyPlayerCard() {
                     variant="ghost"
                     size="icon"
                     onClick={handleNextTrack}
-                    disabled={isControlling || isRemotePlayback}
+                    disabled={isControlling}
                     className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50 min-w-[44px] min-h-[44px]"
                     aria-label="Next track"
                   >
@@ -626,7 +640,7 @@ export default function SpotifyPlayerCard() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{isRemotePlayback ? 'Control on your device' : 'Next Track'}</p>
+                  <p>Next Track</p>
                 </TooltipContent>
               </Tooltip>
 

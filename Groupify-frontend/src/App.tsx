@@ -19,53 +19,61 @@ import SpotifyPlayerCard from "./components/features/music/SpotifyPlayerCard";
 import AppSidebar from "./components/layout/AppSidebar";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
+import { useAutoPlayNext } from "./hooks/useAutoPlayNext";
 import OnboardingWalkthrough from "./components/features/onboarding/OnboardingWalkthrough";
 
 /**
  * Main Layout component for authenticated routes
  */
-function AuthenticatedLayout() {
+/**
+ * Inner layout that runs inside PlayingGroupProvider so hooks can access it.
+ */
+function AuthenticatedLayoutInner() {
   const location = useLocation();
   const { isLoading } = useUser();
-  
+
   // Global playback tracking - works across all screens
   useGlobalPlaybackTracking();
 
+  // Auto-play next song in group playlist when current track finishes
+  useAutoPlayNext();
+
   // Determine if we should show the floating player
-  // Hide player on profile screen, group-feed (has its own player), group-settings, and analytics
-  const showPlayer = !isLoading && 
-    !location.pathname.includes('/profile') && 
-    !location.pathname.match(/\/groups\/[^/]+$/) && // group-feed
-    !location.pathname.includes('/settings') && 
+  const showPlayer = !isLoading &&
+    !location.pathname.includes('/profile') &&
+    !location.pathname.match(/\/groups\/[^/]+$/) &&
+    !location.pathname.includes('/settings') &&
     !location.pathname.includes('/analytics');
 
   return (
-    <PlayingGroupProvider>
-      <div className="min-h-screen bg-background">
-        <SidebarProvider defaultOpen={false}>
-          <AppSidebar />
-          <SidebarInset>
-            <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
-              <Routes>
-                <Route path="/" element={<DashboardScreen />} />
-                <Route path="/profile" element={<ProfileScreen />} />
-                <Route path="/groups/:groupId" element={<GroupFeedScreen />} />
-                <Route path="/groups/:groupId/settings" element={<GroupSettingsScreen />} />
-                <Route path="/groups/:groupId/playlist" element={<PlaylistViewScreen />} />
-                <Route path="/groups/:groupId/analytics" element={<AnalyticsScreen />} />
-                {/* Fallback for authenticated users */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </div>
-          </SidebarInset>
-          
-          {/* Persistent Spotify Player */}
-          {showPlayer && <SpotifyPlayerCard />}
+    <div className="min-h-screen bg-background">
+      <SidebarProvider defaultOpen={false}>
+        <AppSidebar />
+        <SidebarInset>
+          <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
+            <Routes>
+              <Route path="/" element={<DashboardScreen />} />
+              <Route path="/profile" element={<ProfileScreen />} />
+              <Route path="/groups/:groupId" element={<GroupFeedScreen />} />
+              <Route path="/groups/:groupId/settings" element={<GroupSettingsScreen />} />
+              <Route path="/groups/:groupId/playlist" element={<PlaylistViewScreen />} />
+              <Route path="/groups/:groupId/analytics" element={<AnalyticsScreen />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </SidebarInset>
 
-          {/* First-time user onboarding tour */}
-          <OnboardingWalkthrough />
-        </SidebarProvider>
-      </div>
+        {showPlayer && <SpotifyPlayerCard />}
+        <OnboardingWalkthrough />
+      </SidebarProvider>
+    </div>
+  );
+}
+
+function AuthenticatedLayout() {
+  return (
+    <PlayingGroupProvider>
+      <AuthenticatedLayoutInner />
     </PlayingGroupProvider>
   );
 }

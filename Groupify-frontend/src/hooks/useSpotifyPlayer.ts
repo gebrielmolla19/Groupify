@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../contexts/UserContext';
-import { getSpotifyAccessToken, transferPlayback, playTrack as apiPlayTrack } from '../lib/api';
+import { getSpotifyAccessToken, transferPlayback, playTrack as apiPlayTrack, getSpotifyDevices as apiGetSpotifyDevices } from '../lib/api';
 import { toast } from 'sonner';
 import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/spotifyPlayer';
 import { logger } from '../utils/logger';
@@ -213,17 +213,14 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
           const positionStopped = newPosition === lastPosition && newPosition > 0 && newPosition >= newDuration - 2000;
           const hasCompleted = (isAtEnd || positionStopped) && !hasTrackCompleted && currentTrackUri;
           
-          if (hasCompleted && globalOnTrackComplete) {
+          if (hasCompleted) {
             hasTrackCompleted = true;
-            // Call completion callback
-            try {
-              globalOnTrackComplete(currentTrackUri);
-            } catch (err) {
-              // Errors in callbacks are usually handled by the caller
-              // Only log if it's a critical error that needs attention
+            window.dispatchEvent(new CustomEvent('spotifyTrackComplete', { detail: { trackUri: currentTrackUri } }));
+            if (globalOnTrackComplete) {
+              try { globalOnTrackComplete(currentTrackUri); } catch { /* */ }
             }
           }
-          
+
           lastPosition = newPosition;
           globalCurrentTrack = currentTrack;
           globalIsPlaying = newIsPlaying;
@@ -393,19 +390,16 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
           const positionStopped = newPosition === lastPosition && newPosition > 0 && newPosition >= newDuration - 2000;
           const hasCompleted = (isAtEnd || positionStopped) && !hasTrackCompleted && currentTrackUri;
           
-          if (hasCompleted && globalOnTrackComplete) {
+          if (hasCompleted) {
             hasTrackCompleted = true;
-            // Call completion callback
-            try {
-              globalOnTrackComplete(currentTrackUri);
-            } catch (err) {
-              // Errors in callbacks are usually handled by the caller
-              // Only log if it's a critical error that needs attention
+            window.dispatchEvent(new CustomEvent('spotifyTrackComplete', { detail: { trackUri: currentTrackUri } }));
+            if (globalOnTrackComplete) {
+              try { globalOnTrackComplete(currentTrackUri); } catch { /* */ }
             }
           }
-          
+
           lastPosition = newPosition;
-          
+
           // Only update if values changed (avoid unnecessary re-renders)
           if (newPosition !== globalPosition || newDuration !== globalDuration || newIsPlaying !== globalIsPlaying) {
           globalPosition = newPosition;
@@ -469,13 +463,16 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       throw new Error('Invalid track URI. Expected format: spotify:track:xxx');
     }
 
-    // Check if device was recently registered - wait if too soon
+    // If device was just registered, poll to confirm it's visible to Spotify before playing
     const timeSinceReady = globalDeviceReadyTimestamp ? Date.now() - globalDeviceReadyTimestamp : Infinity;
-    if (timeSinceReady < 5000) {
-      const waitTime = 5000 - timeSinceReady;
-      logger.warn('Player device not ready, waiting...', { waitTime: Math.ceil(waitTime/1000) });
-      toast.info(`Preparing player... ${Math.ceil(waitTime/1000)}s`, { duration: waitTime });
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+    if (timeSinceReady < 3000) {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const devices = await apiGetSpotifyDevices();
+          if (devices.some(d => d.id === deviceId)) break;
+        } catch { /* ignore */ }
+        if (i < 4) await new Promise(r => setTimeout(r, 500));
+      }
     }
 
     try {

@@ -789,6 +789,54 @@ export const getCurrentPlayback = async (): Promise<{
   return data.playback;
 };
 
+/**
+ * Pause playback on active or specified device
+ */
+export const pausePlayback = async (deviceId?: string): Promise<void> => {
+  const response = await fetchWithAuth('/player/pause', {
+    method: 'PUT',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to pause playback');
+};
+
+/**
+ * Resume playback on active or specified device
+ */
+export const resumePlayback = async (deviceId?: string): Promise<void> => {
+  const response = await fetchWithAuth('/player/resume', {
+    method: 'PUT',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to resume playback');
+};
+
+/**
+ * Skip to next track on active or specified device
+ */
+export const skipToNext = async (deviceId?: string): Promise<void> => {
+  const response = await fetchWithAuth('/player/next', {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to skip to next');
+};
+
+/**
+ * Skip to previous track on active or specified device
+ */
+export const skipToPrevious = async (deviceId?: string): Promise<void> => {
+  const response = await fetchWithAuth('/player/previous', {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to skip to previous');
+};
+
 // ==================== ANALYTICS OPERATIONS ====================
 
 /**
