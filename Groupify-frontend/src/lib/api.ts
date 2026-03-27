@@ -535,6 +535,8 @@ export const markAsListened = async (shareId: string): Promise<Share> => {
   const data = await response.json();
 
   if (!data.success) {
+    // Silently ignore "already listened" — can happen when multiple listeners race
+    if (data.message?.includes('already')) return data.share;
     throw new Error(data.message || 'Failed to mark as listened');
   }
 
