@@ -927,11 +927,10 @@ class SpotifyService {
         const customError = new Error();
         
         if (status === 404) {
-          // 404 means no active playback session to transfer from
-          // This is expected when nothing is currently playing
-          customError.message = 'No active device found. Please start playback on a device first.';
-          customError.statusCode = 404;
-          throw customError;
+          // 404 means no active playback session — device is still activated,
+          // there's just nothing to play. This is not a real error.
+          console.debug('[Spotify] Transfer got 404 (no active playback) — device activated without playback');
+          return { activated: true, noPlayback: true };
         } else if (status === 403) {
           customError.message = 'Insufficient permissions. Premium account required for playback control.';
           customError.statusCode = 403;
@@ -1045,44 +1044,8 @@ class SpotifyService {
       // 2) Any device matching our web player name
       // 3) Any currently active device
       // 4) First available device
-      let devices = [];
-      try {
-        devices = await getDevicesWithRetry(3, 600);
-      } catch (deviceCheckError) {
-        // Non-fatal: we can still attempt to play using the provided deviceId
-        console.warn('[Spotify] Could not fetch available devices (will try play directly):', deviceCheckError.message);
-      }
-
+      // Use the provided deviceId directly. Only fall back to device discovery on 404.
       let actualDeviceId = deviceId;
-      let targetDevice = devices.find(d => d.id === deviceId);
-
-      if (!targetDevice && devices.length > 0) {
-        console.warn(`[Spotify] Device ${deviceId} not found in available devices list.`);
-
-        // Fallback: Search for any "Groupify Web Player" device
-        targetDevice = devices.find(d => d.name && d.name.includes('Groupify Web Player'));
-
-        // If still not found, prefer an active device (best UX vs failing)
-        if (!targetDevice) {
-          targetDevice = devices.find(d => d.is_active);
-        }
-
-        // Final fallback: any device
-        if (!targetDevice) {
-          targetDevice = devices[0];
-        }
-
-        if (targetDevice?.id) {
-          actualDeviceId = targetDevice.id;
-        }
-      }
-
-      // If we have device data and still couldn't resolve a device, fail with a clear message.
-      if (devices.length > 0 && (!actualDeviceId || typeof actualDeviceId !== 'string')) {
-        const customError = new Error('No valid Spotify device ID available for playback.');
-        customError.statusCode = 404;
-        throw customError;
-      }
 
       // Attempt playback. If Spotify reports no active device, transfer then retry once.
       const playOnce = async () => {
@@ -1105,14 +1068,27 @@ class SpotifyService {
         const status = firstPlayError?.response?.status;
 
         // 404 commonly means "No active device found" for playback endpoints.
-        // Transferring playback can activate the device, especially for Web Playback SDK.
+        // Try device discovery fallback, then transfer + retry.
         if (status === 404) {
           try {
+            // Discover available devices and pick the best one
+            let devices = [];
+            try {
+              devices = await getDevicesWithRetry(2, 500);
+            } catch { /* ignore */ }
+
+            if (devices.length > 0) {
+              const fallback = devices.find(d => d.id === deviceId)
+                || devices.find(d => d.name && d.name.includes('Groupify Web Player'))
+                || devices.find(d => d.is_active)
+                || devices[0];
+              if (fallback?.id) actualDeviceId = fallback.id;
+            }
+
             await this.transferPlayback(accessToken, actualDeviceId, true);
             await sleep(800);
             return await playOnce();
           } catch (transferOrRetryError) {
-            // If transfer+retry fails, throw the original play error (handled below)
             throw firstPlayError;
           }
         }
@@ -1164,6 +1140,117 @@ class SpotifyService {
       const networkError = new Error(`Failed to play track: ${error.message}`);
       networkError.statusCode = 500;
       throw networkError;
+    }
+  }
+
+  /**
+   * Pause playback on the user's active device (or a specific device)
+   */
+  static async pausePlayback(accessToken, deviceId) {
+    try {
+      const url = deviceId
+        ? `${SPOTIFY_API_BASE}/me/player/pause?device_id=${deviceId}`
+        : `${SPOTIFY_API_BASE}/me/player/pause`;
+      await axios.put(url, {}, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } catch (error) {
+      if (error.response) {
+        const status = error.response.status;
+        // 403 = already paused or restricted — not a real error
+        if (status === 403) return;
+        if (status === 404) {
+          const err = new Error('No active device found');
+          err.statusCode = 404;
+          throw err;
+        }
+        const err = new Error(error.response.data?.error?.message || 'Failed to pause playback');
+        err.statusCode = status;
+        throw err;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Resume playback on the user's active device (or a specific device)
+   */
+  static async resumePlayback(accessToken, deviceId) {
+    try {
+      const url = deviceId
+        ? `${SPOTIFY_API_BASE}/me/player/play?device_id=${deviceId}`
+        : `${SPOTIFY_API_BASE}/me/player/play`;
+      // No body = resume current track (not start a new one)
+      await axios.put(url, {}, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } catch (error) {
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 404) {
+          const err = new Error('No active device found');
+          err.statusCode = 404;
+          throw err;
+        }
+        const err = new Error(error.response.data?.error?.message || 'Failed to resume playback');
+        err.statusCode = status;
+        throw err;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Skip to the next track in the user's queue
+   */
+  static async skipToNext(accessToken, deviceId) {
+    try {
+      const url = deviceId
+        ? `${SPOTIFY_API_BASE}/me/player/next?device_id=${deviceId}`
+        : `${SPOTIFY_API_BASE}/me/player/next`;
+      await axios.post(url, {}, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } catch (error) {
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 404) {
+          const err = new Error('No active device found');
+          err.statusCode = 404;
+          throw err;
+        }
+        const err = new Error(error.response.data?.error?.message || 'Failed to skip to next');
+        err.statusCode = status;
+        throw err;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Skip to the previous track
+   */
+  static async skipToPrevious(accessToken, deviceId) {
+    try {
+      const url = deviceId
+        ? `${SPOTIFY_API_BASE}/me/player/previous?device_id=${deviceId}`
+        : `${SPOTIFY_API_BASE}/me/player/previous`;
+      await axios.post(url, {}, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } catch (error) {
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 404) {
+          const err = new Error('No active device found');
+          err.statusCode = 404;
+          throw err;
+        }
+        const err = new Error(error.response.data?.error?.message || 'Failed to skip to previous');
+        err.statusCode = status;
+        throw err;
+      }
+      throw error;
     }
   }
 }

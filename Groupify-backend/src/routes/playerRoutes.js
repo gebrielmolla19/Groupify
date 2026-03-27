@@ -20,5 +20,17 @@ router.put('/transfer', authMiddleware, PlayerController.transferPlayback);
 // Play a specific track on a device (protected)
 router.put('/play', authMiddleware, PlayerController.playTrack);
 
+// Pause playback (protected)
+router.put('/pause', authMiddleware, PlayerController.pausePlayback);
+
+// Resume playback (protected)
+router.put('/resume', authMiddleware, PlayerController.resumePlayback);
+
+// Skip to next track (protected)
+router.post('/next', authMiddleware, PlayerController.skipToNext);
+
+// Skip to previous track (protected)
+router.post('/previous', authMiddleware, PlayerController.skipToPrevious);
+
 module.exports = router;
 

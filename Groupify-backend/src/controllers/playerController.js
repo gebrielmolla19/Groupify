@@ -241,6 +241,77 @@ class PlayerController {
       next(error);
     }
   }
+  /**
+   * Pause playback
+   */
+  static async pausePlayback(req, res, next) {
+    try {
+      const userId = req.userId;
+      if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
+
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+      await SpotifyService.pausePlayback(accessToken, req.body?.device_id || undefined);
+
+      res.json({ success: true, message: 'Playback paused' });
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      next(error);
+    }
+  }
+
+  /**
+   * Resume playback
+   */
+  static async resumePlayback(req, res, next) {
+    try {
+      const userId = req.userId;
+      if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
+
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+      await SpotifyService.resumePlayback(accessToken, req.body?.device_id || undefined);
+
+      res.json({ success: true, message: 'Playback resumed' });
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      next(error);
+    }
+  }
+
+  /**
+   * Skip to next track
+   */
+  static async skipToNext(req, res, next) {
+    try {
+      const userId = req.userId;
+      if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
+
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+      await SpotifyService.skipToNext(accessToken, req.body?.device_id || undefined);
+
+      res.json({ success: true, message: 'Skipped to next track' });
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      next(error);
+    }
+  }
+
+  /**
+   * Skip to previous track
+   */
+  static async skipToPrevious(req, res, next) {
+    try {
+      const userId = req.userId;
+      if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
+
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+      await SpotifyService.skipToPrevious(accessToken, req.body?.device_id || undefined);
+
+      res.json({ success: true, message: 'Skipped to previous track' });
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      next(error);
+    }
+  }
 }
 
 module.exports = PlayerController;

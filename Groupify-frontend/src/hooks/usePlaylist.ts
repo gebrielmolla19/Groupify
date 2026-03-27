@@ -95,20 +95,21 @@ export const usePlaylist = (groupId: string, externalSortBy?: SortOption) => {
 
     switch (sortBy) {
       case 'most-listened':
-        return sorted.sort((a, b) => b.listenCount - a.listenCount);
-      
+        return sorted.sort((a, b) => b.listenCount - a.listenCount
+          || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       case 'recently-added':
-        return sorted.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      
+        return sorted.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       case 'alphabetical':
-        return sorted.sort((a, b) => a.trackName.localeCompare(b.trackName));
-      
+        return sorted.sort((a, b) => a.trackName.localeCompare(b.trackName)
+          || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       case 'shared-by':
-        return sorted.sort((a, b) => 
+        return sorted.sort((a, b) =>
           a.sharedBy.displayName.localeCompare(b.sharedBy.displayName)
-        );
+          || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
       default:
         return sorted;
