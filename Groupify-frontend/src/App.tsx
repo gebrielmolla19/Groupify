@@ -22,6 +22,7 @@ import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
 import { useAutoPlayNext } from "./hooks/useAutoPlayNext";
 import OnboardingWalkthrough from "./components/features/onboarding/OnboardingWalkthrough";
+import UpdatePrompt from "./components/features/pwa/UpdatePrompt";
 
 /**
  * Main Layout component for authenticated routes
@@ -113,6 +114,7 @@ export default function App() {
           <GroupsProvider>
             <AppContent />
             <Toaster />
+            <UpdatePrompt />
             <Analytics />
             <SpeedInsights />
           </GroupsProvider>

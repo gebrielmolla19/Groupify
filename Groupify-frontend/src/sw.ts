@@ -7,6 +7,13 @@ declare const self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
+// ── Skip waiting when prompted by the app ─────────────────────────────────
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // ── Push notification handler ──────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data: Record<string, string> = {};
