@@ -478,11 +478,12 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
     try {
       // Use backend API endpoint to play track
       await apiPlayTrack(deviceId, trackUri);
-      
+
+      // Ensure the SDK device is actively outputting audio
+      try { await player.resume(); } catch { /* SDK will pick it up via state change */ }
+
       logger.info('Playback started:', { trackUri });
-      toast.success('Track playing!');
-      // The player state will update automatically via the player_state_changed event
-      
+
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to play track';
       logger.error('❌ Play track error:', error);

@@ -247,11 +247,14 @@ export default function SpotifyPlayerCard() {
           : 0;
         const nextShare = playlistShares[nextIndex];
         const nextTrackUri = `spotify:track:${nextShare.spotifyTrackId}`;
+        logger.info('Next track:', { nextIndex, total: playlistShares.length, trackName: nextShare.trackName });
         await playTrack(nextTrackUri);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
         logger.error('Next track error:', err);
         toast.error(errorMsg);
+        // Try to resume if play failed so user isn't left in silence
+        if (player) player.resume().catch(() => {});
       } finally {
         setIsControlling(false);
       }
@@ -294,11 +297,14 @@ export default function SpotifyPlayerCard() {
           : playlistShares.length - 1;
         const prevShare = playlistShares[prevIndex];
         const prevTrackUri = `spotify:track:${prevShare.spotifyTrackId}`;
+        logger.info('Previous track:', { prevIndex, total: playlistShares.length, trackName: prevShare.trackName });
         await playTrack(prevTrackUri);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
         logger.error('Previous track error:', err);
         toast.error(errorMsg);
+        // Try to resume if play failed so user isn't left in silence
+        if (player) player.resume().catch(() => {});
       } finally {
         setIsControlling(false);
       }
