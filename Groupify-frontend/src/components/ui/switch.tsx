@@ -7,22 +7,45 @@ import { cn } from "./utils";
 
 function Switch({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        "peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-switch-background focus-visible:border-ring focus-visible:ring-ring/50 dark:data-[state=unchecked]:bg-input/80 inline-flex h-7 md:h-[1.15rem] w-12 md:w-8 shrink-0 items-center rounded-full border border-transparent transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px] md:min-h-0",
+        "peer inline-flex shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
+      style={{
+        height: 26,
+        width: 44,
+        minWidth: 44,
+        padding: 2,
+        ...style,
+      }}
       {...props}
     >
+      <style>{`
+        [data-slot="switch"][data-state="checked"] { background-color: #1db954; }
+        [data-slot="switch"][data-state="unchecked"] { background-color: #222; border: 2px solid #555; }
+        [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+          transform: translateX(18px);
+        }
+        [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
+          transform: translateX(0px);
+        }
+      `}</style>
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
-        className={cn(
-          "bg-card dark:data-[state=unchecked]:bg-card-foreground dark:data-[state=checked]:bg-primary-foreground pointer-events-none block size-5 md:size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0",
-        )}
+        className="pointer-events-none block rounded-full transition-all duration-200"
+        style={{
+          height: 20,
+          width: 20,
+          minWidth: 20,
+          backgroundColor: '#fff',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+        }}
       />
     </SwitchPrimitive.Root>
   );

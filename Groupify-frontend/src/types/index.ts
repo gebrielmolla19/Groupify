@@ -1,5 +1,11 @@
 // Shared types for the application
 
+export interface NotificationPreferences {
+  song_shared: boolean;
+  group_invite: boolean;
+  member_joined: boolean;
+}
+
 export interface User {
   _id: string;
   id: string;
@@ -9,6 +15,7 @@ export interface User {
   profileImage?: string | null;
   groups?: Group[];
   isActive?: boolean;
+  notificationPreferences?: NotificationPreferences;
 }
 
 export interface Group {

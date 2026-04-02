@@ -50,13 +50,27 @@ class UserService {
   /**
    * Update user profile
    * @param {string} userId - User MongoDB ID
-   * @param {string} displayName - New display name
+   * @param {Object} updates - Fields to update
+   * @param {string} [updates.displayName] - New display name
+   * @param {Object} [updates.notificationPreferences] - Notification preferences
    * @returns {Promise<Object>} Updated user object
    */
-  static async updateUserProfile(userId, displayName) {
+  static async updateUserProfile(userId, updates) {
+    const updateFields = {};
+
+    if (updates.displayName) {
+      updateFields.displayName = updates.displayName.trim();
+    }
+
+    if (updates.notificationPreferences) {
+      for (const [key, value] of Object.entries(updates.notificationPreferences)) {
+        updateFields[`notificationPreferences.${key}`] = value;
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { displayName: displayName.trim() },
+      updateFields,
       { new: true, runValidators: true }
     ).select('-spotifyAccessToken -spotifyRefreshToken');
 

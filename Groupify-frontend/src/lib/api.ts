@@ -4,7 +4,7 @@
  */
 
 import { API_BASE_URL } from './config';
-import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData } from '../types';
+import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences } from '../types';
 import { TasteGravityResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
 
@@ -29,6 +29,36 @@ export const setToken = (token: string): void => {
  */
 export const removeToken = (): void => {
   localStorage.removeItem(TOKEN_STORAGE_KEY);
+};
+
+// Track whether a token refresh is already in progress to avoid parallel refreshes
+let refreshPromise: Promise<string | null> | null = null;
+
+/**
+ * Attempt to refresh an expired JWT token
+ */
+const refreshJwtToken = async (): Promise<string | null> => {
+  const expiredToken = getToken();
+  if (!expiredToken) return null;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh-jwt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: expiredToken }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.success && data.token) {
+      setToken(data.token);
+      return data.token;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -57,10 +87,48 @@ export const fetchWithAuth = async (
       headers,
     });
 
+    // On 401 "Token expired", try to refresh and retry once
+    if (response.status === 401) {
+      const body = await response.json().catch(() => ({ message: '' }));
+      if (body.message === 'Token expired') {
+        // Deduplicate concurrent refresh attempts
+        if (!refreshPromise) {
+          refreshPromise = refreshJwtToken().finally(() => { refreshPromise = null; });
+        }
+        const newToken = await refreshPromise;
+
+        if (newToken) {
+          // Retry the original request with the new token
+          const retryHeaders: HeadersInit = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+            'Authorization': `Bearer ${newToken}`,
+          };
+          const retryResponse = await fetch(url, { ...options, headers: retryHeaders });
+
+          if (!retryResponse.ok) {
+            const retryError = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
+            const apiError = new Error(retryError.message || `HTTP error! status: ${retryResponse.status}`);
+            (apiError as any).status = retryResponse.status;
+            (apiError as any).statusCode = retryResponse.status;
+            throw apiError;
+          }
+          return retryResponse;
+        }
+      }
+
+      // Refresh failed or non-expiry 401 — throw as normal
+      const errorMessage = body.message || `HTTP error! status: ${response.status}`;
+      const apiError = new Error(errorMessage);
+      (apiError as any).status = response.status;
+      (apiError as any).statusCode = response.status;
+      throw apiError;
+    }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'An error occurred' }));
       const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-      
+
       // Create error with status code for better handling
       const apiError = new Error(errorMessage);
       (apiError as any).status = response.status;
@@ -122,6 +190,7 @@ export const getCurrentUser = async (): Promise<User> => {
     profileImage: user.profileImage,
     groups: user.groups || [],
     isActive: user.isActive,
+    notificationPreferences: user.notificationPreferences,
   };
 };
 
@@ -197,6 +266,7 @@ export const getUserStats = async (): Promise<UserStats> => {
  */
 export const updateUserProfile = async (updates: {
   displayName?: string;
+  notificationPreferences?: Partial<NotificationPreferences>;
 }): Promise<User> => {
   const response = await fetchWithAuth('/users/profile', {
     method: 'PUT',
@@ -219,6 +289,7 @@ export const updateUserProfile = async (updates: {
     profileImage: user.profileImage,
     groups: user.groups || [],
     isActive: user.isActive,
+    notificationPreferences: user.notificationPreferences,
   };
 };
 

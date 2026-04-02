@@ -387,6 +387,57 @@ class AuthController {
   }
 
   /**
+   * Refresh an expired JWT token without requiring Spotify re-auth.
+   * Decodes the expired token, verifies the user still exists and has a valid
+   * Spotify refresh token, then issues a fresh JWT.
+   */
+  static async refreshJwt(req, res, next) {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        const error = new Error('Token is required');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Decode the JWT without verifying expiry
+      const jwt = require('jsonwebtoken');
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+      } catch {
+        const error = new Error('Invalid token');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      // Verify user still exists and has a Spotify refresh token
+      const user = await User.findById(decoded.userId).select('spotifyRefreshToken isActive');
+
+      if (!user || !user.isActive) {
+        const error = new Error('User not found or inactive');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      if (!user.spotifyRefreshToken) {
+        const error = new Error('No Spotify session — please log in again');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      const newToken = generateToken(decoded.userId);
+
+      logger.info('[Auth] JWT refreshed', { userId: decoded.userId });
+
+      res.json({ success: true, token: newToken });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Logout user
    * Note: With JWT, logout is primarily client-side (removing the token).
    * This endpoint is for logging/analytics purposes and future token blacklisting.
