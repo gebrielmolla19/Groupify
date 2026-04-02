@@ -33,8 +33,8 @@ class UserController {
    */
   static async updateUserProfile(req, res, next) {
     try {
-      const { displayName } = req.body;
-      const updatedUser = await UserService.updateUserProfile(req.userId, displayName);
+      const { displayName, notificationPreferences } = req.body;
+      const updatedUser = await UserService.updateUserProfile(req.userId, { displayName, notificationPreferences });
 
       logger.info('[User] User profile updated', {
         userId: req.userId,

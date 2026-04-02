@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Mail, Bell, Palette, LogOut, User as UserIcon, Music } from "lucide-react";
+import type { NotificationPreferences } from "../../../types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
@@ -12,7 +13,7 @@ import { Badge } from "../../ui/badge";
 import { UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile } from "../../../lib/api";
-import { requestPermissionAndSubscribe } from "../../../lib/pushNotifications";
+import { requestPermissionAndSubscribe, unsubscribePush } from "../../../lib/pushNotifications";
 import { toast } from "sonner";
 import { Skeleton } from "../../ui/skeleton";
 import { logger } from "../../../utils/logger";
@@ -29,16 +30,57 @@ export default function ProfileScreen() {
   const [pushPermission, setPushPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
   );
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushToggling, setPushToggling] = useState(false);
+  const [savingPrefs, setSavingPrefs] = useState<string | null>(null);
 
-  const handleEnableNotifications = async () => {
-    await requestPermissionAndSubscribe();
-    if ('Notification' in window) setPushPermission(Notification.permission);
-    if (Notification.permission === 'granted') {
-      toast.success('Push notifications enabled');
-    } else if (Notification.permission === 'denied') {
-      toast.error('Notifications blocked — enable them in your browser settings');
+  // Check if push subscription exists on mount
+  useEffect(() => {
+    (async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setPushEnabled(!!sub && Notification.permission === 'granted');
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const handlePushToggle = async (checked: boolean) => {
+    setPushToggling(true);
+    try {
+      if (checked) {
+        await requestPermissionAndSubscribe();
+        if ('Notification' in window) setPushPermission(Notification.permission);
+        if (Notification.permission === 'granted') {
+          setPushEnabled(true);
+          toast.success('Push notifications enabled');
+        } else if (Notification.permission === 'denied') {
+          toast.error('Notifications blocked — enable them in your browser settings');
+        }
+      } else {
+        await unsubscribePush();
+        setPushEnabled(false);
+        toast.success('Push notifications disabled');
+      }
+    } catch {
+      toast.error('Failed to update push notifications');
+    } finally {
+      setPushToggling(false);
     }
   };
+
+  const handlePreferenceChange = useCallback(async (key: keyof NotificationPreferences, value: boolean) => {
+    setSavingPrefs(key);
+    try {
+      await updateUserProfile({ notificationPreferences: { [key]: value } });
+      await fetchUser();
+    } catch {
+      toast.error('Failed to update preference');
+    } finally {
+      setSavingPrefs(null);
+    }
+  }, [fetchUser]);
 
   // Get user initials for avatar fallback
   const getInitials = (name: string): string => {
@@ -277,73 +319,76 @@ export default function ProfileScreen() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="py-3 space-y-2">
-                  <div className="flex items-center justify-between gap-4">
-                    <Label className="text-sm md:text-base">Push Notifications</Label>
-                    {pushPermission === 'granted' && (
-                      <Badge variant="secondary" className="shrink-0">Active</Badge>
-                    )}
-                    {pushPermission === 'denied' && (
-                      <Badge variant="destructive" className="shrink-0">Blocked</Badge>
-                    )}
-                    {pushPermission === 'default' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={handleEnableNotifications}
-                      >
-                        Enable
-                      </Button>
-                    )}
+                <div className="flex items-center justify-between py-3 gap-4">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <Label htmlFor="push-toggle" className="text-sm md:text-base">Push Notifications</Label>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      {pushPermission === 'denied'
+                        ? 'Notifications are blocked. To enable: open your browser settings, go to Site Settings → Notifications, find this site and set it to Allow, then reload.'
+                        : pushEnabled
+                        ? 'You\'ll be notified when friends share songs or invite you to groups.'
+                        : 'Get notified when friends share songs or invite you to groups.'}
+                    </p>
                   </div>
-                  <p className="text-xs md:text-sm text-muted-foreground">
-                    {pushPermission === 'granted'
-                      ? 'You\'ll be notified when friends share songs or invite you to groups.'
-                      : pushPermission === 'denied'
-                      ? 'Notifications are blocked. To enable: open your browser settings, go to Site Settings → Notifications, find this site and set it to Allow, then reload.'
-                      : 'Get notified when friends share songs or invite you to groups.'}
-                  </p>
+                  {pushPermission === 'denied' ? (
+                    <Badge variant="destructive" className="shrink-0">Blocked</Badge>
+                  ) : (
+                    <Switch
+                      id="push-toggle"
+                      checked={pushEnabled}
+                      onCheckedChange={handlePushToggle}
+                      disabled={pushToggling}
+                      className="shrink-0"
+                    />
+                  )}
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between py-3 gap-4">
                   <div className="space-y-0.5 flex-1 min-w-0">
                     <Label htmlFor="new-tracks" className="text-sm md:text-base">New Track Shares</Label>
                     <p className="text-xs md:text-sm text-muted-foreground">
-                      Get notified when someone shares a new track
+                      Receive push notifications when someone shares a new track
                     </p>
                   </div>
-                  <Switch id="new-tracks" defaultChecked className="shrink-0" />
+                  <Switch
+                    id="new-tracks"
+                    checked={user?.notificationPreferences?.song_shared !== false}
+                    onCheckedChange={(v) => handlePreferenceChange('song_shared', v)}
+                    disabled={savingPrefs === 'song_shared'}
+                    className="shrink-0"
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between py-3 gap-4">
                   <div className="space-y-0.5 flex-1 min-w-0">
                     <Label htmlFor="group-invites" className="text-sm md:text-base">Group Invites</Label>
                     <p className="text-xs md:text-sm text-muted-foreground">
-                      Receive notifications for new group invitations
+                      Receive push notifications for new group invitations
                     </p>
                   </div>
-                  <Switch id="group-invites" defaultChecked className="shrink-0" />
+                  <Switch
+                    id="group-invites"
+                    checked={user?.notificationPreferences?.group_invite !== false}
+                    onCheckedChange={(v) => handlePreferenceChange('group_invite', v)}
+                    disabled={savingPrefs === 'group_invite'}
+                    className="shrink-0"
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between py-3 gap-4">
                   <div className="space-y-0.5 flex-1 min-w-0">
-                    <Label htmlFor="leaderboard" className="text-sm md:text-base">Leaderboard Updates</Label>
+                    <Label htmlFor="member-joined" className="text-sm md:text-base">Member Joined</Label>
                     <p className="text-xs md:text-sm text-muted-foreground">
-                      Weekly summary of your position on leaderboards
+                      Receive push notifications when someone joins your groups
                     </p>
                   </div>
-                  <Switch id="leaderboard" defaultChecked className="shrink-0" />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between py-3 gap-4">
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <Label htmlFor="recommendations" className="text-sm md:text-base">Recommendations</Label>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Get personalized track recommendations
-                    </p>
-                  </div>
-                  <Switch id="recommendations" className="shrink-0" />
+                  <Switch
+                    id="member-joined"
+                    checked={user?.notificationPreferences?.member_joined !== false}
+                    onCheckedChange={(v) => handlePreferenceChange('member_joined', v)}
+                    disabled={savingPrefs === 'member_joined'}
+                    className="shrink-0"
+                  />
                 </div>
               </CardContent>
             </Card>

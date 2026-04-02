@@ -2,6 +2,7 @@ const webPush = require('web-push');
 const Notification = require('../models/Notification');
 const PushSubscription = require('../models/PushSubscription');
 const Group = require('../models/Group');
+const User = require('../models/User');
 const logger = require('../utils/logger');
 
 /**
@@ -52,6 +53,13 @@ async function createNotificationsForGroup(io, type, actorId, groupId, metadata)
     );
     if (recipients.length === 0) return;
 
+    // Load preferences to control push notifications (in-app notifications always created)
+    const users = await User.find({ _id: { $in: recipients } })
+      .select('notificationPreferences')
+      .lean();
+
+    const prefsMap = new Map(users.map((u) => [u._id.toString(), u.notificationPreferences]));
+
     const docs = recipients.map((recipientId) => ({
       recipient: recipientId,
       type,
@@ -80,18 +88,22 @@ async function createNotificationsForGroup(io, type, actorId, groupId, metadata)
       // Emit to personal socket room
       io.to(recipientId).emit('notification', notification);
 
-      // Send web push to all subscriptions for this user
-      const subs = await PushSubscription.find({ user: notification.recipient }).lean();
-      for (const sub of subs) {
-        try {
-          await webPush.sendNotification(sub.subscription, JSON.stringify(pushPayload));
-        } catch (err) {
-          // 410 Gone = subscription is expired; clean it up
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            await PushSubscription.deleteOne({ _id: sub._id });
-            logger.debug('[Notifications] Removed expired push subscription', { subId: sub._id });
-          } else {
-            logger.warn('[Notifications] Push send failed', { error: err.message });
+      // Send web push only if user has this notification type enabled
+      const prefs = prefsMap.get(recipientId);
+      const pushEnabled = !prefs || prefs[type] !== false;
+      if (pushEnabled) {
+        const subs = await PushSubscription.find({ user: notification.recipient }).lean();
+        for (const sub of subs) {
+          try {
+            await webPush.sendNotification(sub.subscription, JSON.stringify(pushPayload));
+          } catch (err) {
+            // 410 Gone = subscription is expired; clean it up
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await PushSubscription.deleteOne({ _id: sub._id });
+              logger.debug('[Notifications] Removed expired push subscription', { subId: sub._id });
+            } else {
+              logger.warn('[Notifications] Push send failed', { error: err.message });
+            }
           }
         }
       }
@@ -175,17 +187,21 @@ async function createNotificationForUser(io, type, actorId, recipientId, groupId
     const actorDisplayName = populated?.actor?.displayName || 'Someone';
     const pushPayload = buildPushPayload(type, metadata, actorDisplayName);
 
-    // Socket to personal room
+    // Socket to personal room (always sent)
     io.to(recipientId.toString()).emit('notification', populated);
 
-    // Web push
-    const subs = await PushSubscription.find({ user: recipientId }).lean();
-    for (const sub of subs) {
-      try {
-        await webPush.sendNotification(sub.subscription, JSON.stringify(pushPayload));
-      } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await PushSubscription.deleteOne({ _id: sub._id });
+    // Web push — only if user has this notification type enabled
+    const recipient = await User.findById(recipientId).select('notificationPreferences').lean();
+    const pushEnabled = !recipient?.notificationPreferences || recipient.notificationPreferences[type] !== false;
+    if (pushEnabled) {
+      const subs = await PushSubscription.find({ user: recipientId }).lean();
+      for (const sub of subs) {
+        try {
+          await webPush.sendNotification(sub.subscription, JSON.stringify(pushPayload));
+        } catch (err) {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await PushSubscription.deleteOne({ _id: sub._id });
+          }
         }
       }
     }

@@ -47,6 +47,11 @@ const userSchema = new mongoose.Schema({
   spotifyAppIndex: {
     type: Number,
     default: 0
+  },
+  notificationPreferences: {
+    song_shared: { type: Boolean, default: true },
+    group_invite: { type: Boolean, default: true },
+    member_joined: { type: Boolean, default: true },
   }
 }, {
   timestamps: true

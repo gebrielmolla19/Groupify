@@ -13,14 +13,17 @@ const updateProfileSchema = Joi.object({
     .trim()
     .min(3)
     .max(50)
-    .required()
     .messages({
       'string.empty': 'Display name is required',
       'string.min': 'Display name must be at least 3 characters',
       'string.max': 'Display name cannot exceed 50 characters',
-      'any.required': 'Display name is required'
-    })
-});
+    }),
+  notificationPreferences: Joi.object({
+    song_shared: Joi.boolean(),
+    group_invite: Joi.boolean(),
+    member_joined: Joi.boolean(),
+  }),
+}).or('displayName', 'notificationPreferences');
 
 /**
  * Validation middleware factory

@@ -19,6 +19,9 @@ router.get('/callback', AuthController.callback);
 // Exchange one-time auth code for JWT (no auth required)
 router.post('/exchange-code', AuthController.exchangeCode);
 
+// Refresh an expired JWT (no auth middleware — token is expired)
+router.post('/refresh-jwt', AuthController.refreshJwt);
+
 // Refresh Spotify access token (protected)
 router.post('/refresh', authMiddleware, AuthController.refresh);
 
