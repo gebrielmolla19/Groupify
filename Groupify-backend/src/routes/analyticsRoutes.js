@@ -39,5 +39,11 @@ router.get('/listener-reflex/radar', authMiddleware, (req, res, next) => {
   next();
 }, isGroupMember, AnalyticsController.getListenerReflexRadar);
 
+// Get AI-generated insights for analytics sections
+router.get('/:id/ai-insights', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.params.id;
+  next();
+}, isGroupMember, AnalyticsController.getAiInsights);
+
 module.exports = router;
 

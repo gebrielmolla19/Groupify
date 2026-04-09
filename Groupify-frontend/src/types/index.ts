@@ -159,7 +159,7 @@ export interface ListenerReflexUser {
 
 export interface ListenerReflexData {
   groupId: string;
-  range: '24h' | '7d' | '30d' | '90d' | 'all';
+  range: '24h' | '7d' | '30d' | 'all';
   mode: 'received' | 'shared';
   generatedAt: string;
   buckets: {
@@ -202,7 +202,7 @@ export interface RadarProfile {
 }
 
 export interface ListenerReflexRadarData {
-  window: '7d' | '30d' | '90d' | 'all';
+  window: '7d' | '30d' | 'all';
   mode: 'received' | 'shared';
   maxLatencySeconds: number;
   members: RadarProfile[];

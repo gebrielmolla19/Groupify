@@ -1,4 +1,5 @@
 const AnalyticsService = require('../services/analyticsService');
+const geminiService = require('../services/geminiService');
 const logger = require('../utils/logger');
 
 /**
@@ -93,7 +94,7 @@ class AnalyticsController {
       const { id } = req.params;
       const { timeRange = '7d' } = req.query;
 
-      const validRanges = ['7d', '30d', '90d', 'all'];
+      const validRanges = ['7d', '30d', 'all'];
       if (!validRanges.includes(timeRange)) {
         logger.warn('[Analytics] Invalid timeRange for taste gravity', {
           userId: req.userId,
@@ -135,7 +136,7 @@ class AnalyticsController {
       const { id } = req.params;
       const { range = '30d', mode = 'received' } = req.query;
 
-      const validRanges = ['24h', '7d', '30d', '90d', 'all'];
+      const validRanges = ['24h', '7d', '30d', 'all'];
       if (!validRanges.includes(range)) {
         logger.warn('[Analytics] Invalid range for listener reflex', {
           userId: req.userId,
@@ -202,7 +203,7 @@ class AnalyticsController {
         });
       }
 
-      const validWindows = ['7d', '30d', '90d', 'all'];
+      const validWindows = ['7d', '30d', 'all'];
       if (!validWindows.includes(window)) {
         return res.status(400).json({
           success: false,
@@ -231,6 +232,68 @@ class AnalyticsController {
       res.json({
         success: true,
         data
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get AI-generated insights for analytics sections
+   * GET /api/v1/analytics/:id/ai-insights?type=reflex&timeRange=30d&mode=received
+   */
+  static async getAiInsights(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { type, timeRange = '30d', mode = 'received' } = req.query;
+
+      if (type !== 'reflex') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid type. Currently supported: reflex'
+        });
+      }
+
+      // Validate params (same as listener-reflex endpoint)
+      const validRanges = ['24h', '7d', '30d', 'all'];
+      if (!validRanges.includes(timeRange)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid timeRange. Must be one of: ${validRanges.join(', ')}`
+        });
+      }
+
+      const validModes = ['received', 'shared'];
+      if (!validModes.includes(mode)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid mode. Must be one of: ${validModes.join(', ')}`
+        });
+      }
+
+      // Get the raw analytics data
+      const reflexData = await AnalyticsService.computeListenerReflex(id, timeRange, mode);
+
+      // Generate AI insights
+      const insights = await geminiService.generateReflexInsights(reflexData);
+
+      logger.debug('[Analytics] AI insights generated', {
+        userId: req.userId,
+        groupId: id,
+        type,
+        timeRange,
+        mode,
+        generated: insights !== null
+      });
+
+      res.json({
+        success: true,
+        data: {
+          type,
+          generated: insights !== null,
+          cachedAt: new Date().toISOString(),
+          insights
+        }
       });
     } catch (error) {
       next(error);

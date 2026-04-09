@@ -1,5 +1,12 @@
 // Analytics type definitions
 
+export interface AiInsightsResponse {
+  type: string;
+  generated: boolean;
+  cachedAt?: string;
+  insights: Record<string, string> | null;
+}
+
 export interface TasteGravityNode {
   id: string;              // User ID
   name: string;            // displayName

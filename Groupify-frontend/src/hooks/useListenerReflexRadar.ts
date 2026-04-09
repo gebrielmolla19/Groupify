@@ -3,7 +3,7 @@ import { getListenerReflexRadar } from '../lib/api';
 import { logger } from '../utils/logger';
 import type { ListenerReflexRadarData } from '../types';
 
-export type ListenerReflexRadarWindow = '7d' | '30d' | '90d' | 'all';
+export type ListenerReflexRadarWindow = '7d' | '30d' | 'all';
 export type ListenerReflexRadarMode = 'received' | 'shared';
 
 export const useListenerReflexRadar = (

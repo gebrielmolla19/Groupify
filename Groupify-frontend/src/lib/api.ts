@@ -846,7 +846,7 @@ export const skipToPrevious = async (deviceId?: string): Promise<void> => {
  */
 export const getGroupActivity = async (
   groupId: string,
-  timeRange: '24h' | '7d' | '30d' | '90d' | 'all' = '30d',
+  timeRange: '24h' | '7d' | '30d' | 'all' = '30d',
   mode: 'shares' | 'engagement' = 'shares'
 ): Promise<any[]> => {
   const response = await fetchWithAuth(`/analytics/${groupId}/activity?timeRange=${timeRange}&mode=${mode}`);
@@ -862,7 +862,7 @@ export const getGroupActivity = async (
 /**
  * Get member vibes (radar chart)
  * @param groupId - Group ID
- * @param timeRange - Optional time range filter ('24h' | '7d' | '30d' | '90d' | 'all')
+ * @param timeRange - Optional time range filter ('24h' | '7d' | '30d' | 'all')
  */
 export const getMemberVibes = async (groupId: string, timeRange?: string): Promise<any[]> => {
   const url = timeRange ? `/analytics/${groupId}/vibes?timeRange=${timeRange}` : `/analytics/${groupId}/vibes`;
@@ -893,11 +893,11 @@ export const getSuperlatives = async (groupId: string): Promise<any> => {
 /**
  * Get taste gravity analytics
  * @param groupId - Group ID
- * @param timeRange - Time range filter ('7d' | '30d' | '90d' | 'all')
+ * @param timeRange - Time range filter ('7d' | '30d' | 'all')
  */
 export const getTasteGravity = async (
   groupId: string,
-  timeRange: '7d' | '30d' | '90d' | 'all' = '7d'
+  timeRange: '7d' | '30d' | 'all' = '7d'
 ): Promise<TasteGravityResponse> => {
   const response = await fetchWithAuth(`/analytics/${groupId}/taste-gravity?timeRange=${timeRange}`);
   const data = await response.json();
@@ -912,7 +912,7 @@ export const getTasteGravity = async (
 /**
  * Get listener reflex analytics
  * @param groupId - Group ID
- * @param range - Time range: '7d' | '30d' | '90d'
+ * @param range - Time range: '7d' | '30d'
  * @param mode - Analysis mode: 'received' | 'shared'
  */
 export const getListenerReflex = async (
@@ -935,7 +935,7 @@ export const getListenerReflex = async (
 /**
  * Get listener reflex radar profiles
  * @param groupId - Group ID
- * @param window - Time window: '7d' | '30d' | '90d' | 'all'
+ * @param window - Time window: '7d' | '30d' | 'all'
  * @param mode - Analysis mode: 'received' | 'shared'
  */
 export const getListenerReflexRadar = async (
@@ -950,6 +950,32 @@ export const getListenerReflexRadar = async (
 
   if (!data.success) {
     throw new Error(data.message || 'Failed to fetch radar data');
+  }
+
+  return data.data;
+};
+
+/**
+ * Get AI-generated insights for analytics sections
+ * @param groupId - Group ID
+ * @param type - Insight type: 'reflex'
+ * @param timeRange - Time range
+ * @param mode - Analysis mode (for reflex type)
+ */
+export const getAiInsights = async (
+  groupId: string,
+  type: string,
+  timeRange: string,
+  mode?: string
+): Promise<{ type: string; generated: boolean; cachedAt?: string; insights: Record<string, string> | null }> => {
+  const params = new URLSearchParams({ type, timeRange });
+  if (mode) params.set('mode', mode);
+
+  const response = await fetchWithAuth(`/analytics/${groupId}/ai-insights?${params}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch AI insights');
   }
 
   return data.data;

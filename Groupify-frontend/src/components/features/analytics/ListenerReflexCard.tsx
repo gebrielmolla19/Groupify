@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Button } from '../../ui/button';
+
 import { Badge } from '../../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { Skeleton } from '../../ui/skeleton';
@@ -9,12 +9,16 @@ import { useListenerReflex, type ListenerReflexRange, type ListenerReflexMode } 
 import { formatTime } from '../../../lib/formatTime';
 import { cn } from '../../ui/utils';
 import type { ListenerReflexUser, ReflexCategory } from '../../../types';
-import { Zap, Clock, TrendingUp, Timer, BarChart3 } from 'lucide-react';
+import { Zap, Clock, TrendingUp, Timer } from 'lucide-react';
 import ListenerReflexComparePanel from './listenerReflex/ListenerReflexComparePanel';
 import { getListeningStyleLabel } from '../../../utils/getListeningStyleLabel';
+import { useAiInsights } from '../../../hooks/useAiInsights';
 
 interface ListenerReflexCardProps {
   groupId: string;
+  range: ListenerReflexRange;
+  mode: ListenerReflexMode;
+  isCompareMode: boolean;
 }
 
 const CATEGORY_CONFIG: Record<ReflexCategory, { label: string; color: string; icon: typeof Zap }> = {
@@ -174,7 +178,7 @@ const computeDotRadius = (
  * Older listens: muted gray-green + low opacity
  * 
  * @param listenTimestamp - Timestamp when the listen occurred (ISO string or Date)
- * @param activeRange - Active time range filter ('7d' | '30d' | '90d')
+ * @param activeRange - Active time range filter ('24h' | '7d' | '30d' | 'all')
  * @returns Object with opacity (0.15-1.0) and color (RGB string)
  */
 const getDotRecency = (listenTimestamp: string | Date, activeRange: ListenerReflexRange): { opacity: number; color: string } => {
@@ -191,8 +195,7 @@ const getDotRecency = (listenTimestamp: string | Date, activeRange: ListenerRefl
     '24h': 24 * 60 * 60 * 1000,
     '7d': 7 * 24 * 60 * 60 * 1000,
     '30d': 30 * 24 * 60 * 60 * 1000,
-    '90d': 90 * 24 * 60 * 60 * 1000,
-    'all': 90 * 24 * 60 * 60 * 1000 // Use 90d as default for 'all'
+    'all': 365 * 24 * 60 * 60 * 1000
   };
   const activeWindowMs = rangeMsMap[activeRange];
   
@@ -257,13 +260,11 @@ const RecencyLegend = () => {
   );
 };
 
-export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps) {
-  const [range, setRange] = useState<ListenerReflexRange>('30d');
-  const [mode, setMode] = useState<ListenerReflexMode>('received');
-  const [isCompareMode, setIsCompareMode] = useState(false);
+export default function ListenerReflexCard({ groupId, range, mode, isCompareMode }: ListenerReflexCardProps) {
   const isMobile = useIsMobile();
   
   const { data, isLoading, error } = useListenerReflex(groupId, range, mode);
+  const { data: aiInsights, isLoading: aiLoading } = useAiInsights(groupId, 'reflex', range, mode);
 
   // Calculate group average listens for relative engagement comparison
   const groupAverageListens = useMemo(() => {
@@ -335,51 +336,9 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
     return (
       <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-primary" />
-              Listener Reflex
-            </CardTitle>
-            <div className="flex gap-2">
-              {(['24h', '7d', '30d', '90d', 'all'] as ListenerReflexRange[]).map((r) => (
-                <Button
-                  key={r}
-                  size="sm"
-                  variant={range === r ? 'default' : 'outline'}
-                  onClick={() => setRange(r)}
-                  className={cn(
-                    'h-8 px-3 text-xs',
-                    range === r
-                      ? 'bg-primary hover:bg-primary/90 text-black'
-                      : 'border-primary/30 hover:bg-primary/10'
-                  )}
-                >
-                  {r}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-muted-foreground">Mode:</span>
-            <div className="flex gap-2">
-              {(['received', 'shared'] as ListenerReflexMode[]).map((m) => (
-                <Button
-                  key={m}
-                  size="sm"
-                  variant={mode === m ? 'default' : 'outline'}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    'h-8 px-3 text-xs',
-                    mode === m
-                      ? 'bg-primary hover:bg-primary/90 text-black'
-                      : 'border-primary/30 hover:bg-primary/10'
-                  )}
-                >
-                  {m === 'received' ? 'Received' : 'Shared'}
-                </Button>
-              ))}
-            </div>
-          </div>
+          <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+            Listener Reflex
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">No listener data available for this range.</p>
@@ -398,108 +357,9 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
       `}</style>
       <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
       <CardHeader>
-        <div className="flex items-center justify-between gap-4">
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            Listener Reflex
-          </CardTitle>
-          <Button
-            size="sm"
-            variant={isCompareMode ? 'default' : 'outline'}
-            onClick={() => setIsCompareMode(!isCompareMode)}
-            className={cn(
-              'h-8 px-3 text-xs flex items-center gap-1.5',
-              isCompareMode
-                ? 'bg-primary hover:bg-primary/90 text-black'
-                : 'border-primary/30 hover:bg-primary/10'
-            )}
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            Compare
-          </Button>
-        </div>
-
-        {/* Range Selector */}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {(['24h', '7d', '30d', '90d', 'all'] as ListenerReflexRange[]).map((r) => (
-            <Button
-              key={r}
-              size="sm"
-              variant={range === r ? 'default' : 'outline'}
-              onClick={() => setRange(r)}
-              className={cn(
-                'h-8 px-3 text-xs',
-                range === r
-                  ? 'bg-primary hover:bg-primary/90 text-black'
-                  : 'border-primary/30 hover:bg-primary/10'
-              )}
-            >
-              {r}
-            </Button>
-          ))}
-        </div>
-
-        {/* Mode Toggle */}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-xs text-muted-foreground">Mode:</span>
-          <div className="flex gap-2">
-            {(['received', 'shared'] as ListenerReflexMode[]).map((m) => (
-              <Button
-                key={m}
-                size="sm"
-                variant={mode === m ? 'default' : 'outline'}
-                onClick={() => setMode(m)}
-                className={cn(
-                  'h-8 px-3 text-xs',
-                  mode === m
-                    ? 'bg-primary hover:bg-primary/90 text-black'
-                    : 'border-primary/30 hover:bg-primary/10'
-                )}
-              >
-                {m === 'received' ? 'Received' : 'Shared'}
-              </Button>
-            ))}
-          </div>
-        </div>
-        {/* Mode Indicator — own row so it never overflows */}
-        <div className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 w-fit max-w-full">
-          <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-          <span className="text-xs font-medium text-primary">
-            {mode === 'received'
-              ? 'How fast members listen to shared songs'
-              : 'How fast others react to this member\'s shares'}
-          </span>
-        </div>
-
-        {/* Headline stat — fastest listener */}
-        {data.users.length > 0 && (
-          <div className="mt-4 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20">
-            <p className="text-sm">
-              <span className="text-muted-foreground">
-                {mode === 'received' ? 'Fastest listener: ' : 'Fastest reactor: '}
-              </span>
-              <span className="font-semibold text-foreground">{data.users[0].displayName}</span>
-              <span className="text-muted-foreground"> with a median of </span>
-              <span className="font-semibold text-primary">{formatTime(data.users[0].medianMs)}</span>
-            </p>
-          </div>
-        )}
-
-        {/* Summary Line */}
-        <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Group Median:</span>
-            <span className="font-semibold text-foreground">
-              {formatTime(data.summary.groupMedianMs)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Instant Reactors:</span>
-            <span className="font-semibold text-primary">
-              {data.summary.instantReactorCount}
-            </span>
-          </div>
-        </div>
+        <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+          Listener Reflex
+        </CardTitle>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -666,9 +526,27 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                                 <BadgeIcon className="w-3 h-3 shrink-0" />
                                 <span>{styleLabel.title}</span>
                               </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                {styleLabel.description}
-                              </p>
+                              {aiLoading ? (
+                                <div className="space-y-1.5">
+                                  <Skeleton className="h-3 w-full" />
+                                  <Skeleton className="h-3 w-3/4" />
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-300 flex items-start gap-1">
+                                  {aiInsights?.[user.userId] && (
+                                    <svg className="h-4 w-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="url(#ai-gradient)" stroke="none">
+                                      <defs>
+                                        <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                          <stop offset="0%" stopColor="rgb(192 132 252)" stopOpacity="0.8" />
+                                          <stop offset="100%" stopColor="rgb(147 197 253)" stopOpacity="0.6" />
+                                        </linearGradient>
+                                      </defs>
+                                      <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+                                    </svg>
+                                  )}
+                                  {aiInsights?.[user.userId] ?? styleLabel.description}
+                                </p>
+                              )}
                             </div>
                           );
                         })()}
@@ -746,8 +624,7 @@ export default function ListenerReflexCard({ groupId }: ListenerReflexCardProps)
                               '24h': 24 * 60 * 60 * 1000,
                               '7d': 7 * 24 * 60 * 60 * 1000,
                               '30d': 30 * 24 * 60 * 60 * 1000,
-                              '90d': 90 * 24 * 60 * 60 * 1000,
-                              'all': 90 * 24 * 60 * 60 * 1000 // Use 90d as default for 'all'
+                              'all': 365 * 24 * 60 * 60 * 1000
                             };
                             const activeWindowMs = rangeMsMap[range];
                             const innerRadius = baseRadius * 0.15; // Tightened from 0.3 to increase visual contrast
