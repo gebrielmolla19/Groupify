@@ -4,6 +4,7 @@ import {
   Music,
   LogOut,
   HelpCircle,
+  ScrollText,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,6 +25,7 @@ import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
 import { startTour } from "../features/onboarding/OnboardingWalkthrough";
 import { useIsMobile } from "../ui/use-mobile";
+import { useChangelogStatus } from "../../hooks/useChangelogStatus";
 
 export default function AppSidebar() {
   const { user, logout } = useUser();
@@ -32,6 +34,7 @@ export default function AppSidebar() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const isCollapsed = state === "collapsed" && !isMobile;
+  const { hasUnread } = useChangelogStatus();
 
   const handleStartTour = () => {
     setOpenMobile(false);
@@ -114,6 +117,30 @@ export default function AppSidebar() {
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                   <span>Take the Tour</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem className={isCollapsed ? "flex justify-center" : ""}>
+                <SidebarMenuButton
+                  onClick={() => navigate('/changelog')}
+                  isActive={location.pathname === '/changelog'}
+                  tooltip="What's New"
+                  className={`text-muted-foreground hover:text-foreground ${
+                    location.pathname === '/changelog' ? "bg-primary/10 text-primary" : ""
+                  } ${
+                    isCollapsed ? "!p-0 !w-8 !h-8 !justify-center !mx-0 min-w-[44px] min-h-[44px]" : "min-h-[44px]"
+                  }`}
+                  aria-label="What's New"
+                >
+                  <div className="relative">
+                    <ScrollText className="w-4 h-4" aria-hidden="true" />
+                    {hasUnread && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <span>What's New</span>
+                  {hasUnread && !isCollapsed && (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-primary shrink-0" />
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

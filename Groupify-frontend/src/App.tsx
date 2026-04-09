@@ -23,6 +23,7 @@ import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
 import { useAutoPlayNext } from "./hooks/useAutoPlayNext";
 import OnboardingWalkthrough from "./components/features/onboarding/OnboardingWalkthrough";
 import UpdatePrompt from "./components/features/pwa/UpdatePrompt";
+import ChangelogScreen from "./components/features/changelog/ChangelogScreen";
 
 /**
  * Main Layout component for authenticated routes
@@ -45,7 +46,8 @@ function AuthenticatedLayoutInner() {
     !location.pathname.includes('/profile') &&
     !location.pathname.match(/\/groups\/[^/]+$/) &&
     !location.pathname.includes('/settings') &&
-    !location.pathname.includes('/analytics');
+    !location.pathname.includes('/analytics') &&
+    !location.pathname.includes('/changelog');
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,6 +62,7 @@ function AuthenticatedLayoutInner() {
               <Route path="/groups/:groupId/settings" element={<GroupSettingsScreen />} />
               <Route path="/groups/:groupId/playlist" element={<PlaylistViewScreen />} />
               <Route path="/groups/:groupId/analytics" element={<AnalyticsScreen />} />
+              <Route path="/changelog" element={<ChangelogScreen />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
