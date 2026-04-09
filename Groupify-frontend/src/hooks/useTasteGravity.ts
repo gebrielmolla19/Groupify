@@ -3,7 +3,7 @@ import { getTasteGravity } from '../lib/api';
 import { logger } from '../utils/logger';
 import type { TasteGravityResponse } from '../types/analytics';
 
-export type TimeRange = '7d' | '30d' | '90d' | 'all';
+export type TimeRange = '7d' | '30d' | 'all';
 
 export const useTasteGravity = (groupId: string, timeRange: TimeRange = '7d') => {
   const [data, setData] = useState<TasteGravityResponse | null>(null);

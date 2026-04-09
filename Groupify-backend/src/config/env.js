@@ -13,6 +13,7 @@ const envSchema = Joi.object({
     // Optional: Additional Spotify apps for multi-app workaround (5 users per app in dev mode)
     // SPOTIFY_CLIENT_ID_1, SPOTIFY_CLIENT_SECRET_1, SPOTIFY_CLIENT_ID_2, SPOTIFY_CLIENT_SECRET_2, etc.
     FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
+    GEMINI_API_KEY: Joi.string().optional().allow('').description('Google Gemini API key for AI-generated analytics text'),
 })
     .unknown()
     .required();
@@ -81,4 +82,7 @@ module.exports = {
         getConfig: getSpotifyConfig,
     },
     frontendUrl: envVars.FRONTEND_URL,
+    gemini: {
+        apiKey: envVars.GEMINI_API_KEY || '',
+    },
 };

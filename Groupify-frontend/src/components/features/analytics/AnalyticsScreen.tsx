@@ -7,12 +7,13 @@ import ActivityWave from "./ActivityWave";
 import SuperlativeCard from "./SuperlativeCard";
 import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
-import { Sparkles, Activity, ArrowLeft } from "lucide-react";
+import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
 import { useMemo, useState } from "react";
 import { cn } from "../../ui/utils";
 import type { TimeRange as TasteGravityTimeRange } from "../../../hooks/useTasteGravity";
+import type { ListenerReflexRange, ListenerReflexMode } from "../../../hooks/useListenerReflex";
 
 export default function AnalyticsScreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -23,6 +24,11 @@ export default function AnalyticsScreen() {
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
   const { data, isLoading, isActivityLoading, error, activityRange, activityMode, changeTimeRange, changeActivityMode } = useGroupAnalytics(groupId || '');
+
+  // Listener Reflex state
+  const [reflexRange, setReflexRange] = useState<ListenerReflexRange>('30d');
+  const [reflexMode, setReflexMode] = useState<ListenerReflexMode>('received');
+  const [reflexCompare, setReflexCompare] = useState(false);
 
   // Taste Gravity time range state
   const [tasteGravityRange, setTasteGravityRange] = useState<TasteGravityTimeRange>('7d');
@@ -36,15 +42,21 @@ export default function AnalyticsScreen() {
     { value: '24h' as const, label: '24h' },
     { value: '7d' as const, label: '7d' },
     { value: '30d' as const, label: '30d' },
-    { value: '90d' as const, label: '90d' },
     { value: 'all' as const, label: 'All' },
+  ];
+
+  // Listener Reflex time range options
+  const reflexTimeRanges: { value: ListenerReflexRange; label: string }[] = [
+    { value: '24h', label: '24h' },
+    { value: '7d', label: '7d' },
+    { value: '30d', label: '30d' },
+    { value: 'all', label: 'All' },
   ];
 
   // Taste Gravity time range options (no 24h)
   const tasteGravityTimeRanges: { value: TasteGravityTimeRange; label: string }[] = [
     { value: '7d', label: '7d' },
     { value: '30d', label: '30d' },
-    { value: '90d', label: '90d' },
     { value: 'all', label: 'All' },
   ];
 
@@ -166,9 +178,9 @@ export default function AnalyticsScreen() {
             </div>
 
             {/* Mode Toggle */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">View:</span>
-              <div className="flex gap-1 border border-white/10 rounded-md p-0.5 w-full sm:w-auto">
+              <div className="flex gap-1 border border-white/10 rounded-md p-0.5">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -176,8 +188,8 @@ export default function AnalyticsScreen() {
                   disabled={isActivityLoading}
                   className={
                     activityMode === 'shares'
-                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
-                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
                   }
                 >
                   Shares Posted
@@ -189,8 +201,8 @@ export default function AnalyticsScreen() {
                   disabled={isActivityLoading}
                   className={
                     activityMode === 'engagement'
-                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
-                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial'
+                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
                   }
                 >
                   Engagement
@@ -212,7 +224,89 @@ export default function AnalyticsScreen() {
 
         {/* Listener Reflex Section */}
         <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-reflex">
-          <ListenerReflexCard groupId={groupId || ''} />
+          <div className="flex flex-col gap-4 px-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Zap className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base md:text-xl font-bold">Listener Reflex</h2>
+                <span className="text-xs text-muted-foreground hidden sm:inline">How fast members react to shared songs</span>
+              </div>
+            </div>
+
+            {/* Controls: Range + Mode + Compare */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                {reflexTimeRanges.map((r) => (
+                  <Button
+                    key={r.value}
+                    size="sm"
+                    variant={reflexRange === r.value ? 'default' : 'outline'}
+                    onClick={() => setReflexRange(r.value)}
+                    className={
+                      reflexRange === r.value
+                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                        : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                    }
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Mode Toggle + Compare */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">View:</span>
+                <div className="flex gap-1 border border-white/10 rounded-md p-0.5">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReflexMode('received')}
+                    className={
+                      reflexMode === 'received'
+                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                    }
+                  >
+                    Received
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReflexMode('shared')}
+                    className={
+                      reflexMode === 'shared'
+                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                    }
+                  >
+                    Shared
+                  </Button>
+                </div>
+                <Button
+                  size="sm"
+                  variant={reflexCompare ? 'default' : 'outline'}
+                  onClick={() => setReflexCompare(!reflexCompare)}
+                  className={cn(
+                    'h-8 sm:h-7 px-3 text-xs flex items-center gap-1.5 min-h-[44px] sm:min-h-0 shrink-0',
+                    reflexCompare
+                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      : 'border-primary/30 hover:bg-primary/10'
+                  )}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Compare
+                </Button>
+              </div>
+            </div>
+          </div>
+          <ListenerReflexCard
+            groupId={groupId || ''}
+            range={reflexRange}
+            mode={reflexMode}
+            isCompareMode={reflexCompare}
+          />
         </div>
 
         {/* Taste Gravity Section */}

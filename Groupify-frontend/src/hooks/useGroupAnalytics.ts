@@ -8,7 +8,7 @@ interface AnalyticsData {
   superlatives: any;
 }
 
-export type TimeRange = '24h' | '7d' | '30d' | '90d' | 'all';
+export type TimeRange = '24h' | '7d' | '30d' | 'all';
 export type ActivityMode = 'shares' | 'engagement';
 
 export const useGroupAnalytics = (groupId: string) => {

@@ -96,7 +96,7 @@ class AnalyticsService {
   /**
    * Get aggregated activity for a group (waveform data)
    * @param {string} groupId
-   * @param {string} timeRange - '24h' | '7d' | '30d' | '90d' | 'all'
+   * @param {string} timeRange - '24h' | '7d' | '30d' | 'all'
    * @param {string} mode - 'shares' | 'engagement' (default: 'shares')
    *   - 'shares': Bucket by when shares were posted (Share.createdAt)
    *   - 'engagement': Bucket by when likes/listens happened (likes.likedAt, listeners.listenedAt)
@@ -459,7 +459,7 @@ class AnalyticsService {
    * Get Vibe Radar stats (Member Personality)
    * Returns list of members with their normalized scores (0-100) on 5 axes.
    * @param {string} groupId 
-   * @param {string} timeRange - '24h' | '7d' | '30d' | '90d' | 'all'
+   * @param {string} timeRange - '24h' | '7d' | '30d' | 'all'
    */
   static async getMemberVibes(groupId, timeRange = 'all') {
     const gid = new mongoose.Types.ObjectId(groupId);
@@ -760,7 +760,7 @@ class AnalyticsService {
    * Get Taste Gravity analytics
    * Visualizes the "social pull" between group members based on shared musical taste
    * @param {string} groupId - Group ID
-   * @param {string} timeRange - '7d' | '30d' | '90d' | 'all'
+   * @param {string} timeRange - '7d' | '30d' | 'all'
    * @returns {Promise<Object>} Graph data with nodes, links, and insights
    */
   static async getTasteGravity(groupId, timeRange = '7d') {
@@ -1127,7 +1127,7 @@ class AnalyticsService {
    * Compute Listener Reflex analytics
    * Tracks how quickly group members react to shared songs
    * @param {string} groupId - Group ID
-   * @param {string} range - Time range: '24h' | '7d' | '30d' | '90d'
+   * @param {string} range - Time range: '24h' | '7d' | '30d' | 'all'
    * @param {string} mode - Analysis mode: 'received' | 'shared'
    *   - 'received': How fast each member listens to songs shared in the group
    *   - 'shared': How fast others listen to songs shared by that member
@@ -1392,7 +1392,7 @@ class AnalyticsService {
    * Compute Listener Reflex Radar Profiles
    * Calculates 5-axis radar profiles (Speed, Consistency, Recency, Volume, Burstiness) for group members
    * @param {string} groupId - Group ID
-   * @param {string} timeWindow - Time window: '7d' | '30d' | '90d' | 'all'
+   * @param {string} timeWindow - Time window: '7d' | '30d' | 'all'
    * @param {string} mode - Analysis mode: 'received' | 'shared'
    * @returns {Promise<Object>} Radar profiles for all members
    */
