@@ -35,7 +35,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, total, isLoading, error, markListened, unmarkListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, total, isLoading, isLoadingMore, hasMore, error, markListened, unmarkListened, shareTrack, toggleLike, removeShare, loadMore } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -48,6 +48,7 @@ export default function GroupFeedScreen() {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   // Track which share is currently playing (map track URI to share ID)
   const playingShareRef = useRef<Map<string, string>>(new Map());
@@ -245,6 +246,24 @@ export default function GroupFeedScreen() {
       fetchInvites(groupId);
     }
   }, [groupId, fetchInvites]);
+
+  // Infinite scroll — observe sentinel at bottom of feed
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMore || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loadMore, shares.length]);
 
   return (
     <>
@@ -644,6 +663,27 @@ export default function GroupFeedScreen() {
                       </CardContent>
                     </Card>
                   ))}
+
+                  {/* Infinite scroll sentinel + loading state */}
+                  {hasMore && (
+                    <div
+                      ref={loadMoreSentinelRef}
+                      className="flex items-center justify-center py-6"
+                    >
+                      {isLoadingMore && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading more tracks...
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!hasMore && shares.length >= 50 && (
+                    <p className="text-center text-xs text-muted-foreground py-6">
+                      You've reached the end
+                    </p>
+                  )}
                 </div>
               )}
 

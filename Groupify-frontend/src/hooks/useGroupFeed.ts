@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Share } from '../types';
 import {
   getGroupFeed as apiGetGroupFeed,
@@ -12,14 +12,21 @@ import { toast } from 'sonner';
 import { logger } from '../utils/logger';
 import { useSocket } from '../contexts/SocketContext';
 
+const PAGE_SIZE = 50;
+
 export const useGroupFeed = (groupId: string) => {
   const [shares, setShares] = useState<Share[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const { socket, joinGroup, leaveGroup } = useSocket();
 
-  const fetchFeed = useCallback(async (limit: number = 50, offset: number = 0) => {
+  // Track realtime-added share count so we can offset pagination correctly
+  const realtimeAddedRef = useRef(0);
+  const isLoadingMoreRef = useRef(false);
+
+  const fetchFeed = useCallback(async (limit: number = PAGE_SIZE, offset: number = 0) => {
     if (!groupId) return;
 
     try {
@@ -28,6 +35,7 @@ export const useGroupFeed = (groupId: string) => {
       const data = await apiGetGroupFeed(groupId, limit, offset);
       setShares(data.shares);
       setTotal(data.total);
+      realtimeAddedRef.current = 0;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch group feed';
       // Handle deleted group gracefully (404 errors)
@@ -44,6 +52,38 @@ export const useGroupFeed = (groupId: string) => {
       setIsLoading(false);
     }
   }, [groupId]);
+
+  const loadMore = useCallback(async () => {
+    if (!groupId || isLoadingMoreRef.current) return;
+
+    // Compute offset based on current loaded shares, excluding any realtime additions
+    // to avoid skipping older shares that got pushed down by new arrivals
+    const currentLoadedCount = shares.length - realtimeAddedRef.current;
+    if (currentLoadedCount >= total) return;
+
+    try {
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      const data = await apiGetGroupFeed(groupId, PAGE_SIZE, currentLoadedCount);
+
+      setShares(prev => {
+        // Dedupe: only add shares not already in the list (socket events may have added some)
+        const existingIds = new Set(prev.map(s => s._id));
+        const newShares = data.shares.filter(s => !existingIds.has(s._id));
+        return [...prev, ...newShares];
+      });
+      setTotal(data.total);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load more shares';
+      logger.error('Failed to load more shares:', err);
+      toast.error(errorMessage);
+    } finally {
+      isLoadingMoreRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [groupId, shares.length, total]);
+
+  const hasMore = shares.length - realtimeAddedRef.current < total;
 
   const shareTrack = useCallback(async (spotifyTrackId: string) => {
     try {
@@ -146,6 +186,7 @@ export const useGroupFeed = (groupId: string) => {
         // Deduplicate: if this user's optimistic update is already in state, skip
         const alreadyExists = prev.some(s => s._id === incomingShare._id);
         if (alreadyExists) return prev;
+        realtimeAddedRef.current += 1;
         return [incomingShare, ...prev];
       });
       setTotal(prev => prev + 1);
@@ -207,12 +248,15 @@ export const useGroupFeed = (groupId: string) => {
     shares,
     total,
     isLoading,
+    isLoadingMore,
+    hasMore,
     error,
     shareTrack,
     markListened,
     unmarkListened,
     toggleLike,
     removeShare,
+    loadMore,
     refetch: fetchFeed
   };
 };
