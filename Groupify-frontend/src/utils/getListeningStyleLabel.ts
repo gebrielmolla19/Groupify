@@ -114,8 +114,10 @@ const isCatchUpSprinter = (
 ): boolean => {
   if (points.length < 3) return false;
 
-  const now = Date.now();
-  const burstThreshold = now - windowDurationMs * 0.2; // last 20% of window
+  // Use the latest listen timestamp as the reference instead of Date.now()
+  // so results don't shift as time passes after the fact.
+  const latestTimestamp = Math.max(...points.map(p => new Date(p.listenedAt).getTime()));
+  const burstThreshold = latestTimestamp - windowDurationMs * 0.2; // last 20% of window
 
   const inBurst = points.filter(p => new Date(p.listenedAt).getTime() >= burstThreshold).length;
   const beforeBurst = points.length - inBurst;
@@ -281,7 +283,7 @@ const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
       bgColor: 'bg-slate-500/20',
       borderColor: 'border-slate-500/30'
     },
-    matches: (user) => user.listens <= 2 && user.listenRatio < 0.15
+    matches: (user) => user.listens > 0 && user.listens <= 2 && user.listenRatio < 0.15
   },
   {
     id: 'fashionably_late',
