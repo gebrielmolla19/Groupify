@@ -2,7 +2,8 @@ import type { ListenerReflexUser } from '../types';
 import type { ListenerReflexRange } from '../hooks/useListenerReflex';
 import {
   Archive, Zap, Clock, Target, Sparkles, Heart, Shield, Eye, Compass,
-  Flame, Waves, Calendar, BookOpen, Radio, Music
+  Flame, Waves, Calendar, BookOpen, Radio, Music,
+  Moon, Ghost, Hourglass, Filter, FastForward
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -27,93 +28,101 @@ interface UserScores {
   volumeCategory: VolumeCategory;
 }
 
+interface BadgeDefinition {
+  icon: LucideIcon;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}
+
 interface Archetype {
   id: string;
   title: string;
-  descriptions: [string, string, string]; // 3 variations
-  badge: {
-    icon: LucideIcon;
-    color: string;
-    bgColor: string;
-    borderColor: string;
-  };
+  descriptions: [string, string, string];
+  badge: BadgeDefinition;
   matches: (scores: UserScores) => boolean;
 }
 
+interface EngagementArchetype {
+  id: string;
+  title: string;
+  descriptions: [string, string, string];
+  badge: BadgeDefinition;
+  matches: (user: ListenerReflexUser, points: Array<{ ms: number; listenedAt: string }>, groupMedianMs: number, windowDurationMs: number) => boolean;
+}
+
 /**
- * Calculate standard deviation of timeToListen values
+ * Calculate coefficient of variation for timeToListen values
  */
-const calculateStandardDeviation = (points: Array<{ ms: number }>): number => {
-  if (points.length === 0 || points.length === 1) return 0;
-  
+const calculateCV = (points: Array<{ ms: number }>): number => {
+  if (points.length <= 1) return 0;
   const mean = points.reduce((sum, p) => sum + p.ms, 0) / points.length;
+  if (mean === 0) return 0;
   const variance = points.reduce((sum, p) => sum + Math.pow(p.ms - mean, 2), 0) / points.length;
-  return Math.sqrt(variance);
+  return Math.sqrt(variance) / mean;
 };
 
 /**
- * Calculate dynamic arc span in degrees based on variance
- * Window-aware: adjusts thresholds based on window duration
+ * Calculate clustering rate: fraction of listens that fall within cluster sessions.
+ * A cluster is 3+ listens within a time window.
  */
-const calculateDynamicArcSpanDegrees = (
-  points: Array<{ ms: number }>,
+const calculateClusteringRate = (
+  points: Array<{ listenedAt: string }>,
   windowDurationMs: number
 ): number => {
-  if (points.length === 0) return 0;
-  if (points.length === 1) return 20;
-  
-  const stdDev = calculateStandardDeviation(points);
-  const mean = points.reduce((sum, p) => sum + p.ms, 0) / points.length;
-  const coefficientOfVariation = mean > 0 ? stdDev / mean : 1;
-  
-  // Window-aware normalization: shorter windows = stricter, longer = more lenient
-  const normalizationFactor = windowDurationMs < 48 * 60 * 60 * 1000 // < 48 hours
-    ? 1.5  // Stricter for short windows
-    : windowDurationMs > 7 * 24 * 60 * 60 * 1000 // > 7 days
-    ? 0.7  // More lenient for long windows
-    : 1.0; // Default
-  
-  const normalizedVariance = Math.min((coefficientOfVariation / 2) * normalizationFactor, 1);
-  
-  const MIN_ARC_DEGREES = 20;
-  const MAX_ARC_DEGREES = 330;
-  const arcSpan = MIN_ARC_DEGREES + normalizedVariance * (MAX_ARC_DEGREES - MIN_ARC_DEGREES);
-  
-  return arcSpan;
+  if (points.length < 3) return 0;
+
+  const sorted = [...points].sort((a, b) =>
+    new Date(a.listenedAt).getTime() - new Date(b.listenedAt).getTime()
+  );
+
+  // Window-aware cluster detection window
+  const clusterWindow = windowDurationMs < 24 * 60 * 60 * 1000
+    ? 5 * 60 * 1000   // 5 minutes for short windows
+    : windowDurationMs > 7 * 24 * 60 * 60 * 1000
+    ? 20 * 60 * 1000  // 20 minutes for long windows
+    : 10 * 60 * 1000; // 10 minutes default
+
+  const inCluster = new Set<number>();
+
+  for (let i = 0; i < sorted.length; i++) {
+    const iTime = new Date(sorted[i].listenedAt).getTime();
+    // Look ahead for cluster members
+    const clusterMembers = [i];
+    for (let j = i + 1; j < sorted.length; j++) {
+      const jTime = new Date(sorted[j].listenedAt).getTime();
+      if (jTime - iTime <= clusterWindow) {
+        clusterMembers.push(j);
+      } else {
+        break;
+      }
+    }
+    if (clusterMembers.length >= 3) {
+      clusterMembers.forEach(idx => inCluster.add(idx));
+    }
+  }
+
+  return inCluster.size / sorted.length;
 };
 
 /**
- * Check if listens are clustered in time
- * Window-aware: adjusts cluster window based on overall window duration
+ * Detect catch-up sprinter pattern: >70% of window inactive, then burst in last 20%
  */
-const hasClusteredListens = (
+const isCatchUpSprinter = (
   points: Array<{ listenedAt: string }>,
   windowDurationMs: number
 ): boolean => {
   if (points.length < 3) return false;
-  
-  const sorted = [...points].sort((a, b) => 
-    new Date(a.listenedAt).getTime() - new Date(b.listenedAt).getTime()
-  );
-  
-  // Window-aware cluster detection: shorter windows = smaller cluster window
-  const baseClusterWindow = 10 * 60 * 1000; // 10 minutes base
-  const clusterWindow = windowDurationMs < 24 * 60 * 60 * 1000 // < 24 hours
-    ? baseClusterWindow * 0.5  // 5 minutes for short windows
-    : windowDurationMs > 7 * 24 * 60 * 60 * 1000 // > 7 days
-    ? baseClusterWindow * 2     // 20 minutes for long windows
-    : baseClusterWindow;
-  
-  for (let i = 0; i < sorted.length - 2; i++) {
-    const firstTime = new Date(sorted[i].listenedAt).getTime();
-    const thirdTime = new Date(sorted[i + 2].listenedAt).getTime();
-    
-    if (thirdTime - firstTime <= clusterWindow) {
-      return true;
-    }
-  }
-  
-  return false;
+
+  const now = Date.now();
+  const burstThreshold = now - windowDurationMs * 0.2; // last 20% of window
+
+  const inBurst = points.filter(p => new Date(p.listenedAt).getTime() >= burstThreshold).length;
+  const beforeBurst = points.length - inBurst;
+
+  // Must have 70%+ of listens in the last 20% of the window,
+  // AND have very few listens in the first 80%
+  return inBurst >= points.length * 0.7 && beforeBurst <= 2;
 };
 
 /**
@@ -127,14 +136,14 @@ const getTimeOfDayPattern = (points: Array<{ listenedAt: string }>): {
   if (points.length === 0) {
     return { isNightTime: false, isAfternoon: false, isMorning: false };
   }
-  
+
   const hours = points.map(p => new Date(p.listenedAt).getHours());
   const nightCount = hours.filter(h => h >= 22 || h <= 6).length;
   const afternoonCount = hours.filter(h => h >= 12 && h < 18).length;
   const morningCount = hours.filter(h => h >= 6 && h < 12).length;
-  
-  const threshold = points.length * 0.4; // 40% threshold
-  
+
+  const threshold = points.length * 0.4;
+
   return {
     isNightTime: nightCount > threshold,
     isAfternoon: afternoonCount > threshold,
@@ -153,82 +162,78 @@ const getDayOfWeekPattern = (points: Array<{ listenedAt: string }>): {
   if (points.length === 0) {
     return { isWeekend: false, isWeekday: false };
   }
-  
+
   const dayCounts: Record<string, number> = {};
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  
+
   points.forEach(p => {
     const day = dayNames[new Date(p.listenedAt).getDay()];
     dayCounts[day] = (dayCounts[day] || 0) + 1;
   });
-  
+
   const weekendCount = (dayCounts['Saturday'] || 0) + (dayCounts['Sunday'] || 0);
-  const weekdayCount = points.length - weekendCount;
   const threshold = points.length * 0.4;
-  
+
   const dominantDay = Object.entries(dayCounts)
     .sort(([, a], [, b]) => b - a)[0]?.[0];
-  
+
   return {
     isWeekend: weekendCount > threshold,
-    isWeekday: weekdayCount > threshold,
+    isWeekday: (points.length - weekendCount) > threshold,
     dominantDay
   };
 };
 
 /**
- * Calculate user scores based on listening patterns
- * Window-aware: adjusts thresholds dynamically
+ * Calculate user scores based on listening patterns.
+ * Uses group-relative thresholds for speed to avoid everyone landing in the same bucket.
  */
 const calculateUserScores = (
   user: ListenerReflexUser,
   points: Array<{ ms: number; listenedAt: string }>,
   windowDurationMs: number,
-  groupAverageListens: number
+  groupAverageListens: number,
+  groupMedianMs: number,
+  totalUsers: number
 ): UserScores => {
   const { medianMs, listens } = user;
-  
-  // Speed Category (window-aware thresholds)
+
+  // Speed Category — relative to group median
   let speedCategory: SpeedCategory;
-  if (medianMs < 60 * 1000) { // < 1 minute
-    speedCategory = 'instant';
-  } else if (medianMs < 60 * 60 * 1000) { // < 1 hour
-    speedCategory = 'fast';
-  } else if (medianMs < 12 * 60 * 60 * 1000) { // < 12 hours
-    speedCategory = 'steady';
-  } else {
+
+  if (medianMs === null || medianMs === undefined) {
     speedCategory = 'delayed';
+  } else if (totalUsers < 3 || groupMedianMs <= 0) {
+    // Fallback to wider absolute thresholds for tiny groups
+    if (medianMs < 5 * 60 * 1000) speedCategory = 'instant';          // < 5 min
+    else if (medianMs < 2 * 60 * 60 * 1000) speedCategory = 'fast';   // < 2 hr
+    else if (medianMs < 24 * 60 * 60 * 1000) speedCategory = 'steady'; // < 24 hr
+    else speedCategory = 'delayed';
+  } else {
+    // Group-relative thresholds
+    if (medianMs < groupMedianMs * 0.25) speedCategory = 'instant';
+    else if (medianMs < groupMedianMs * 0.7) speedCategory = 'fast';
+    else if (medianMs <= groupMedianMs * 1.5) speedCategory = 'steady';
+    else speedCategory = 'delayed';
   }
-  
-  // Habit Category (window-aware)
-  const dynamicArcSpan = calculateDynamicArcSpanDegrees(points, windowDurationMs);
-  const hasClustered = hasClusteredListens(points, windowDurationMs);
-  
-  // Window-aware consistency threshold
-  const consistencyThreshold = windowDurationMs < 48 * 60 * 60 * 1000 // < 48 hours
-    ? 25  // Stricter for short windows
-    : windowDurationMs > 7 * 24 * 60 * 60 * 1000 // > 7 days
-    ? 50  // More lenient for long windows
-    : 30; // Default
-  
-  const erraticThreshold = windowDurationMs < 48 * 60 * 60 * 1000
-    ? 120  // Stricter for short windows
-    : windowDurationMs > 7 * 24 * 60 * 60 * 1000
-    ? 200  // More lenient for long windows
-    : 150; // Default
-  
+
+  // Habit Category — CV-based with tightened batcher detection
+  const cv = calculateCV(points);
+  const clusteringRate = calculateClusteringRate(points, windowDurationMs);
+
   let habitCategory: HabitCategory;
-  if (dynamicArcSpan < consistencyThreshold) {
+  if (cv < 0.3) {
     habitCategory = 'ritualist';
-  } else if (hasClustered) {
+  } else if (clusteringRate >= 0.4) {
+    // True batcher: 40%+ of listens are in cluster sessions
     habitCategory = 'batcher';
-  } else if (dynamicArcSpan > erraticThreshold) {
+  } else if (cv > 0.8) {
     habitCategory = 'erratic';
   } else {
-    // Default based on clustering
-    habitCategory = hasClustered ? 'batcher' : 'erratic';
+    // Ambiguous zone — default to erratic instead of batcher
+    habitCategory = 'erratic';
   }
-  
+
   // Volume Category
   const relativeEngagement = groupAverageListens > 0 ? listens / groupAverageListens : 1;
   let volumeCategory: VolumeCategory;
@@ -239,15 +244,154 @@ const calculateUserScores = (
   } else {
     volumeCategory = 'casual';
   }
-  
+
   return { speedCategory, habitCategory, volumeCategory };
 };
 
-/**
- * Archetype definitions with 3 description variations each
- */
+// ─── Engagement Archetypes (motivational/negative) ─────────────────────────
+
+const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
+  {
+    id: 'hibernating',
+    title: 'Hibernating',
+    descriptions: [
+      'Your music feed is collecting dust. The group misses your ears.',
+      'Zero plays? It\'s hibernation season. Wake up — there are bangers waiting.',
+      'The songs are piling up like unread emails. Time for a listening spree?'
+    ],
+    badge: {
+      icon: Moon,
+      color: 'text-indigo-400',
+      bgColor: 'bg-indigo-500/20',
+      borderColor: 'border-indigo-500/30'
+    },
+    matches: (user) => user.listens === 0
+  },
+  {
+    id: 'ghost_listener',
+    title: 'Ghost Listener',
+    descriptions: [
+      'Your listening history is like a UFO sighting — rare and hard to confirm.',
+      'The group can barely tell you\'re here. A few more plays and they\'ll believe in you.',
+      'Are you even real? Your listening stats say "maybe." Time to make your presence known.'
+    ],
+    badge: {
+      icon: Ghost,
+      color: 'text-slate-400',
+      bgColor: 'bg-slate-500/20',
+      borderColor: 'border-slate-500/30'
+    },
+    matches: (user) => user.listens <= 2 && user.listenRatio < 0.15
+  },
+  {
+    id: 'fashionably_late',
+    title: 'Fashionably Late',
+    descriptions: [
+      'You arrive to the party after the DJ has packed up. But hey, better late than never.',
+      'Songs shared on Monday? You\'ll get to them by Thursday. Your timeline runs on island time.',
+      'You take "slow jam" literally. The group has moved on, but you\'re just getting started.'
+    ],
+    badge: {
+      icon: Hourglass,
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500/20',
+      borderColor: 'border-orange-500/30'
+    },
+    matches: (user, _points, groupMedianMs) =>
+      user.listens >= 3 && user.medianMs !== null && groupMedianMs > 0 && user.medianMs > groupMedianMs * 3
+  },
+  {
+    id: 'catch_up_sprinter',
+    title: 'Catch-Up Sprinter',
+    descriptions: [
+      'You disappeared, then came back in a blaze of glory. The comeback kid of listening.',
+      'After a long silence, you binged it all at once. Respect the hustle.',
+      'You went dark, then speedran the playlist. The group appreciates the effort.'
+    ],
+    badge: {
+      icon: FastForward,
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/20',
+      borderColor: 'border-cyan-500/30'
+    },
+    matches: (user, points, _groupMedianMs, windowDurationMs) =>
+      user.listens >= 3 && isCatchUpSprinter(points, windowDurationMs)
+  },
+  {
+    id: 'picky_ear',
+    title: 'Picky Ear',
+    descriptions: [
+      'You\'re the Simon Cowell of the group — only the best get through your audition.',
+      'Most songs don\'t make your cut. The ones that do get your full attention.',
+      'You listen to what you want, when you want. Selective? Sure. Picky? Absolutely.'
+    ],
+    badge: {
+      icon: Filter,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/20',
+      borderColor: 'border-amber-500/30'
+    },
+    matches: (user, _points, groupMedianMs) =>
+      user.listens >= 3 &&
+      user.listenRatio < 0.3 &&
+      (user.medianMs === null || groupMedianMs <= 0 || user.medianMs <= groupMedianMs * 1.5)
+  }
+];
+
+// ─── Standard Archetypes ────────────────────────────────────────────────────
+
 const ARCHETYPES: Archetype[] = [
-  // Instant + Batcher = Lightning Collector
+  // Volume-based archetypes FIRST (so they're checked before speed+habit combos)
+  {
+    id: 'group_pulse',
+    title: 'The Group\'s Pulse',
+    descriptions: [
+      'You\'re always there, always listening, always feeling the beat of what the group shares in real-time.',
+      'You listen to everything, instantly. The group\'s most engaged member, always present, always reacting.',
+      'You\'re the heartbeat of the group—fast, frequent, always there when the music drops.'
+    ],
+    badge: {
+      icon: Heart,
+      color: 'text-primary',
+      bgColor: 'bg-primary/20',
+      borderColor: 'border-primary/30'
+    },
+    matches: (s) => s.volumeCategory === 'high_freq' && s.speedCategory === 'instant'
+  },
+  {
+    id: 'enthusiast',
+    title: 'The Enthusiast',
+    descriptions: [
+      'You listen to everything, steadily. The group\'s most engaged member, always there, always listening.',
+      'You\'re quick to listen and you listen to everything. The group knows you\'re always engaged.',
+      'You listen to it all, at a steady pace. The group\'s most enthusiastic member, always present.'
+    ],
+    badge: {
+      icon: Music,
+      color: 'text-pink-400',
+      bgColor: 'bg-pink-500/20',
+      borderColor: 'border-pink-500/30'
+    },
+    matches: (s) => s.volumeCategory === 'high_freq' && s.speedCategory === 'steady'
+  },
+  {
+    id: 'sniper',
+    title: 'The Sniper',
+    descriptions: [
+      'You don\'t listen to everything, but when you do, you\'re lightning fast. Quality over quantity, always.',
+      'You pick your moments carefully, then strike instantly. Selective, precise, always on target.',
+      'You wait for the right song, then listen immediately. Quality over quantity, always.'
+    ],
+    badge: {
+      icon: Target,
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/20',
+      borderColor: 'border-red-500/30'
+    },
+    matches: (s) => s.volumeCategory === 'selective' && s.speedCategory === 'fast'
+  },
+
+  // Speed + Habit archetypes
   {
     id: 'lightning_collector',
     title: 'The Lightning Collector',
@@ -264,8 +408,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'instant' && s.habitCategory === 'batcher'
   },
-  
-  // Instant + Ritualist = First Responder
   {
     id: 'first_responder',
     title: 'First Responder',
@@ -282,8 +424,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'instant' && s.habitCategory === 'ritualist'
   },
-  
-  // Instant + Erratic = The Spark
   {
     id: 'the_spark',
     title: 'The Spark',
@@ -300,8 +440,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'instant' && s.habitCategory === 'erratic'
   },
-  
-  // Fast + Batcher = The Collector
   {
     id: 'collector',
     title: 'The Collector',
@@ -318,8 +456,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'fast' && s.habitCategory === 'batcher'
   },
-  
-  // Fast + Ritualist = The Ritualist
   {
     id: 'ritualist',
     title: 'The Ritualist',
@@ -336,8 +472,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'fast' && s.habitCategory === 'ritualist'
   },
-  
-  // Fast + Erratic = The Wanderer
   {
     id: 'wanderer',
     title: 'The Wanderer',
@@ -354,8 +488,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'fast' && s.habitCategory === 'erratic'
   },
-  
-  // Steady + Batcher = The Archivist
   {
     id: 'archivist',
     title: 'The Archivist',
@@ -372,8 +504,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'steady' && s.habitCategory === 'batcher'
   },
-  
-  // Steady + Ritualist = The Clockwork Listener
   {
     id: 'clockwork_listener',
     title: 'The Clockwork Listener',
@@ -390,8 +520,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'steady' && s.habitCategory === 'ritualist'
   },
-  
-  // Steady + Erratic = The Patient Listener
   {
     id: 'patient_listener',
     title: 'The Patient Listener',
@@ -408,8 +536,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'steady' && s.habitCategory === 'erratic'
   },
-  
-  // Delayed + Batcher = The Weekend Warrior
   {
     id: 'weekend_warrior',
     title: 'The Weekend Warrior',
@@ -426,8 +552,6 @@ const ARCHETYPES: Archetype[] = [
     },
     matches: (s) => s.speedCategory === 'delayed' && s.habitCategory === 'batcher'
   },
-  
-  // Delayed + Ritualist = The Dependable
   {
     id: 'dependable',
     title: 'The Dependable',
@@ -443,9 +567,7 @@ const ARCHETYPES: Archetype[] = [
       borderColor: 'border-green-500/30'
     },
     matches: (s) => s.speedCategory === 'delayed' && s.habitCategory === 'ritualist'
-  } as Archetype,
-  
-  // Delayed + Erratic = The Wanderer (Slow)
+  },
   {
     id: 'slow_wanderer',
     title: 'The Slow Wanderer',
@@ -461,61 +583,7 @@ const ARCHETYPES: Archetype[] = [
       borderColor: 'border-slate-500/30'
     },
     matches: (s) => s.speedCategory === 'delayed' && s.habitCategory === 'erratic'
-  } as Archetype,
-  
-  // High Frequency + Instant = The Group's Pulse
-  {
-    id: 'group_pulse',
-    title: 'The Group\'s Pulse',
-    descriptions: [
-      'You\'re always there, always listening, always feeling the beat of what the group shares in real-time.',
-      'You listen to everything, instantly. The group\'s most engaged member, always present, always reacting.',
-      'You\'re the heartbeat of the group—fast, frequent, always there when the music drops.'
-    ],
-    badge: {
-      icon: Heart,
-      color: 'text-primary',
-      bgColor: 'bg-primary/20',
-      borderColor: 'border-primary/30'
-    },
-    matches: (s) => s.volumeCategory === 'high_freq' && s.speedCategory === 'instant'
-  } as Archetype,
-  
-  // Selective + Fast = The Sniper
-  {
-    id: 'sniper',
-    title: 'The Sniper',
-    descriptions: [
-      'You don\'t listen to everything, but when you do, you\'re lightning fast. Quality over quantity, always.',
-      'You pick your moments carefully, then strike instantly. Selective, precise, always on target.',
-      'You wait for the right song, then listen immediately. Quality over quantity, always.'
-    ],
-    badge: {
-      icon: Target,
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/20',
-      borderColor: 'border-red-500/30'
-    },
-    matches: (s) => s.volumeCategory === 'selective' && s.speedCategory === 'fast'
-  } as Archetype,
-  
-  // High Frequency + Steady = The Enthusiast
-  {
-    id: 'enthusiast',
-    title: 'The Enthusiast',
-    descriptions: [
-      'You listen to everything, steadily. The group\'s most engaged member, always there, always listening.',
-      'You\'re quick to listen and you listen to everything. The group knows you\'re always engaged.',
-      'You listen to it all, at a steady pace. The group\'s most enthusiastic member, always present.'
-    ],
-    badge: {
-      icon: Music,
-      color: 'text-pink-400',
-      bgColor: 'bg-pink-500/20',
-      borderColor: 'border-pink-500/30'
-    },
-    matches: (s) => s.volumeCategory === 'high_freq' && s.speedCategory === 'steady'
-  } as Archetype,
+  }
 ];
 
 /**
@@ -527,10 +595,9 @@ const getContextualTitle = (
   points: Array<{ listenedAt: string }>,
   windowDurationMs: number
 ): string => {
-  // For windows > 5 days: use habit-based labels
   if (windowDurationMs > 5 * 24 * 60 * 60 * 1000) {
     const dayPattern = getDayOfWeekPattern(points);
-    
+
     if (dayPattern.isWeekend && archetype.id === 'archivist') {
       return 'The Sunday Regular';
     }
@@ -541,11 +608,10 @@ const getContextualTitle = (
       return `The ${dayPattern.dominantDay} Regular`;
     }
   }
-  
-  // For windows < 24 hours: use session-based labels
+
   if (windowDurationMs < 24 * 60 * 60 * 1000) {
     const timePattern = getTimeOfDayPattern(points);
-    
+
     if (timePattern.isNightTime && scores.habitCategory === 'batcher') {
       return 'The Midnight Archivist';
     }
@@ -559,56 +625,63 @@ const getContextualTitle = (
       return 'The Morning Ritual';
     }
   }
-  
+
   return archetype.title;
 };
 
 /**
- * Get listening style label based on user's listening patterns
- * Window-aware: adjusts thresholds and labels based on window duration
+ * Get listening style label based on user's listening patterns.
+ * Uses group-relative thresholds and checks engagement archetypes first.
  */
 export const getListeningStyleLabel = (
   user: ListenerReflexUser,
   ringData: { points: Array<{ ms: number; listenedAt: string }> },
   range: ListenerReflexRange,
-  groupAverageListens?: number
+  groupAverageListens?: number,
+  groupMedianMs?: number,
+  totalUsers?: number
 ): ListeningStyleLabel => {
   const { points } = ringData;
-  
-  // Calculate window duration from range
+
   const rangeMsMap: Record<ListenerReflexRange, number> = {
     '24h': 24 * 60 * 60 * 1000,
     '7d': 7 * 24 * 60 * 60 * 1000,
     '30d': 30 * 24 * 60 * 60 * 1000,
-    'all': 365 * 24 * 60 * 60 * 1000
+    'all': 90 * 24 * 60 * 60 * 1000
   };
   const windowDurationMs = rangeMsMap[range] ?? 30 * 24 * 60 * 60 * 1000;
-  
-  // Calculate group average
-  const groupAvg = groupAverageListens || user.listens;
-  
-  // Calculate user scores
-  const scores = calculateUserScores(user, points, windowDurationMs, groupAvg);
-  
-  // Find matching archetype
-  const matchingArchetype = ARCHETYPES.find(archetype => archetype.matches(scores));
-  
-  if (matchingArchetype) {
-    // Get contextual title (window-aware)
-    const title = getContextualTitle(matchingArchetype, scores, points, windowDurationMs);
-    
-    // Select random description variation (deterministic based on user ID)
+  const gMedian = groupMedianMs ?? 0;
+
+  // Check engagement archetypes first (motivational badges for low engagement)
+  const engagementMatch = ENGAGEMENT_ARCHETYPES.find(a =>
+    a.matches(user, points, gMedian, windowDurationMs)
+  );
+
+  if (engagementMatch) {
     const variationIndex = user.userId.charCodeAt(0) % 3;
-    const description = matchingArchetype.descriptions[variationIndex];
-    
     return {
-      title,
-      description,
-      badge: matchingArchetype.badge
+      title: engagementMatch.title,
+      description: engagementMatch.descriptions[variationIndex],
+      badge: engagementMatch.badge
     };
   }
-  
-  // Default: Balanced listener
+
+  // Calculate user scores for standard archetypes
+  const groupAvg = groupAverageListens || user.listens;
+  const scores = calculateUserScores(user, points, windowDurationMs, groupAvg, gMedian, totalUsers ?? 0);
+
+  // Find matching standard archetype
+  const matchingArchetype = ARCHETYPES.find(archetype => archetype.matches(scores));
+
+  if (matchingArchetype) {
+    const title = getContextualTitle(matchingArchetype, scores, points, windowDurationMs);
+    const variationIndex = user.userId.charCodeAt(0) % 3;
+    const description = matchingArchetype.descriptions[variationIndex];
+
+    return { title, description, badge: matchingArchetype.badge };
+  }
+
+  // Default fallback
   return {
     title: 'The Balanced Listener',
     description: 'You move through the group\'s music at your own pace, finding your way through each shared song.',

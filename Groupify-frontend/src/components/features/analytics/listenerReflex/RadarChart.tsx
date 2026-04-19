@@ -2,6 +2,74 @@ import { useMemo } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import type { RadarProfile } from '../../../../types';
 
+// SVG path data for each axis icon (Lucide 24×24 viewBox, stroke-based)
+const AXIS_ICON_PATHS: Record<string, React.ReactNode> = {
+  Speed: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+  Consistency: (
+    <>
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </>
+  ),
+  Recency: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </>
+  ),
+  Volume: (
+    <>
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </>
+  ),
+  Burstiness: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
+};
+
+const ICON_SIZE = 20;
+
+const ICON_GAP = 14; // extra px to push icon away from the graph edge
+
+interface CustomTickProps {
+  x?: number;
+  y?: number;
+  cx?: number;
+  cy?: number;
+  payload?: { value: string };
+}
+
+function CustomAxisTick({ x = 0, y = 0, cx = 0, cy = 0, payload }: CustomTickProps) {
+  if (!payload?.value) return null;
+  const paths = AXIS_ICON_PATHS[payload.value];
+  if (!paths) return null;
+
+  // Push the icon outward along the axis vector
+  const dx = x - cx;
+  const dy = y - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const ox = x + (dx / dist) * ICON_GAP;
+  const oy = y + (dy / dist) * ICON_GAP;
+
+  return (
+    <g transform={`translate(${ox - ICON_SIZE / 2}, ${oy - ICON_SIZE / 2})`}>
+      <title>{payload.value}</title>
+      <svg
+        width={ICON_SIZE}
+        height={ICON_SIZE}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="rgba(255,255,255,0.85)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {paths}
+      </svg>
+    </g>
+  );
+}
+
 interface TooltipPayloadItem {
   dataKey: string;
   value: number;
@@ -173,20 +241,20 @@ export default function ListenerReflexRadarChart({
     <div className="flex-1 w-full min-h-[400px] rounded-lg relative bg-black/20 border border-white/5 transition-opacity duration-300">
       <div style={{ width: '100%', height: '400px', position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart 
-            cx="50%" 
-            cy="50%" 
-            outerRadius="60%" 
+          <RadarChart
+            cx="50%"
+            cy="50%"
+            outerRadius="58%"
             data={chartData}
-            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+            margin={{ top: 36, right: 56, bottom: 36, left: 56 }}
           >
-          <PolarGrid 
-            stroke="rgba(255,255,255,0.3)" 
+          <PolarGrid
+            stroke="rgba(255,255,255,0.3)"
             strokeWidth={1.5}
           />
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fill: '#FFFFFF', fontSize: 13, fontWeight: 600 }}
+            tick={<CustomAxisTick />}
           />
           <PolarRadiusAxis
             angle={30}

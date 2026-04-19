@@ -158,10 +158,11 @@ export interface ListenerReflexUser {
   displayName: string;
   avatarUrl: string | null;
   listens: number;
-  medianMs: number;
-  p25Ms: number;
-  p75Ms: number;
-  category: ReflexCategory;
+  medianMs: number | null;
+  p25Ms: number | null;
+  p75Ms: number | null;
+  category: ReflexCategory | null;
+  listenRatio: number;
 }
 
 export interface ListenerReflexData {
@@ -186,6 +187,7 @@ export interface ListenerReflexData {
   summary: {
     groupMedianMs: number;
     instantReactorCount: number;
+    totalSharesInRange: number;
   };
 }
 

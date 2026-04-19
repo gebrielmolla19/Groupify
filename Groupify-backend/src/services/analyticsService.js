@@ -1226,6 +1226,12 @@ class AnalyticsService {
     // Execute aggregation
     const aggregationResults = await Share.aggregate(pipeline);
 
+    // Count total shares in the group within the time range (for listenRatio)
+    const totalSharesInRange = await Share.countDocuments({
+      group: gid,
+      ...(startDate && { createdAt: { $gte: startDate } })
+    });
+
     // Helper function to calculate percentile
     const calculatePercentile = (values, percentile) => {
       if (!values || values.length === 0) return null;
@@ -1337,14 +1343,20 @@ class AnalyticsService {
         medianMs: stats.medianMs,
         p25Ms: stats.p25Ms,
         p75Ms: stats.p75Ms,
-        category: stats.category
+        category: stats.category,
+        listenRatio: totalSharesInRange > 0 ? stats.listens / totalSharesInRange : 0
       });
 
       buckets[stats.category].push(userId);
     }
 
-    // Sort users by median time (fastest first)
-    usersArray.sort((a, b) => a.medianMs - b.medianMs);
+    // Re-sort: fastest first, 0-listen members at the end
+    usersArray.sort((a, b) => {
+      if (a.medianMs === null && b.medianMs === null) return 0;
+      if (a.medianMs === null) return 1;
+      if (b.medianMs === null) return -1;
+      return a.medianMs - b.medianMs;
+    });
 
     // Build ringData (sample up to 50 most recent points per user)
     const ringData = [];
@@ -1364,8 +1376,31 @@ class AnalyticsService {
       });
     }
 
+    // Add members with 0 listens (for engagement badges like "Hibernating")
+    const allMemberUsers = await User.find({ _id: { $in: memberIds } })
+      .select('displayName profileImage')
+      .lean();
+
+    for (const member of allMemberUsers) {
+      const memberId = member._id.toString();
+      if (!userStatsMap.has(memberId)) {
+        usersArray.push({
+          userId: memberId,
+          displayName: member.displayName,
+          avatarUrl: member.profileImage || null,
+          listens: 0,
+          medianMs: null,
+          p25Ms: null,
+          p75Ms: null,
+          category: null,
+          listenRatio: 0
+        });
+        ringData.push({ userId: memberId, points: [] });
+      }
+    }
+
     // Calculate group median
-    const allMedians = usersArray.map(u => u.medianMs);
+    const allMedians = usersArray.filter(u => u.medianMs !== null).map(u => u.medianMs);
     const groupMedianMs = allMedians.length > 0
       ? calculatePercentile(allMedians, 50)
       : null;
@@ -1373,7 +1408,8 @@ class AnalyticsService {
     // Build summary
     const summary = {
       groupMedianMs: groupMedianMs || 0,
-      instantReactorCount: buckets.instant.length
+      instantReactorCount: buckets.instant.length,
+      totalSharesInRange
     };
 
     return {
