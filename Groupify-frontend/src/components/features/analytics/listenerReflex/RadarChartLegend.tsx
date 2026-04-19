@@ -40,26 +40,18 @@ const METRICS = [
 export default function RadarChartLegend({ className }: RadarChartLegendProps) {
   return (
     <div className={className}>
-      <div className="flex flex-wrap gap-3 bg-black/60 backdrop-blur-sm rounded-lg border border-white/5 px-4 py-3">
+      <div className="legend-grid gap-x-4 gap-y-2 bg-black/60 backdrop-blur-sm rounded-lg border border-white/5 px-4 py-3">
         {METRICS.map((metric) => {
           const Icon = metric.icon;
           return (
-            <div
-              key={metric.key}
-              className="flex items-center gap-2 group"
-              title={`${metric.label}: ${metric.description}`}
-            >
-              <div className="flex items-center justify-center w-5 h-5 rounded bg-white/5 border border-white/10 group-hover:border-primary/30 transition-colors">
+            <div key={metric.key} className="legend-item flex items-center gap-2 group min-w-0">
+              <span className="legend-item-tooltip">{metric.description}</span>
+              <div className="flex items-center justify-center w-5 h-5 rounded bg-white/5 border border-white/10 group-hover:border-primary/30 transition-colors flex-shrink-0">
                 <Icon className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] font-medium text-foreground leading-tight">
-                  {metric.label}
-                </span>
-                <span className="text-[10px] text-muted-foreground leading-tight">
-                  {metric.description}
-                </span>
-              </div>
+              <span className="text-[11px] font-medium text-foreground leading-tight truncate">
+                {metric.label}
+              </span>
             </div>
           );
         })}
