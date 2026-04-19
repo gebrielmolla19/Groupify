@@ -52,23 +52,28 @@ const mapTimestampToX = (
   return chartLeft + ratio * chartWidth;
 };
 
+// Y-axis ceiling per range so short-range charts aren't compressed against a 30d scale
+const RANGE_MAX_MS: Record<ListenerReflexRange, number> = {
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+  'all': 90 * 24 * 60 * 60 * 1000,
+};
+
 /**
  * Map reaction time (ms) to Y position using log scale, inverted (fast = top).
- * @param reactionMs reaction time in milliseconds
- * @param chartTop top of the chart area
- * @param chartHeight usable height of the chart area
- * @returns y coordinate
+ * maxMs should match the active range so the scale is meaningful.
  */
 const mapReactionTimeToY = (
   reactionMs: number,
   chartTop: number,
-  chartHeight: number
+  chartHeight: number,
+  maxMs: number
 ): number => {
-  const MIN_MS = 1000;       // 1 second floor
-  const MAX_MS = 30 * 24 * 60 * 60 * 1000; // 30 days ceiling
-  const clamped = Math.max(MIN_MS, Math.min(reactionMs, MAX_MS));
+  const MIN_MS = 1000; // 1 second floor
+  const clamped = Math.max(MIN_MS, Math.min(reactionMs, maxMs));
   const logMin = Math.log(MIN_MS);
-  const logMax = Math.log(MAX_MS);
+  const logMax = Math.log(maxMs);
   const t = (Math.log(clamped) - logMin) / (logMax - logMin); // 0 = fast, 1 = slow
   return chartTop + t * chartHeight; // fast at top, slow at bottom
 };
@@ -143,6 +148,16 @@ const getBorderValue = (borderClass: string): string => {
   };
   return borderMap[borderClass] || 'rgba(255, 255, 255, 0.1)';
 };
+
+// SVG viewBox units for the timeline strip chart
+const SVG_WIDTH = 300;
+const SVG_HEIGHT = 80;
+const CHART_LEFT = 30;   // space for "Fast"/"Slow" labels
+const CHART_RIGHT = 10;
+const CHART_TOP = 4;
+const CHART_BOTTOM = 16; // space for date labels
+const CHART_WIDTH = SVG_WIDTH - CHART_LEFT - CHART_RIGHT;
+const CHART_HEIGHT = SVG_HEIGHT - CHART_TOP - CHART_BOTTOM;
 
 export default function ListenerReflexCard({ groupId, range, mode, isCompareMode }: ListenerReflexCardProps) {
   const isMobile = useIsMobile();
@@ -219,18 +234,9 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
     );
   }
 
-  // Chart layout constants (SVG viewBox units)
-  const SVG_WIDTH = 300;
-  const SVG_HEIGHT = 80;
-  const CHART_LEFT = 30;  // space for "Fast"/"Slow" labels
-  const CHART_RIGHT = 10;
-  const CHART_TOP = 4;
-  const CHART_BOTTOM = 16; // space for date labels
-  const chartWidth = SVG_WIDTH - CHART_LEFT - CHART_RIGHT;
-  const chartHeight = SVG_HEIGHT - CHART_TOP - CHART_BOTTOM;
-
   const groupMedianMs = data.summary.groupMedianMs;
   const dotRadius = isMobile ? 4 : 3;
+  const yAxisMaxMs = RANGE_MAX_MS[range];
 
   return (
     <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
@@ -260,6 +266,15 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
             {/* Timeline Strip Charts */}
             {timelineData && timelineData.usersWithTimeline.length > 0 && (
               <div className="w-full">
+                {/* Single shared gradient definition — prevents duplicate IDs when multiple users have AI insights */}
+                <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+                  <defs>
+                    <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="rgb(192 132 252)" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="rgb(147 197 253)" stopOpacity="0.6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
                 <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Reaction Timeline</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {timelineData.usersWithTimeline.map(({ user, ringData }) => {
@@ -281,12 +296,12 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
 
                     // Compute user median Y position
                     const userMedianY = user.medianMs !== null
-                      ? mapReactionTimeToY(user.medianMs, CHART_TOP, chartHeight)
+                      ? mapReactionTimeToY(user.medianMs, CHART_TOP, CHART_HEIGHT, yAxisMaxMs)
                       : null;
 
                     // Compute group median Y position
                     const groupMedianY = groupMedianMs > 0
-                      ? mapReactionTimeToY(groupMedianMs, CHART_TOP, chartHeight)
+                      ? mapReactionTimeToY(groupMedianMs, CHART_TOP, CHART_HEIGHT, yAxisMaxMs)
                       : null;
 
                     // Badge / style label
@@ -356,12 +371,6 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                               <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-300 flex items-start gap-1">
                                 {aiInsights?.[user.userId] && (
                                   <svg className="h-4 w-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="url(#ai-gradient)" stroke="none">
-                                    <defs>
-                                      <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="rgb(192 132 252)" stopOpacity="0.8" />
-                                        <stop offset="100%" stopColor="rgb(147 197 253)" stopOpacity="0.6" />
-                                      </linearGradient>
-                                    </defs>
                                     <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
                                   </svg>
                                 )}
@@ -381,14 +390,14 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                             >
                               {/* Y-axis labels */}
                               <text x={CHART_LEFT - 3} y={CHART_TOP + 6} textAnchor="end" fontSize="7" fill="rgba(255,255,255,0.4)">Fast</text>
-                              <text x={CHART_LEFT - 3} y={CHART_TOP + chartHeight} textAnchor="end" fontSize="7" fill="rgba(255,255,255,0.4)">Slow</text>
+                              <text x={CHART_LEFT - 3} y={CHART_TOP + CHART_HEIGHT} textAnchor="end" fontSize="7" fill="rgba(255,255,255,0.4)">Slow</text>
 
                               {/* Chart border */}
                               <rect
                                 x={CHART_LEFT}
                                 y={CHART_TOP}
-                                width={chartWidth}
-                                height={chartHeight}
+                                width={CHART_WIDTH}
+                                height={CHART_HEIGHT}
                                 fill="none"
                                 stroke="rgba(255,255,255,0.06)"
                                 strokeWidth="0.5"
@@ -400,14 +409,14 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                   <line
                                     x1={CHART_LEFT}
                                     y1={groupMedianY}
-                                    x2={CHART_LEFT + chartWidth}
+                                    x2={CHART_LEFT + CHART_WIDTH}
                                     y2={groupMedianY}
                                     stroke="rgba(255,255,255,0.2)"
                                     strokeWidth="0.7"
                                     strokeDasharray="4,3"
                                   />
                                   <text
-                                    x={CHART_LEFT + chartWidth + 1}
+                                    x={CHART_LEFT + CHART_WIDTH + 1}
                                     y={groupMedianY + 2.5}
                                     fontSize="5.5"
                                     fill="rgba(255,255,255,0.25)"
@@ -423,26 +432,26 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                   <line
                                     x1={CHART_LEFT}
                                     y1={userMedianY}
-                                    x2={CHART_LEFT + chartWidth}
+                                    x2={CHART_LEFT + CHART_WIDTH}
                                     y2={userMedianY}
                                     stroke="rgba(0,255,136,0.35)"
                                     strokeWidth="0.8"
                                   />
                                   <text
-                                    x={CHART_LEFT + chartWidth + 1}
+                                    x={CHART_LEFT + CHART_WIDTH + 1}
                                     y={userMedianY + 2.5}
                                     fontSize="5.5"
                                     fill="rgba(0,255,136,0.4)"
                                   >
-                                    you
+                                    med
                                   </text>
                                 </>
                               )}
 
                               {/* Data points */}
                               {ringData.points.slice(0, 50).map((point, i) => {
-                                const x = mapTimestampToX(point.listenedAt, minTime, maxTime, CHART_LEFT, chartWidth);
-                                const y = mapReactionTimeToY(point.ms, CHART_TOP, chartHeight);
+                                const x = mapTimestampToX(point.listenedAt, minTime, maxTime, CHART_LEFT, CHART_WIDTH);
+                                const y = mapReactionTimeToY(point.ms, CHART_TOP, CHART_HEIGHT, yAxisMaxMs);
                                 return (
                                   <circle
                                     key={i}
@@ -459,7 +468,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                               <text x={CHART_LEFT} y={SVG_HEIGHT - 2} fontSize="6.5" fill="rgba(255,255,255,0.35)">
                                 {formatAxisDate(minTime)}
                               </text>
-                              <text x={CHART_LEFT + chartWidth} y={SVG_HEIGHT - 2} textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.35)">
+                              <text x={CHART_LEFT + CHART_WIDTH} y={SVG_HEIGHT - 2} textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.35)">
                                 {formatAxisDate(maxTime)}
                               </text>
                             </svg>

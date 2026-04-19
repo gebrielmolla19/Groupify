@@ -1161,8 +1161,9 @@ class AnalyticsService {
     // Build aggregation pipeline based on mode
     let pipeline;
 
+    // Use $facet to get both the per-user listen stats and the total share count
+    // in a single aggregation round-trip instead of separate aggregate + countDocuments.
     if (mode === 'received') {
-      // Received mode: How fast each member listens to songs shared in the group
       pipeline = [
         {
           $match: {
@@ -1170,24 +1171,31 @@ class AnalyticsService {
             ...(startDate && { createdAt: { $gte: startDate } })
           }
         },
-        { $unwind: '$listeners' },
         {
-          $match: {
-            'listeners.user': { $in: memberIds },
-            'listeners.timeToListen': { $ne: null, $exists: true },
-            'listeners.listenedAt': { $exists: true }
-          }
-        },
-        {
-          $group: {
-            _id: '$listeners.user',
-            listenData: {
-              $push: {
-                ms: '$listeners.timeToListen',
-                listenedAt: '$listeners.listenedAt'
+          $facet: {
+            stats: [
+              { $unwind: '$listeners' },
+              {
+                $match: {
+                  'listeners.user': { $in: memberIds },
+                  'listeners.timeToListen': { $ne: null, $exists: true },
+                  'listeners.listenedAt': { $exists: true }
+                }
+              },
+              {
+                $group: {
+                  _id: '$listeners.user',
+                  listenData: {
+                    $push: {
+                      ms: '$listeners.timeToListen',
+                      listenedAt: '$listeners.listenedAt'
+                    }
+                  },
+                  count: { $sum: 1 }
+                }
               }
-            },
-            count: { $sum: 1 }
+            ],
+            total: [{ $count: 'count' }]
           }
         }
       ];
@@ -1201,36 +1209,38 @@ class AnalyticsService {
             ...(startDate && { createdAt: { $gte: startDate } })
           }
         },
-        { $unwind: '$listeners' },
         {
-          $match: {
-            'listeners.timeToListen': { $ne: null, $exists: true },
-            'listeners.listenedAt': { $exists: true }
-          }
-        },
-        {
-          $group: {
-            _id: '$sharedBy',
-            listenData: {
-              $push: {
-                ms: '$listeners.timeToListen',
-                listenedAt: '$listeners.listenedAt'
+          $facet: {
+            stats: [
+              { $unwind: '$listeners' },
+              {
+                $match: {
+                  'listeners.timeToListen': { $ne: null, $exists: true },
+                  'listeners.listenedAt': { $exists: true }
+                }
+              },
+              {
+                $group: {
+                  _id: '$sharedBy',
+                  listenData: {
+                    $push: {
+                      ms: '$listeners.timeToListen',
+                      listenedAt: '$listeners.listenedAt'
+                    }
+                  },
+                  count: { $sum: 1 }
+                }
               }
-            },
-            count: { $sum: 1 }
+            ],
+            total: [{ $count: 'count' }]
           }
         }
       ];
     }
 
-    // Execute aggregation
-    const aggregationResults = await Share.aggregate(pipeline);
-
-    // Count total shares in the group within the time range (for listenRatio)
-    const totalSharesInRange = await Share.countDocuments({
-      group: gid,
-      ...(startDate && { createdAt: { $gte: startDate } })
-    });
+    const [facetResult] = await Share.aggregate(pipeline);
+    const aggregationResults = facetResult?.stats ?? [];
+    const totalSharesInRange = facetResult?.total[0]?.count ?? 0;
 
     // Helper function to calculate percentile
     const calculatePercentile = (values, percentile) => {
@@ -1308,14 +1318,14 @@ class AnalyticsService {
       });
     }
 
-    // Get user details for all users with stats
-    const userIds = Array.from(userStatsMap.keys()).map(id => new mongoose.Types.ObjectId(id));
-    const users = await User.find({ _id: { $in: userIds } })
+    // Single query for all group members — used both to build the stats display
+    // and to detect zero-listen members, avoiding a second User.find later.
+    const allMemberUsers = await User.find({ _id: { $in: memberIds } })
       .select('displayName profileImage')
       .lean();
 
     const userDetailsMap = new Map();
-    users.forEach(user => {
+    allMemberUsers.forEach(user => {
       userDetailsMap.set(user._id.toString(), {
         displayName: user.displayName,
         avatarUrl: user.profileImage || null
@@ -1377,17 +1387,13 @@ class AnalyticsService {
     }
 
     // Add members with 0 listens (for engagement badges like "Hibernating")
-    const allMemberUsers = await User.find({ _id: { $in: memberIds } })
-      .select('displayName profileImage')
-      .lean();
-
-    for (const member of allMemberUsers) {
-      const memberId = member._id.toString();
+    // userDetailsMap already contains all group members from the query above.
+    for (const [memberId, details] of userDetailsMap.entries()) {
       if (!userStatsMap.has(memberId)) {
         usersArray.push({
           userId: memberId,
-          displayName: member.displayName,
-          avatarUrl: member.profileImage || null,
+          displayName: details.displayName,
+          avatarUrl: details.avatarUrl,
           listens: 0,
           medianMs: null,
           p25Ms: null,
@@ -1407,7 +1413,7 @@ class AnalyticsService {
 
     // Build summary
     const summary = {
-      groupMedianMs: groupMedianMs || 0,
+      groupMedianMs: groupMedianMs ?? 0,
       instantReactorCount: buckets.instant.length,
       totalSharesInRange
     };
