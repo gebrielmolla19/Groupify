@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Share = require('../models/Share');
 const SpotifyService = require('../services/spotifyService');
 const TokenManager = require('../utils/tokenManager');
+const logger = require('./logger');
 
 /**
  * Scheduler Utility
@@ -78,12 +79,12 @@ async function checkListeningActivity() {
           }
         }
       } catch (error) {
-        console.error(`[Scheduler] Error checking activity for user ${user._id}:`, error.message);
+        logger.error(`[Scheduler] Error checking activity for user ${user._id}:`, { message: error.message });
         // Continue with other users
       }
     }
   } catch (error) {
-    console.error('[Scheduler] Error in listening activity check:', error.message);
+    logger.error('[Scheduler] Error in listening activity check:', { message: error.message });
   }
 }
 

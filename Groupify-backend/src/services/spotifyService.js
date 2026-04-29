@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 
@@ -51,13 +52,13 @@ class SpotifyService {
             spotifyErrorDetails = responseData;
           } else {
             // Log the full response for debugging
-            console.error('[Spotify API] Full error response:', JSON.stringify(responseData, null, 2));
+            logger.error('[Spotify API] Full error response:', JSON.stringify(responseData, null, 2));
             spotifyErrorDetails = responseData;
           }
         }
         
         // Log detailed error information for debugging
-        console.error('[Spotify API] Error details:', {
+        logger.error('[Spotify API] Error details:', {
           status,
           statusText: error.response.statusText,
           headers: error.response.headers,
@@ -124,7 +125,7 @@ class SpotifyService {
       }
       
       // Network or other errors
-      console.error('[Spotify API] Network error:', {
+      logger.error('[Spotify API] Network error:', {
         message: error.message,
         code: error.code,
         url: `${SPOTIFY_API_BASE}/me`
@@ -427,7 +428,7 @@ class SpotifyService {
           // Retry on server errors (502, 503, 504) with exponential backoff
           if (status >= 500 && status < 600 && retryCount < maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
-            console.log(`Spotify API server error (${status}) when creating playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            logger.warn(`Spotify API server error (${status}) when creating playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
             await sleep(delay);
             return attemptCreate(retryCount + 1);
           }
@@ -471,7 +472,7 @@ class SpotifyService {
         // Network errors - retry if we haven't exceeded max retries
         if (retryCount < maxRetries && !error.response) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-          console.log(`Network error when creating playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          logger.warn(`Network error when creating playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
           await sleep(delay);
           return attemptCreate(retryCount + 1);
         }
@@ -535,7 +536,7 @@ class SpotifyService {
           // Retry on server errors (502, 503, 504) with exponential backoff
           if (status >= 500 && status < 600 && retryCount < maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
-            console.log(`Spotify API server error (${status}), retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            logger.warn(`Spotify API server error (${status}), retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
             await sleep(delay);
             return attemptAddTracks(retryCount + 1);
           }
@@ -571,7 +572,7 @@ class SpotifyService {
         // Network errors - retry if we haven't exceeded max retries
         if (retryCount < maxRetries && !error.response) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-          console.log(`Network error, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          logger.warn(`Network error, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
           await sleep(delay);
           return attemptAddTracks(retryCount + 1);
         }
@@ -628,7 +629,7 @@ class SpotifyService {
               // Retry delete on server errors
               if (deleteError.response?.status >= 500 && deleteError.response?.status < 600 && retryCount < maxRetries) {
                 const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-                console.log(`Spotify API server error (${deleteError.response.status}) when deleting tracks, retrying in ${delay}ms...`);
+                logger.warn(`Spotify API server error (${deleteError.response.status}) when deleting tracks, retrying in ${delay}ms...`);
                 await sleep(delay);
                 // Retry the entire replace operation
                 return attemptReplace(retryCount + 1);
@@ -658,7 +659,7 @@ class SpotifyService {
           // Retry on server errors (502, 503, 504) with exponential backoff
           if (status >= 500 && status < 600 && retryCount < maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
-            console.log(`Spotify API server error (${status}) when replacing tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            logger.warn(`Spotify API server error (${status}) when replacing tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
             await sleep(delay);
             return attemptReplace(retryCount + 1);
           }
@@ -696,7 +697,7 @@ class SpotifyService {
         // Network errors - retry if we haven't exceeded max retries
         if (retryCount < maxRetries && !error.response) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-          console.log(`Network error when replacing tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          logger.warn(`Network error when replacing tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
           await sleep(delay);
           return attemptReplace(retryCount + 1);
         }
@@ -767,7 +768,7 @@ class SpotifyService {
           // Retry on server errors (502, 503, 504) with exponential backoff
           if (status >= 500 && status < 600 && retryCount < maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
-            console.log(`Spotify API server error (${status}) when getting playlist tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            logger.warn(`Spotify API server error (${status}) when getting playlist tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
             await sleep(delay);
             return attemptGetTracks(retryCount + 1);
           }
@@ -805,7 +806,7 @@ class SpotifyService {
         // Network errors - retry if we haven't exceeded max retries
         if (retryCount < maxRetries && !error.response) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-          console.log(`Network error when getting playlist tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          logger.warn(`Network error when getting playlist tracks, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
           await sleep(delay);
           return attemptGetTracks(retryCount + 1);
         }
@@ -857,7 +858,7 @@ class SpotifyService {
           // Retry on server errors (502, 503, 504) with exponential backoff
           if (status >= 500 && status < 600 && retryCount < maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
-            console.log(`Spotify API server error (${status}) when following playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+            logger.warn(`Spotify API server error (${status}) when following playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
             await sleep(delay);
             return attemptFollow(retryCount + 1);
           }
@@ -867,7 +868,7 @@ class SpotifyService {
           // Both are acceptable - we'll log but not throw for 403 (already following)
           if (status === 403) {
             // User might already be following, which is fine
-            console.log(`User already follows playlist or insufficient permissions: ${spotifyMessage}`);
+            logger.warn(`User already follows playlist or insufficient permissions: ${spotifyMessage}`);
             return; // Don't throw - already following is acceptable
           } else if (status === 404) {
             throw new Error(`Playlist not found: ${spotifyMessage}`);
@@ -882,7 +883,7 @@ class SpotifyService {
         // Network errors - retry if we haven't exceeded max retries
         if (retryCount < maxRetries && !error.response) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-          console.log(`Network error when following playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          logger.warn(`Network error when following playlist, retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
           await sleep(delay);
           return attemptFollow(retryCount + 1);
         }
@@ -929,7 +930,7 @@ class SpotifyService {
         if (status === 404) {
           // 404 means no active playback session — device is still activated,
           // there's just nothing to play. This is not a real error.
-          console.debug('[Spotify] Transfer got 404 (no active playback) — device activated without playback');
+          logger.debug('[Spotify] Transfer got 404 (no active playback) — device activated without playback');
           return { activated: true, noPlayback: true };
         } else if (status === 403) {
           customError.message = 'Insufficient permissions. Premium account required for playback control.';
@@ -977,7 +978,7 @@ class SpotifyService {
       if (error.response?.status === 404) {
         return null;
       }
-      console.error('[Spotify] Failed to get current playback:', error.message);
+      logger.error('[Spotify] Failed to get current playback:', error.message);
       throw error;
     }
   }
@@ -999,7 +1000,7 @@ class SpotifyService {
       );
       return response.data.devices || [];
     } catch (error) {
-      console.error('[Spotify] Failed to get available devices:', error.message);
+      logger.error('[Spotify] Failed to get available devices:', error.message);
       throw error;
     }
   }
@@ -1102,7 +1103,7 @@ class SpotifyService {
         const message = error.response.data?.error?.message || error.message;
         const reason = error.response.data?.error?.reason || 'unknown';
         
-        console.error(`[Spotify] Play track error: Status ${status}, Message: ${message}, Reason: ${reason}`);
+        logger.error(`[Spotify] Play track error: Status ${status}, Message: ${message}, Reason: ${reason}`);
         
         // Create error with statusCode so controller can return proper HTTP status
         const customError = new Error();

@@ -97,16 +97,16 @@ class ShareService {
       .populate('listeners.user', 'displayName profileImage spotifyId')
       .populate('likes.user', 'displayName profileImage spotifyId')
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(offset));
+      .limit(parseInt(limit, 10))
+      .skip(parseInt(offset, 10));
 
     const total = await Share.countDocuments({ group: groupId });
 
     return {
       shares,
       total,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10)
     };
   }
 
