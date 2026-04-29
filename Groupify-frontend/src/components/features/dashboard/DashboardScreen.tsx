@@ -42,9 +42,6 @@ export default function DashboardScreen() {
       const joinedGroup = await joinGroupByCode(inviteCode);
       // Navigate to group feed with the joined group
       navigate(`/groups/${joinedGroup._id}`);
-    } catch (error) {
-      // Error is already handled by the hook (toast notification)
-      throw error;
     } finally {
       setIsJoining(false);
     }

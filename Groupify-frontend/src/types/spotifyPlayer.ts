@@ -65,7 +65,7 @@ export interface SpotifyPlayer {
   addListener(event: 'player_state_changed', callback: (state: SpotifyPlayerState | null) => void): boolean;
   addListener(event: 'authentication_error', callback: (error: SpotifyPlayerError) => void): boolean;
   addListener(event: 'account_error', callback: (error: SpotifyPlayerError) => void): boolean;
-  removeListener(event: string, callback?: Function): boolean;
+  removeListener(event: string, callback?: (...args: unknown[]) => void): boolean;
   getCurrentState(): Promise<SpotifyPlayerState | null>;
   setName(name: string): Promise<void>;
   getVolume(): Promise<number>;
