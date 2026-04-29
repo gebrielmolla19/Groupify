@@ -406,3 +406,29 @@ select:focus {
   }
 }
 
+/* iOS Safari compositing fallback:
+   layered backdrop-blur + translucent surfaces can render as "see-through"
+   across the app. Force stable opaque surfaces on iOS while keeping desktop styling. */
+@supports (-webkit-touch-callout: none) {
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl,
+  .backdrop-filter {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .bg-card\/50 {
+    background-color: color-mix(in oklab, var(--card) 92%, transparent) !important;
+  }
+
+  .bg-background\/95 {
+    background-color: color-mix(in oklab, var(--background) 98%, transparent) !important;
+  }
+
+  .supports-\[backdrop-filter\]\:bg-background\/60 {
+    background-color: color-mix(in oklab, var(--background) 98%, transparent) !important;
+  }
+}
+
