@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 @custom-variant dark (&:is(.dark *));
 
 /* Radar chart legend: 2-col grid on mobile, 5-col single row on md+ */
