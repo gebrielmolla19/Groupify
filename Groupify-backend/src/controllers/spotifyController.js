@@ -25,13 +25,13 @@ class SpotifyController {
       }
 
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
-      const results = await SpotifyService.searchTracks(accessToken, query, parseInt(limit));
+      const results = await SpotifyService.searchTracks(accessToken, query, parseInt(limit, 10));
 
       logger.debug('[Spotify] Track search performed', {
         userId: req.userId,
         userDisplayName: req.user?.displayName,
         query,
-        limit: parseInt(limit),
+        limit: parseInt(limit, 10),
         resultsTotal: results.tracks?.total
       });
 
@@ -39,7 +39,7 @@ class SpotifyController {
         success: true,
         tracks: results.tracks.items,
         total: results.tracks.total,
-        limit: parseInt(limit)
+        limit: parseInt(limit, 10)
       });
     } catch (error) {
       next(error);
@@ -56,14 +56,14 @@ class SpotifyController {
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
       const results = await SpotifyService.getRecentlyPlayed(
         accessToken,
-        parseInt(limit),
-        after ? parseInt(after) : null
+        parseInt(limit, 10),
+        after ? parseInt(after, 10) : null
       );
 
       logger.debug('[Spotify] Recently played tracks fetched', {
         userId: req.userId,
         userDisplayName: req.user?.displayName,
-        limit: parseInt(limit),
+        limit: parseInt(limit, 10),
         count: results.items?.length
       });
 
@@ -72,7 +72,7 @@ class SpotifyController {
         items: results.items,
         next: results.next,
         cursors: results.cursors,
-        limit: parseInt(limit)
+        limit: parseInt(limit, 10)
       });
     } catch (error) {
       next(error);
