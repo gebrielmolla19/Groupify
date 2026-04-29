@@ -110,44 +110,32 @@ export default function GroupSettingsScreen() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    try {
-      await removeMember(memberId);
-      logger.info('Member removed:', { groupId, memberId });
-      setMemberToRemove(null);
-      setIsRemoveDialogOpen(false);
-    } catch (err) {
-      // Error is already handled by the hook (toast notification)
-      // Don't close dialog on error so user can retry
-      throw err;
-    }
+    await removeMember(memberId);
+    logger.info('Member removed:', { groupId, memberId });
+    setMemberToRemove(null);
+    setIsRemoveDialogOpen(false);
   };
 
   const handleDeleteGroup = async () => {
-    try {
-      const deletedGroupId = groupId;
-      const groupName = settings?.name || group?.name || 'Unknown';
-      await deleteGroup();
-      
-      logger.info('Group deleted:', { groupId: deletedGroupId, groupName });
-      
-      // Clear playing group if it's the deleted group
-      if (group && group._id === deletedGroupId) {
-        setPlayingGroup(null);
-      }
-      
-      // Refresh groups list to remove deleted group
-      await fetchGroups();
-      
-      // Close dialog first, then navigate
-      setIsDeleteDialogOpen(false);
-      
-      // Navigate to dashboard and clear selected group
-      navigate('/');
-    } catch (err) {
-      // Error is already handled by the hook (toast notification)
-      // Re-throw to keep dialog open
-      throw err;
+    const deletedGroupId = groupId;
+    const groupName = settings?.name || group?.name || 'Unknown';
+    await deleteGroup();
+
+    logger.info('Group deleted:', { groupId: deletedGroupId, groupName });
+
+    // Clear playing group if it's the deleted group
+    if (group && group._id === deletedGroupId) {
+      setPlayingGroup(null);
     }
+
+    // Refresh groups list to remove deleted group
+    await fetchGroups();
+
+    // Close dialog first, then navigate
+    setIsDeleteDialogOpen(false);
+
+    // Navigate to dashboard and clear selected group
+    navigate('/');
   };
 
   const handleLeaveGroup = async () => {
