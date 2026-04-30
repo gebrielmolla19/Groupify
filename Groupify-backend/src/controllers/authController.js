@@ -451,8 +451,11 @@ class AuthController {
         userDisplayName: req.user?.displayName
       });
 
-      // TODO: If implementing token blacklisting, add token to blacklist here
-      // await TokenBlacklist.create({ token: req.token, expiresAt: req.tokenExp });
+      // Token blacklisting is intentionally not implemented here. JWTs are
+      // stateless; revoking before expiry requires a backing store (Redis or
+      // a TTL'd Mongo collection) checked on every authenticated request.
+      // That's a design decision that needs its own RFC — keeping logout
+      // client-driven (clear the token) until then.
 
       res.json({
         success: true,
