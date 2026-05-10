@@ -10,7 +10,7 @@ import {
     DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
 import { Filter, ChevronDown } from 'lucide-react';
-import { cn } from '../../ui/utils';
+import { cn } from '../../../lib/utils';
 import type { TimeRange } from '../../../hooks/useGroupAnalytics';
 
 interface VibeStats {

@@ -31,44 +31,55 @@ describe('AnalyticsService', () => {
             inviteCode: 'TESTCODE'
         });
 
-        // Create Shares
+        // Create Shares.
+        // NOTE: Share's pre('save') hook overwrites likeCount with
+        // `this.likes.length`, and the analytics service's popularity
+        // aggregation unwinds the `likes` array and counts entries (so it
+        // can apply a date-window filter). So the source of truth for both
+        // counts and timestamps is the `likes` array — we must populate it
+        // explicitly with the right number of entries, not just set
+        // `likeCount: N` (which gets overwritten).
         const now = new Date();
         const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
 
-        // Alice shares 2 songs, gets likes
+        // Helper: build N like entries from a user, all stamped `at`.
+        const likesFrom = (user, n, at) =>
+            Array.from({ length: n }, () => ({ user: user._id, likedAt: at }));
+
+        // Alice shares 2 songs.
+        // Song 1: 5 likes (all from Bob).
         await Share.create({
             group: group._id, sharedBy: user1._id,
             spotifyTrackId: 't1', trackName: 'Song 1', artistName: 'Artist A',
-            likeCount: 5, createdAt: now,
-            likes: [{ user: user2._id, likedAt: now }, { user: user3._id, likedAt: now }]
+            createdAt: now,
+            likes: likesFrom(user2, 5, now)
         });
+        // Song 2: 1 like (from Charlie).
         await Share.create({
             group: group._id, sharedBy: user1._id,
             spotifyTrackId: 't2', trackName: 'Song 2', artistName: 'Artist A',
-            likeCount: 1, createdAt: yesterday
+            createdAt: yesterday,
+            likes: likesFrom(user3, 1, yesterday)
         });
 
-        // Bob shares 1 song, gets lots of likes (Trendsetter potential if Alice didn't have 6 total)
-        // Check Trendsetter logic: Most Likes Received.
-        // Alice: 5 + 1 = 6.
-        // Bob needs 7 to beat Alice.
+        // Bob shares 1 song with 7 likes (5 from Alice + 2 from Charlie).
+        // Alice giving 5 keeps her tied with Bob (also 5 given) at the support
+        // ceiling, so both score 100 on Hype-Man support as the test expects.
+        // Trendsetter: Alice received 6, Bob received 7 → Bob wins.
         await Share.create({
             group: group._id, sharedBy: user2._id,
             spotifyTrackId: 't3', trackName: 'Song 3', artistName: 'Artist B',
-            likeCount: 7, createdAt: now
+            createdAt: now,
+            likes: [
+                ...likesFrom(user1, 5, now),
+                ...likesFrom(user3, 2, now),
+            ]
         });
 
-        // Alice listens to Bob's song (Diehard potential)
-        // Wait, listeners is an array in Share
-        // Let's make user1 listen to user2's song
+        // Alice listens to Bob's song (Diehard potential).
         await Share.updateOne(
             { spotifyTrackId: 't3' },
             { $push: { listeners: { user: user1._id, listenedAt: now } } }
-        );
-        // Alice gives a like to Bob's song (Hype Man potential)
-        await Share.updateOne(
-            { spotifyTrackId: 't3' },
-            { $push: { likes: { user: user1._id, likedAt: now } } }
         );
     });
 

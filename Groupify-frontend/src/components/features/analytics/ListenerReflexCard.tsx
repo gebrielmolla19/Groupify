@@ -7,7 +7,7 @@ import { Skeleton } from '../../ui/skeleton';
 import { useIsMobile } from '../../ui/use-mobile';
 import { useListenerReflex, type ListenerReflexRange, type ListenerReflexMode } from '../../../hooks/useListenerReflex';
 import { formatTime } from '../../../lib/formatTime';
-import { cn } from '../../ui/utils';
+import { cn } from '../../../lib/utils';
 import type { ListenerReflexUser, ReflexCategory } from '../../../types';
 import { Zap, Clock, TrendingUp, Timer } from 'lucide-react';
 import ListenerReflexComparePanel from './listenerReflex/ListenerReflexComparePanel';

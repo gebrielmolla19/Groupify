@@ -40,7 +40,7 @@ interface OnboardingStep {
 const STEPS: OnboardingStep[] = [
   // ── Step 1: Welcome ────────────────────────────────────────────────────────
   {
-    icon: <Music2 style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Music2 style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Welcome to Groupify',
     description:
       'Groupify is your social music hub — share tracks from Spotify with friends, discover new music together, and see who listens first.',
@@ -50,7 +50,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 2: Create / Join ───────────────────────────────────────────────────
   {
-    icon: <Users style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Users style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Create or Join a Group',
     description:
       'Groups are shared spaces where you and your friends exchange music. Create a new group and invite friends, or enter an invite code to join one.',
@@ -61,7 +61,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 3: Share Songs ─────────────────────────────────────────────────────
   {
-    icon: <Share2 style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Share2 style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Share Songs from Spotify',
     description:
       'Inside a group, use the search bar to find any track on Spotify and share it instantly. Everyone in the group sees it appear in the feed right away.',
@@ -72,7 +72,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 4: Mark as Listened ────────────────────────────────────────────────
   {
-    icon: <ListMusic style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <ListMusic style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Songs Get Marked as Listened',
     description:
       "Listening is tracked automatically — just play a track and it's logged. Small avatar circles appear below each song card showing everyone who has listened.",
@@ -83,7 +83,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 5: Like ────────────────────────────────────────────────────────────
   {
-    icon: <Heart style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Heart style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Like Tracks',
     description:
       'Give a like to tracks you love. Likes show appreciation for the sharer and count toward the "Hype Man" award — given to whoever supports the group most.',
@@ -94,7 +94,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 6: Group Toolbar ───────────────────────────────────────────────────
   {
-    icon: <ListOrdered style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <ListOrdered style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Group Toolbar',
     description:
       'At the top of each group feed you\'ll find quick-access buttons: "Playlist" to open the group\'s Spotify playlist, "Invite" to share the group code, "Analytics" for stats, and "Settings" to manage the group.',
@@ -106,7 +106,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 7: Resonance Frequency ─────────────────────────────────────────────
   {
-    icon: <Activity style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Activity style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Resonance Frequency',
     description:
       'The Group Dynamics page opens with Resonance Frequency — a wave chart showing sharing and engagement activity over time. Switch between "Shares Posted" and "Engagement" views.',
@@ -118,7 +118,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 8: Listener Reflex ──────────────────────────────────────────────────
   {
-    icon: <BarChart2 style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <BarChart2 style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Listener Reflex',
     description:
       'Listener Reflex ranks members by how quickly they listen to shared songs. A low average response time means you\'re first to the music — a true early adopter.',
@@ -130,7 +130,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 9: Taste Gravity ────────────────────────────────────────────────────
   {
-    icon: <Star style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Star style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Taste Gravity',
     description:
       'Taste Gravity visualises musical connections between group members. Members who share similar genres or artists are drawn closer together in the graph.',
@@ -142,7 +142,7 @@ const STEPS: OnboardingStep[] = [
 
   // ── Step 10: Hall of Fame ────────────────────────────────────────────────────
   {
-    icon: <Trophy style={{ width: 32, height: 32, color: '#00FF88' }} />,
+    icon: <Trophy style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Hall of Fame',
     description:
       'Hall of Fame awards four titles: Trendsetter (most likes received), Hype Man (most likes given), The DJ (most shares), and Diehard (most tracks listened). Compete for them all!',
@@ -180,7 +180,7 @@ function MockShareInput() {
 
 // Fake listeners for the listened mock — on-theme with app palette
 const MOCK_LISTENERS = [
-  { bg: 'rgba(0,255,136,0.2)', color: '#00FF88' },
+  { bg: 'rgba(0,255,136,0.2)', color: 'var(--primary)' },
   { bg: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' },
 ];
 

@@ -4,7 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 
-import { cn } from "./utils";
+import { cn } from "../../lib/utils";
 import { useSidebar } from "./sidebar";
 import { useIsMobile } from "./use-mobile";
 

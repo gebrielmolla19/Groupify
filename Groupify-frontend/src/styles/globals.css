@@ -320,26 +320,6 @@ html {
   }
 }
 
-/* Volume Slider Custom Styles - Force white color */
-[data-slot="slider"] [data-slot="slider-range"] {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
-}
-
-[data-slot="slider"] [data-slot="slider-thumb"] {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
-  border-color: #FFFFFF !important;
-  border: 1px solid #FFFFFF !important;
-  box-shadow: none !important;
-}
-
-/* Ensure track is visible */
-[data-slot="slider"] [data-slot="slider-track"] {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
 /* Virtual keyboard handling */
 @supports (height: 100dvh) {
   html {

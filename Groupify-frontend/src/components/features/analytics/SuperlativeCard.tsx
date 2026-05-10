@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
-import { cn } from '../../ui/utils';
+import { cn } from '../../../lib/utils';
 import { Badge } from '../../ui/badge';
 
 interface SuperlativeCardProps {
