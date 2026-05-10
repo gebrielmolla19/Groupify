@@ -365,8 +365,12 @@ export default function OnboardingWalkthrough() {
         }
       `}</style>
 
-      {/* Floating card — fixed at bottom center, no overlay */}
-      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 80px)', left: '50%', transform: 'translateX(-50%) translateZ(0)', willChange: 'transform', zIndex: 9999, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
+      {/* Floating card — fixed at bottom center, no overlay.
+          Sits above the Spotify player (which is at bottom 20-24px,
+          ~80px tall, zIndex 9999). Bottom offset 140px clears the player
+          on both mobile and desktop; zIndex 10000 wins the stacking
+          contest if any horizontal overlap remains. */}
+      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 140px)', left: '50%', transform: 'translateX(-50%) translateZ(0)', willChange: 'transform', zIndex: 10000, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
