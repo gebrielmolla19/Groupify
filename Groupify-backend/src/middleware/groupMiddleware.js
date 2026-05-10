@@ -1,4 +1,5 @@
 const Group = require('../models/Group');
+const logger = require('../utils/logger');
 
 /**
  * Group Middleware
@@ -52,12 +53,12 @@ const isGroupMember = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Group membership check error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error verifying group membership',
-      error: error.message
+    logger.error('[GroupMiddleware] Membership check error', {
+      message: error.message,
+      groupId: req.params?.groupId,
+      userId: req.userId
     });
+    next(error);
   }
 };
 
@@ -88,12 +89,12 @@ const isGroupOwner = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Group ownership check error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error verifying group ownership',
-      error: error.message
+    logger.error('[GroupMiddleware] Ownership check error', {
+      message: error.message,
+      groupId: req.params?.groupId,
+      userId: req.userId
     });
+    next(error);
   }
 };
 

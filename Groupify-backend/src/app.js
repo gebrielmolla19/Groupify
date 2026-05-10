@@ -151,7 +151,14 @@ io.use(async (socket, next) => {
     if (!user || !user.isActive) return next(new Error('Invalid token'));
     socket.userId = decoded.userId.toString();
     next();
-  } catch {
+  } catch (err) {
+    // Log the original error for debugging, but return a generic message to
+    // the client so we don't leak whether the failure was a bad token,
+    // missing user, etc.
+    logger.warn('[Socket.io] Authentication failed', {
+      message: err.message,
+      name: err.name
+    });
     next(new Error('Authentication failed'));
   }
 });

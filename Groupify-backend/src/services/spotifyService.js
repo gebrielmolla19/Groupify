@@ -1076,7 +1076,13 @@ class SpotifyService {
             let devices = [];
             try {
               devices = await getDevicesWithRetry(2, 500);
-            } catch { /* ignore */ }
+            } catch (deviceListError) {
+              // Device discovery failed; we'll fall through and let the
+              // outer transfer+retry attempt handle it.
+              logger.warn('[Spotify] Device discovery failed during 404 fallback', {
+                message: deviceListError.message
+              });
+            }
 
             if (devices.length > 0) {
               const fallback = devices.find(d => d.id === deviceId)

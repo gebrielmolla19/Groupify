@@ -219,8 +219,19 @@ class SpotifyController {
         }
       }
 
-      // Create new collaborative playlist if one doesn't exist
+      // Create new collaborative playlist if one doesn't exist.
+      // Only the group creator may create the initial playlist — otherwise
+      // any member could trigger creation, leaving the playlist owned by their
+      // Spotify account and locking the group creator out of future updates.
+      // Non-owner members should use POST /spotify/groups/:id/follow-playlist
+      // once a playlist exists.
       if (!playlist) {
+        if (group.createdBy.toString() !== req.userId.toString()) {
+          const error = new Error('Only the group owner can create the collaborative playlist');
+          error.statusCode = 403;
+          throw error;
+        }
+
         const name = playlistName || `${group.name} - Groupify Collaborative Playlist`;
         const description = `Collaborative playlist from Groupify group: ${group.name}. ${shares.length} tracks shared by group members.`;
 
