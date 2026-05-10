@@ -680,8 +680,10 @@ export default function GroupFeedScreen() {
         />
       )}
 
-      {/* Invites List - Show in a sidebar or section */}
-      {groupId && (
+      {/* Pending-invites side panel — only render when there's actually
+          something to show. Otherwise it permanently occupies 320px of
+          right-side screen real estate just to display "No pending invites". */}
+      {groupId && invites.some(invite => invite.status === 'pending') && (
         <div className="hidden lg:block fixed right-0 top-0 bottom-0 w-80 border-l border-border bg-card overflow-y-auto z-20" style={{ marginTop: '73px' }}>
           <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Group Invites</h2>
