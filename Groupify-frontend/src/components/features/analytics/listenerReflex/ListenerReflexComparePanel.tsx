@@ -11,7 +11,7 @@ import { useListenerReflexRadar, type ListenerReflexRadarWindow, type ListenerRe
 import type { RadarProfile } from '../../../../types';
 import ListenerReflexRadarChart, { RADAR_CHART_COLORS } from './RadarChart';
 import RadarChartLegend from './RadarChartLegend';
-import { cn } from '../../../ui/utils';
+import { cn } from '../../../../lib/utils';
 
 interface ListenerReflexComparePanelProps {
   groupId: string;

@@ -11,7 +11,7 @@ import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
 import { useMemo, useState } from "react";
-import { cn } from "../../ui/utils";
+import { cn } from "../../../lib/utils";
 import type { TimeRange as TasteGravityTimeRange } from "../../../hooks/useTasteGravity";
 import type { ListenerReflexRange, ListenerReflexMode } from "../../../hooks/useListenerReflex";
 
