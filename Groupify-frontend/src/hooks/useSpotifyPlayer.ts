@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { getSpotifyAccessToken, transferPlayback, playTrack as apiPlayTrack, getSpotifyDevices as apiGetSpotifyDevices } from '../lib/api';
 import { toast } from 'sonner';
@@ -6,36 +6,6 @@ import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/s
 import { logger } from '../utils/logger';
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
-
-// Module-level state to ensure singleton player instance
-let globalPlayer: SpotifyPlayer | null = null;
-let globalDeviceId: string | null = null;
-let globalCurrentTrack: SpotifyTrack | null = null;
-let globalIsPlaying = false;
-let globalPosition = 0;
-let globalDuration = 0;
-let globalIsLoading = true;
-let globalError: string | null = null;
-let globalDeviceReadyTimestamp: number | null = null;
-
-// Module-level refs to prevent multiple initializations
-const scriptLoadedRef = { current: false };
-const playerInitializedRef = { current: false };
-const transferCalledRef = { current: false };
-
-// Listeners to notify all hook instances of state changes
-const stateListeners = new Set<() => void>();
-
-// Track completion callback
-let globalOnTrackComplete: ((trackUri: string) => void) | undefined = undefined;
-let lastTrackUri: string | null = null;
-let hasTrackCompleted = false;
-let lastPosition = 0;
-let completionCheckInterval: NodeJS.Timeout | null = null;
-
-const notifyListeners = () => {
-  stateListeners.forEach(listener => listener());
-};
 
 export interface UseSpotifyPlayerReturn {
   player: SpotifyPlayer | null;
@@ -53,82 +23,233 @@ export interface UseSpotifyPlayerReturn {
 }
 
 /**
- * Hook for integrating with Spotify Web Playback SDK
- * Loads the SDK, initializes player, transfers playback, and exposes player state
+ * The reactive slice of player state exposed to React. Held as a single
+ * immutable snapshot object so `useSyncExternalStore` can compare by
+ * reference — a new object is produced only when a value actually changes.
  */
-export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
-  const { isAuthenticated, token } = useUser();
-  
-  // Use module-level state, but create local state for reactivity
-  const [player, setPlayer] = useState<SpotifyPlayer | null>(globalPlayer);
-  const [deviceId, setDeviceId] = useState<string | null>(globalDeviceId);
-  const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(globalCurrentTrack);
-  const [isPlaying, setIsPlaying] = useState(globalIsPlaying);
-  const [position, setPosition] = useState(globalPosition);
-  const [duration, setDuration] = useState(globalDuration);
-  const [isLoading, setIsLoading] = useState(globalIsLoading);
-  const [error, setError] = useState<string | null>(globalError);
-  const [deviceReadyTimestamp, setDeviceReadyTimestamp] = useState<number | null>(globalDeviceReadyTimestamp);
-  const [onTrackComplete, setOnTrackComplete] = useState<((trackUri: string) => void) | undefined>(globalOnTrackComplete);
+interface PlayerSnapshot {
+  player: SpotifyPlayer | null;
+  deviceId: string | null;
+  currentTrack: SpotifyTrack | null;
+  isPlaying: boolean;
+  position: number;
+  duration: number;
+  isLoading: boolean;
+  error: string | null;
+  deviceReadyTimestamp: number | null;
+  onTrackComplete?: (trackUri: string) => void;
+}
 
-  // Subscribe to global state changes
-  useEffect(() => {
-    const updateState = () => {
-      setPlayer(globalPlayer);
-      setDeviceId(globalDeviceId);
-      setCurrentTrack(globalCurrentTrack);
-      setIsPlaying(globalIsPlaying);
-      setPosition(globalPosition);
-      setDuration(globalDuration);
-      setIsLoading(globalIsLoading);
-      setError(globalError);
-      setDeviceReadyTimestamp(globalDeviceReadyTimestamp);
-      setOnTrackComplete(globalOnTrackComplete);
-    };
-    
-    stateListeners.add(updateState);
+/**
+ * Spotify Web Playback singleton store.
+ *
+ * There is exactly one Spotify SDK player per page, so the state that
+ * backs it is genuinely process-wide. Rather than scattering that across
+ * loose module variables + a hand-rolled listener Set (the previous
+ * design), it is encapsulated here behind a small store with a stable
+ * `getSnapshot`/`subscribe` pair, consumed via React 18's
+ * `useSyncExternalStore`. Behavior is unchanged; the difference is that
+ * all mutable state lives in one place, snapshots are referentially
+ * stable, and the polling interval is owned by the store (so multiple
+ * hook instances can no longer create competing intervals).
+ */
+const spotifyPlayerStore = (() => {
+  let snapshot: PlayerSnapshot = {
+    player: null,
+    deviceId: null,
+    currentTrack: null,
+    isPlaying: false,
+    position: 0,
+    duration: 0,
+    isLoading: true,
+    error: null,
+    deviceReadyTimestamp: null,
+    onTrackComplete: undefined,
+  };
+
+  const listeners = new Set<() => void>();
+
+  // Non-reactive internals (initialization guards + completion tracking).
+  const internal = {
+    scriptLoaded: false,
+    playerInitialized: false,
+    transferCalled: false,
+    initStarted: false,
+    lastTrackUri: null as string | null,
+    hasTrackCompleted: false,
+    lastPosition: 0,
+    pollInterval: null as ReturnType<typeof setInterval> | null,
+  };
+
+  const getSnapshot = () => snapshot;
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
     return () => {
-      stateListeners.delete(updateState);
+      listeners.delete(listener);
     };
-  }, []);
+  };
 
-  // Initialize player when SDK is ready
-  const initializePlayer = useCallback(async () => {
-    if (!isAuthenticated || playerInitializedRef.current || !window.Spotify) {
+  /**
+   * Merge a partial patch into the snapshot. Produces a new snapshot
+   * object (and notifies subscribers) only if at least one field actually
+   * changed — this keeps `useSyncExternalStore` from looping.
+   */
+  const setState = (patch: Partial<PlayerSnapshot>) => {
+    let changed = false;
+    for (const key of Object.keys(patch) as (keyof PlayerSnapshot)[]) {
+      if (snapshot[key] !== patch[key]) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return;
+    snapshot = { ...snapshot, ...patch };
+    listeners.forEach(l => l());
+  };
+
+  const fireTrackComplete = (trackUri: string) => {
+    window.dispatchEvent(new CustomEvent('spotifyTrackComplete', { detail: { trackUri } }));
+    if (snapshot.onTrackComplete) {
+      try {
+        snapshot.onTrackComplete(trackUri);
+      } catch (err) {
+        logger.error('Error in track completion callback:', err);
+      }
+    }
+  };
+
+  /**
+   * Shared completion-detection logic, used by both the SDK
+   * `player_state_changed` event and the 1s polling fallback.
+   */
+  const detectCompletion = (trackUri: string | null, position: number, duration: number) => {
+    if (trackUri !== internal.lastTrackUri) {
+      internal.hasTrackCompleted = false;
+      internal.lastTrackUri = trackUri;
+      internal.lastPosition = 0;
+    }
+    const isAtEnd = duration > 0 && position >= duration - 1000;
+    const positionStopped =
+      position === internal.lastPosition && position > 0 && position >= duration - 2000;
+    if ((isAtEnd || positionStopped) && !internal.hasTrackCompleted && trackUri) {
+      internal.hasTrackCompleted = true;
+      fireTrackComplete(trackUri);
+    }
+    internal.lastPosition = position;
+  };
+
+  const stopPolling = () => {
+    if (internal.pollInterval) {
+      clearInterval(internal.pollInterval);
+      internal.pollInterval = null;
+    }
+  };
+
+  const startPolling = () => {
+    stopPolling();
+    const player = snapshot.player;
+    if (!player) return;
+
+    internal.pollInterval = setInterval(async () => {
+      try {
+        const state = await player.getCurrentState();
+        if (state) {
+          const track = state.track_window.current_track;
+          const newPosition = state.position;
+          const newDuration = state.duration;
+          const newIsPlaying = !state.paused;
+          const trackUri = track?.uri || null;
+
+          detectCompletion(trackUri, newPosition, newDuration);
+
+          if (
+            newPosition !== snapshot.position ||
+            newDuration !== snapshot.duration ||
+            newIsPlaying !== snapshot.isPlaying
+          ) {
+            setState({ position: newPosition, duration: newDuration, isPlaying: newIsPlaying });
+          }
+        } else {
+          // Null state — track likely ended.
+          if (internal.lastTrackUri && !internal.hasTrackCompleted) {
+            internal.hasTrackCompleted = true;
+            fireTrackComplete(internal.lastTrackUri);
+          }
+          internal.lastTrackUri = null;
+          internal.hasTrackCompleted = false;
+          internal.lastPosition = 0;
+        }
+      } catch (err) {
+        if (err instanceof Error && !err.message.includes('No active device')) {
+          logger.error('Error getting current state:', err);
+        }
+      }
+    }, 1000);
+  };
+
+  // Keep the polling interval in sync with play state, owned solely by
+  // the store (one interval, regardless of how many hooks are mounted).
+  const syncPolling = () => {
+    if (snapshot.player && snapshot.isPlaying) {
+      if (!internal.pollInterval) startPolling();
+    } else {
+      stopPolling();
+    }
+  };
+  listeners.add(syncPolling);
+
+  const loadSdkScript = (onReady: () => void) => {
+    if (internal.scriptLoaded) {
+      if (window.Spotify) onReady();
+      return;
+    }
+    window.onSpotifyWebPlaybackSDKReady = onReady;
+
+    const existing = document.querySelector(`script[src="${SDK_URL}"]`);
+    if (existing) {
+      internal.scriptLoaded = true;
+      if (window.Spotify) onReady();
       return;
     }
 
-    try {
-      globalIsLoading = true;
-      globalError = null;
-      setIsLoading(true);
-      setError(null);
-      notifyListeners();
+    const script = document.createElement('script');
+    script.src = SDK_URL;
+    script.async = true;
+    script.onload = () => {
+      internal.scriptLoaded = true;
+      if (window.Spotify) onReady();
+    };
+    script.onerror = () => {
+      const msg = 'Failed to load Spotify Web Playback SDK';
+      setState({ error: msg, isLoading: false });
+      logger.error(msg);
+      toast.error(msg);
+    };
+    document.head.appendChild(script);
+  };
 
-      // Fetch Spotify access token from backend
+  const initializePlayer = async () => {
+    if (internal.playerInitialized || !window.Spotify) return;
+
+    try {
+      setState({ isLoading: true, error: null });
+
       try {
-        // Warm up / validate token early so the SDK can connect reliably.
-        // The SDK will also request tokens via getOAuthToken, but this catches
-        // auth issues sooner and improves error messaging.
+        // Warm up / validate token early for clearer error messaging.
         await getSpotifyAccessToken();
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to get Spotify access token';
+        const msg = err instanceof Error ? err.message : 'Failed to get Spotify access token';
         logger.error('Failed to get Spotify token:', err);
-        globalError = errorMsg;
-        globalIsLoading = false;
-        setError(errorMsg);
-        setIsLoading(false);
-        notifyListeners();
+        setState({ error: msg, isLoading: false });
         toast.error('Failed to connect to Spotify. Please try logging in again.');
         return;
       }
 
-      // Create player instance
       const spotifyPlayer = new window.Spotify.Player({
         name: 'Groupify Web Player',
         getOAuthToken: async (cb) => {
           try {
-            // Always fetch fresh token to ensure it's valid
             const freshToken = await getSpotifyAccessToken();
             cb(freshToken);
           } catch (err) {
@@ -139,32 +260,26 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
         volume: 1.0,
       });
 
-      // Set up event listeners
       spotifyPlayer.addListener('ready', async ({ device_id }) => {
-        globalDeviceId = device_id;
-        globalDeviceReadyTimestamp = Date.now();
-        globalIsLoading = false;
-        playerInitializedRef.current = true;
-        setDeviceId(device_id);
-        setIsLoading(false);
-        setDeviceReadyTimestamp(globalDeviceReadyTimestamp);
+        internal.playerInitialized = true;
+        setState({
+          deviceId: device_id,
+          deviceReadyTimestamp: Date.now(),
+          isLoading: false,
+        });
         logger.info('Spotify player initialized:', { deviceId: device_id });
-        notifyListeners();
 
-        // CRITICAL: Web Playback SDK devices need to be activated
-        // Try to activate the device by calling resume (even though nothing is playing)
-        // This makes Spotify's backend recognize the device
+        // Web Playback SDK devices need activation — a resume() nudge
+        // makes Spotify's backend recognize the device.
         try {
-          // Attempt to resume playback (will fail gracefully if nothing is playing)
           await spotifyPlayer.resume();
-        } catch (activateErr) {
-          // Resume failed (expected if no track)
+        } catch {
+          // Expected when nothing is playing.
         }
 
-        // Wait 2 seconds then try to transfer playback to make device active
         setTimeout(async () => {
-          if (!transferCalledRef.current) {
-            transferCalledRef.current = true;
+          if (!internal.transferCalled) {
+            internal.transferCalled = true;
             try {
               await transferPlayback(device_id);
               toast.success('Spotify player ready! Click any track to play.', { duration: 3000 });
@@ -177,349 +292,174 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
       });
 
       spotifyPlayer.addListener('not_ready', () => {
-        globalDeviceId = null;
-        globalDeviceReadyTimestamp = null;
-        globalIsPlaying = false;
-        globalCurrentTrack = null;
-        globalPosition = 0;
-        setDeviceId(null);
-        setDeviceReadyTimestamp(null);
-        setIsPlaying(false);
-        setCurrentTrack(null);
-        setPosition(0);
-        notifyListeners();
+        setState({
+          deviceId: null,
+          deviceReadyTimestamp: null,
+          isPlaying: false,
+          currentTrack: null,
+          position: 0,
+        });
       });
 
       spotifyPlayer.addListener('player_state_changed', (state: SpotifyPlayerState | null) => {
         if (state) {
-          const currentTrack = state.track_window.current_track;
+          const track = state.track_window.current_track;
           const newPosition = state.position;
           const newDuration = state.duration;
           const newIsPlaying = !state.paused;
-          
-          // Track completion detection
-          const currentTrackUri = currentTrack?.uri || null;
-          
-          // Reset completion flag if track changed
-          if (currentTrackUri !== lastTrackUri) {
-            hasTrackCompleted = false;
-            lastTrackUri = currentTrackUri;
-            lastPosition = 0;
-          }
-          
-          // Check for completion: position reached or exceeded duration
-          // Also check if position stopped advancing near the end (track finished)
-          const isAtEnd = newDuration > 0 && newPosition >= newDuration - 1000; // 1 second threshold (more lenient)
-          const positionStopped = newPosition === lastPosition && newPosition > 0 && newPosition >= newDuration - 2000;
-          const hasCompleted = (isAtEnd || positionStopped) && !hasTrackCompleted && currentTrackUri;
-          
-          if (hasCompleted) {
-            hasTrackCompleted = true;
-            window.dispatchEvent(new CustomEvent('spotifyTrackComplete', { detail: { trackUri: currentTrackUri } }));
-            if (globalOnTrackComplete) {
-              try { globalOnTrackComplete(currentTrackUri); } catch { /* */ }
-            }
-          }
+          const trackUri = track?.uri || null;
 
-          lastPosition = newPosition;
-          globalCurrentTrack = currentTrack;
-          globalIsPlaying = newIsPlaying;
-          globalPosition = newPosition;
-          globalDuration = newDuration;
-          setCurrentTrack(currentTrack);
-          setIsPlaying(newIsPlaying);
-          setPosition(newPosition);
-          setDuration(newDuration);
+          detectCompletion(trackUri, newPosition, newDuration);
+
+          setState({
+            currentTrack: track,
+            isPlaying: newIsPlaying,
+            position: newPosition,
+            duration: newDuration,
+          });
         } else {
-          globalCurrentTrack = null;
-          globalIsPlaying = false;
-          globalPosition = 0;
-          globalDuration = 0;
-          lastTrackUri = null;
-          hasTrackCompleted = false;
-          lastPosition = 0;
-          setCurrentTrack(null);
-          setIsPlaying(false);
-          setPosition(0);
-          setDuration(0);
+          internal.lastTrackUri = null;
+          internal.hasTrackCompleted = false;
+          internal.lastPosition = 0;
+          setState({
+            currentTrack: null,
+            isPlaying: false,
+            position: 0,
+            duration: 0,
+          });
         }
-        notifyListeners();
       });
 
       spotifyPlayer.addListener('authentication_error', ({ message }) => {
-        const errorMsg = `Spotify authentication error: ${message}`;
-        logger.error(errorMsg);
-        globalError = errorMsg;
-        globalIsLoading = false;
-        setError(errorMsg);
-        setIsLoading(false);
-        notifyListeners();
+        const msg = `Spotify authentication error: ${message}`;
+        logger.error(msg);
+        setState({ error: msg, isLoading: false });
         toast.error('Spotify authentication failed. Please log in again.');
       });
 
       spotifyPlayer.addListener('account_error', ({ message }) => {
-        const errorMsg = `Spotify account error: ${message}`;
-        logger.error(errorMsg);
-        globalError = errorMsg;
-        globalIsLoading = false;
-        setError(errorMsg);
-        setIsLoading(false);
-        notifyListeners();
+        const msg = `Spotify account error: ${message}`;
+        logger.error(msg);
+        setState({ error: msg, isLoading: false });
         toast.error('Spotify account error. Premium account may be required.');
       });
 
-      // Connect player
       const connected = await spotifyPlayer.connect();
       if (!connected) {
         throw new Error('Failed to connect Spotify player');
       }
 
-      globalPlayer = spotifyPlayer;
-      setPlayer(spotifyPlayer);
-      notifyListeners();
+      setState({ player: spotifyPlayer });
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to initialize Spotify player';
+      const msg = err instanceof Error ? err.message : 'Failed to initialize Spotify player';
       logger.error('Player initialization error:', err);
-      globalError = errorMsg;
-      globalIsLoading = false;
-      setError(errorMsg);
-      setIsLoading(false);
-      notifyListeners();
-      toast.error(errorMsg);
+      setState({ error: msg, isLoading: false });
+      toast.error(msg);
     }
-  }, [isAuthenticated, token]);
-
-  // Load SDK script
-  useEffect(() => {
-    // Only load if authenticated and script not already loaded
-    if (!isAuthenticated || scriptLoadedRef.current) {
-      return;
-    }
-
-    // Set the callback BEFORE checking for existing script or creating new one
-    // This ensures it's always available when SDK calls it
-    window.onSpotifyWebPlaybackSDKReady = initializePlayer;
-
-    // Check if script already exists in DOM
-    const existingScript = document.querySelector(`script[src="${SDK_URL}"]`);
-    if (existingScript) {
-      scriptLoadedRef.current = true;
-      // If SDK is already available, initialize player immediately
-      if (window.Spotify) {
-        initializePlayer();
-      }
-      // Otherwise, the SDK will call our callback when ready
-      return;
-    }
-
-    // Create and load script
-    const script = document.createElement('script');
-    script.src = SDK_URL;
-    script.async = true;
-
-    script.onload = () => {
-      scriptLoadedRef.current = true;
-      // SDK will call onSpotifyWebPlaybackSDKReady when ready
-      // We already set the callback above, so just wait for it
-      // But if Spotify is already available, initialize now
-      if (window.Spotify) {
-        initializePlayer();
-      }
-    };
-
-    script.onerror = () => {
-      const errorMsg = 'Failed to load Spotify Web Playback SDK';
-      setError(errorMsg);
-      setIsLoading(false);
-      logger.error(errorMsg);
-      toast.error(errorMsg);
-    };
-
-    document.head.appendChild(script);
-
-    // Cleanup function - DON'T clear the callback as SDK might still need it
-    return () => {
-      // Don't remove script or clear callback to avoid issues
-    };
-  }, [isAuthenticated, initializePlayer]);
-
-  // Don't disconnect player on unmount - keep it alive across navigation
-  // Only disconnect on app unmount (handled elsewhere if needed)
-
-  // Lightweight interval to update position when playing (only for UI smoothness)
-  // The player_state_changed event handles most updates, but we poll position
-  // every 1 second for smoother progress bar updates when playing
-  useEffect(() => {
-    if (!player || !isPlaying) {
-      // Clear interval when not playing
-      if (completionCheckInterval) {
-        clearInterval(completionCheckInterval);
-        completionCheckInterval = null;
-      }
-      return;
-    }
-
-    // Clear any existing interval
-    if (completionCheckInterval) {
-      clearInterval(completionCheckInterval);
-      completionCheckInterval = null;
-    }
-
-    // Only poll position when actively playing (reduces unnecessary calls)
-    // Also checks for track completion since player_state_changed might miss natural endings
-    const interval = setInterval(async () => {
-      try {
-        const state = await player.getCurrentState();
-        if (state) {
-          const currentTrack = state.track_window.current_track;
-          const newPosition = state.position;
-          const newDuration = state.duration;
-          const newIsPlaying = !state.paused;
-          const currentTrackUri = currentTrack?.uri || null;
-          
-          // Reset completion flag if track changed
-          if (currentTrackUri !== lastTrackUri) {
-            hasTrackCompleted = false;
-            lastTrackUri = currentTrackUri;
-            lastPosition = 0;
-          }
-          
-          // Check for completion: position reached or exceeded duration
-          // Also check if position stopped advancing near the end (track finished)
-          const isAtEnd = newDuration > 0 && newPosition >= newDuration - 1000; // 1 second threshold
-          const positionStopped = newPosition === lastPosition && newPosition > 0 && newPosition >= newDuration - 2000;
-          const hasCompleted = (isAtEnd || positionStopped) && !hasTrackCompleted && currentTrackUri;
-          
-          if (hasCompleted) {
-            hasTrackCompleted = true;
-            window.dispatchEvent(new CustomEvent('spotifyTrackComplete', { detail: { trackUri: currentTrackUri } }));
-            if (globalOnTrackComplete) {
-              try { globalOnTrackComplete(currentTrackUri); } catch { /* */ }
-            }
-          }
-
-          lastPosition = newPosition;
-
-          // Only update if values changed (avoid unnecessary re-renders)
-          if (newPosition !== globalPosition || newDuration !== globalDuration || newIsPlaying !== globalIsPlaying) {
-          globalPosition = newPosition;
-          globalDuration = newDuration;
-          globalIsPlaying = newIsPlaying;
-          setPosition(newPosition);
-          setDuration(newDuration);
-          setIsPlaying(newIsPlaying);
-          notifyListeners();
-          }
-        } else {
-          // State is null - track might have ended
-          // If we were playing a track and now state is null, it likely completed
-          if (lastTrackUri && !hasTrackCompleted && globalOnTrackComplete) {
-            hasTrackCompleted = true;
-            try {
-              globalOnTrackComplete(lastTrackUri);
-            } catch (err) {
-              logger.error('Error in track completion callback (null state):', err);
-            }
-          }
-          
-          // Reset state
-          lastTrackUri = null;
-          hasTrackCompleted = false;
-          lastPosition = 0;
-        }
-      } catch (err) {
-        // Silently handle errors - player_state_changed will handle state updates
-        // Only log if it's a persistent issue
-        if (err instanceof Error && !err.message.includes('No active device')) {
-        logger.error('Error getting current state:', err);
-        }
-      }
-    }, 1000); // Check every 1 second for position updates and completion detection
-
-    completionCheckInterval = interval;
-
-    return () => {
-      if (completionCheckInterval) {
-        clearInterval(completionCheckInterval);
-        completionCheckInterval = null;
-      }
-    };
-  }, [player, isPlaying]);
+  };
 
   /**
-   * Play a specific track by URI
-   * @param trackUri - Spotify track URI (spotify:track:xxx)
+   * Idempotently kick off SDK load + player init. Safe to call from
+   * every hook instance / re-render; guarded so it runs once.
    */
-  const playTrack = useCallback(async (trackUri: string) => {
+  const ensureInitialized = () => {
+    if (internal.initStarted) return;
+    internal.initStarted = true;
+    loadSdkScript(() => {
+      void initializePlayer();
+    });
+  };
+
+  const playTrack = async (trackUri: string) => {
+    const { deviceId, player, deviceReadyTimestamp } = snapshot;
+
     if (!deviceId) {
       throw new Error('No device connected. Please wait for the player to initialize.');
     }
-
     if (!player) {
       throw new Error('Player not initialized. Please wait for the player to connect.');
     }
-
     if (!trackUri || !trackUri.startsWith('spotify:track:')) {
       throw new Error('Invalid track URI. Expected format: spotify:track:xxx');
     }
 
-    // If device was just registered, poll to confirm it's visible to Spotify before playing
-    const timeSinceReady = globalDeviceReadyTimestamp ? Date.now() - globalDeviceReadyTimestamp : Infinity;
+    // If the device was just registered, confirm it's visible to Spotify
+    // before issuing the play command.
+    const timeSinceReady = deviceReadyTimestamp ? Date.now() - deviceReadyTimestamp : Infinity;
     if (timeSinceReady < 3000) {
       for (let i = 0; i < 5; i++) {
         try {
           const devices = await apiGetSpotifyDevices();
           if (devices.some(d => d.id === deviceId)) break;
-        } catch { /* ignore */ }
+        } catch {
+          // ignore — fall through to retry / play attempt
+        }
         if (i < 4) await new Promise(r => setTimeout(r, 500));
       }
     }
 
     try {
-      // Use backend API endpoint to play track
       await apiPlayTrack(deviceId, trackUri);
-
-      // Ensure the SDK device is actively outputting audio
-      try { await player.resume(); } catch { /* SDK will pick it up via state change */ }
-
+      try {
+        await player.resume();
+      } catch {
+        // SDK will pick it up via state change.
+      }
       logger.info('Playback started:', { trackUri });
-
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to play track';
+      const msg = error instanceof Error ? error.message : 'Failed to play track';
       logger.error('❌ Play track error:', error);
-      
-      // If device not found (404), provide helpful guidance
-      if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('not ready')) {
+      if (msg.includes('404') || msg.includes('not found') || msg.includes('not ready')) {
         toast.error('⚠️ Web player activation needed: Open Spotify app → Play any song → Wait 5s → Try again', {
-          duration: 10000
+          duration: 10000,
         });
-      } else if (errorMsg.includes('403') || errorMsg.includes('Premium')) {
+      } else if (msg.includes('403') || msg.includes('Premium')) {
         toast.error('Spotify Premium is REQUIRED for web playback');
       }
-      
       throw error;
     }
-  }, [deviceId, player]);
+  };
 
-  // Set track completion callback
-  const setTrackCompleteCallback = useCallback((callback?: ((trackUri: string) => void)) => {
-    globalOnTrackComplete = callback;
-    setOnTrackComplete(callback);
-  }, []);
+  const setOnTrackComplete = (callback?: (trackUri: string) => void) => {
+    setState({ onTrackComplete: callback });
+  };
 
   return {
-    player,
-    deviceId,
-    currentTrack,
-    isPlaying,
-    position,
-    duration,
-    isLoading,
-    error,
-    deviceReadyTimestamp,
+    subscribe,
+    getSnapshot,
+    ensureInitialized,
     playTrack,
-    onTrackComplete,
-    setOnTrackComplete: setTrackCompleteCallback,
+    setOnTrackComplete,
+  };
+})();
+
+/**
+ * Hook for integrating with the Spotify Web Playback SDK.
+ * Thin wrapper over the singleton store: subscribes to its snapshot and
+ * ensures the SDK is initialized once the user is authenticated.
+ */
+export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
+  const { isAuthenticated } = useUser();
+  const snapshot = useSyncExternalStore(spotifyPlayerStore.subscribe, spotifyPlayerStore.getSnapshot);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      spotifyPlayerStore.ensureInitialized();
+    }
+  }, [isAuthenticated]);
+
+  return {
+    player: snapshot.player,
+    deviceId: snapshot.deviceId,
+    currentTrack: snapshot.currentTrack,
+    isPlaying: snapshot.isPlaying,
+    position: snapshot.position,
+    duration: snapshot.duration,
+    isLoading: snapshot.isLoading,
+    error: snapshot.error,
+    deviceReadyTimestamp: snapshot.deviceReadyTimestamp,
+    playTrack: spotifyPlayerStore.playTrack,
+    onTrackComplete: snapshot.onTrackComplete,
+    setOnTrackComplete: spotifyPlayerStore.setOnTrackComplete,
   };
 };
-
