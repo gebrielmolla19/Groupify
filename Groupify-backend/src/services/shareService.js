@@ -30,6 +30,13 @@ class ShareService {
       throw error;
     }
 
+    const existingShare = await Share.findOne({ group: groupId, spotifyTrackId }).lean();
+    if (existingShare) {
+      const error = new Error('This song is already in the group feed');
+      error.statusCode = 409;
+      throw error;
+    }
+
     // Get valid access token
     const accessToken = await TokenManager.getValidAccessToken(userId);
 
@@ -59,7 +66,16 @@ class ShareService {
       genres
     });
 
-    await share.save();
+    try {
+      await share.save();
+    } catch (err) {
+      if (err.code === 11000) {
+        const error = new Error('This song is already in the group feed');
+        error.statusCode = 409;
+        throw error;
+      }
+      throw err;
+    }
 
     const populatedShare = await Share.findById(share._id)
       .populate('sharedBy', 'displayName profileImage spotifyId')

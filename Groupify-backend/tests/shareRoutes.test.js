@@ -99,6 +99,33 @@ describe('Share Routes', () => {
 
       expect(res.statusCode).toBe(400);
     });
+
+    it('should return 409 when the same song is shared twice to a group', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id, { name: 'Dup Group' });
+
+      const payload = {
+        groupId: group._id.toString(),
+        spotifyTrackId: validSpotifyTrackId
+      };
+
+      const first = await request(app)
+        .post('/api/v1/shares')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload);
+
+      expect(first.statusCode).toBe(201);
+
+      const second = await request(app)
+        .post('/api/v1/shares')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload);
+
+      expect(second.statusCode).toBe(409);
+      expect(second.body.success).toBe(false);
+      expect(second.body.message).toBe('This song is already in the group feed');
+      expect(second.body.message).not.toMatch(/E11000|duplicate key/i);
+    });
   });
 
   describe('GET /api/v1/shares/groups/:groupId', () => {

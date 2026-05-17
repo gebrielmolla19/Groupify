@@ -92,6 +92,8 @@ const shareSchema = new mongoose.Schema({
 shareSchema.index({ group: 1, createdAt: -1 });
 shareSchema.index({ sharedBy: 1 });
 shareSchema.index({ spotifyTrackId: 1 });
+// One copy of each track per group
+shareSchema.index({ group: 1, spotifyTrackId: 1 }, { unique: true });
 
 // Auto-sync counts from array lengths on every save
 shareSchema.pre('save', function (next) {
