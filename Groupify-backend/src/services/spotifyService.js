@@ -1084,14 +1084,24 @@ class SpotifyService {
               });
             }
 
-            if (devices.length > 0) {
-              const fallback = devices.find(d => d.id === deviceId)
-                || devices.find(d => d.name && d.name.includes('Groupify Web Player'))
-                || devices.find(d => d.is_active)
-                || devices[0];
-              if (fallback?.id) actualDeviceId = fallback.id;
+            // Only recover onto the Groupify Web Player itself (or the
+            // exact device that was requested). Do NOT fall back to an
+            // arbitrary active device: on mobile browsers — where
+            // Spotify's Web Playback SDK is unsupported and the web
+            // player device frequently deregisters — the "active"
+            // device is the user's phone Spotify app. Transferring
+            // there silently hijacks audio away from Groupify and
+            // leaves the in-app player frozen. If the web player is
+            // genuinely gone, surface the 404 so the client can react
+            // honestly instead.
+            const webPlayer = devices.find(d => d.id === deviceId)
+              || devices.find(d => d.name && d.name.includes('Groupify Web Player'));
+
+            if (!webPlayer?.id) {
+              throw firstPlayError;
             }
 
+            actualDeviceId = webPlayer.id;
             await this.transferPlayback(accessToken, actualDeviceId, true);
             await sleep(800);
             return await playOnce();

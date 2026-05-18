@@ -410,9 +410,24 @@ const spotifyPlayerStore = (() => {
       const msg = error instanceof Error ? error.message : 'Failed to play track';
       logger.error('❌ Play track error:', error);
       if (msg.includes('404') || msg.includes('not found') || msg.includes('not ready')) {
-        toast.error('⚠️ Web player activation needed: Open Spotify app → Play any song → Wait 5s → Try again', {
-          duration: 10000,
-        });
+        // The Web Playback device is gone. The backend no longer
+        // silently transfers playback to another device (e.g. the
+        // phone Spotify app), so nothing is playing. Reflect that in
+        // state so the UI doesn't stay frozen showing a "playing"
+        // track, and best-effort re-register the SDK device so the
+        // next attempt can succeed. (On mobile browsers Spotify's Web
+        // Playback SDK is unsupported, so this will keep failing there
+        // — see the planned mobile remote-control mode.)
+        setState({ isPlaying: false, position: 0 });
+        try {
+          await snapshot.player?.connect();
+        } catch {
+          // best effort — device may re-register and emit 'ready'
+        }
+        toast.error(
+          'Playback device unavailable. On a phone, control playback from the Spotify app — the in-browser player isn’t supported on mobile.',
+          { duration: 8000 }
+        );
       } else if (msg.includes('403') || msg.includes('Premium')) {
         toast.error('Spotify Premium is REQUIRED for web playback');
       }
