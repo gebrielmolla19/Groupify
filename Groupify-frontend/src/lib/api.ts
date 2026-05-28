@@ -4,6 +4,7 @@
  */
 
 import { API_BASE_URL } from './config';
+import { ApiError } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences } from '../types';
 import { TasteGravityResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
@@ -108,10 +109,10 @@ export const fetchWithAuth = async (
 
           if (!retryResponse.ok) {
             const retryError = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
-            const apiError = new Error(retryError.message || `HTTP error! status: ${retryResponse.status}`);
-            (apiError as any).status = retryResponse.status;
-            (apiError as any).statusCode = retryResponse.status;
-            throw apiError;
+            throw new ApiError(
+              retryError.message || `HTTP error! status: ${retryResponse.status}`,
+              { status: retryResponse.status }
+            );
           }
           return retryResponse;
         }
@@ -119,31 +120,23 @@ export const fetchWithAuth = async (
 
       // Refresh failed or non-expiry 401 — throw as normal
       const errorMessage = body.message || `HTTP error! status: ${response.status}`;
-      const apiError = new Error(errorMessage);
-      (apiError as any).status = response.status;
-      (apiError as any).statusCode = response.status;
-      throw apiError;
+      throw new ApiError(errorMessage, { status: response.status });
     }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'An error occurred' }));
       const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-
-      // Create error with status code for better handling
-      const apiError = new Error(errorMessage);
-      (apiError as any).status = response.status;
-      (apiError as any).statusCode = response.status;
-      throw apiError;
+      throw new ApiError(errorMessage, { status: response.status });
     }
 
     return response;
   } catch (error) {
     // Re-throw with more context for network errors
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      // Network error - could be CORS, backend down, or no internet
-      const networkError = new Error('Network error: Unable to reach the server. Please check your connection.');
-      (networkError as any).isNetworkError = true;
-      throw networkError;
+      throw new ApiError(
+        'Network error: Unable to reach the server. Please check your connection.',
+        { isNetworkError: true }
+      );
     }
     throw error;
   }
