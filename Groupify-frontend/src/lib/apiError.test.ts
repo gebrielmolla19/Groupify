@@ -86,13 +86,47 @@ describe('fetchWithAuth errors', () => {
     expect(err.message).toBe('Forbidden');
   });
 
-  it('marks fetch failures as network errors', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+  it.each([
+    ['Chrome', 'Failed to fetch'],
+    ['Safari', 'Load failed'],
+    ['Firefox', 'NetworkError when attempting to fetch resource.'],
+  ])('marks %s fetch failures as network errors', async (_browser, message) => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError(message)));
 
     const err = await fetchWithAuth('/groups').catch((e: unknown) => e);
     expect(isApiError(err)).toBe(true);
     if (!isApiError(err)) return;
     expect(err.isNetworkError).toBe(true);
     expect(err.status).toBe(0);
+  });
+
+  it('marks a network failure on the post-refresh retry as a network error', async () => {
+    localStorage.setItem('groupify_token', 'expired-jwt');
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ message: 'Token expired' }), { status: 401 })
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ success: true, token: 'fresh-jwt' }), { status: 200 })
+        )
+        .mockRejectedValueOnce(new TypeError('Load failed'))
+    );
+
+    const err = await fetchWithAuth('/groups').catch((e: unknown) => e);
+    localStorage.removeItem('groupify_token');
+
+    expect(isApiError(err) && err.isNetworkError).toBe(true);
+  });
+
+  it('passes aborts through unchanged', async () => {
+    const abort = new DOMException('The operation was aborted.', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort));
+
+    const err = await fetchWithAuth('/groups').catch((e: unknown) => e);
+    expect(err).toBe(abort);
+    expect(isApiError(err)).toBe(false);
   });
 });
