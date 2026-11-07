@@ -38,9 +38,11 @@ description: Open or update a Groupify pull request the project's way — verifi
 
 ## Review (every PR, before telling the user it's ready)
 This is the project's review gate. It costs nothing beyond the user's
-Claude Code plan. `main`'s ruleset requires every review thread to be
-resolved, so a posted finding blocks the merge until it's fixed or
-answered.
+Claude Code plan. With `main`'s ruleset in place (CONTRIBUTING.md §1.6),
+a posted finding blocks the merge until it's fixed or answered. If
+`gh api repos/gebrielmolla19/Groupify/rules/branches/main` returns `[]`,
+the ruleset isn't active. Tell the user, because then nothing actually
+blocks a merge.
 
 **The review must come from a fresh context, never from the session that
 wrote the code.** The author knows what the code was *meant* to do, and

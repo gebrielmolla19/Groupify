@@ -96,15 +96,23 @@ PR. A red CI blocks the merge.
   design, then style. Style nits that a linter could catch should become
   lint rules instead.
 - **Each review comment gets fixed or answered**, then its thread is
-  resolved. `main`'s ruleset requires all conversations to be resolved,
-  so an open finding blocks the merge.
+  resolved. With the ruleset below, an open thread blocks the merge.
 - **The merge click is the owner's approval.** The ruleset needs 0 formal
   approvals: GitHub doesn't let a PR's author approve it, and every PR
   here is opened under the owner's account.
 
-`main`'s ruleset enforces: PR required · status checks `Backend tests` +
-`Frontend tests` must pass · conversations resolved · no force pushes or
-deletion.
+#### Ruleset on `main` (Settings → Rules → Rulesets)
+The merge gate is only real if this ruleset exists with **Enforcement
+status: Active**:
+- Require a pull request before merging, with **0** required approvals
+  and **Require conversation resolution** on
+- Require status checks to pass: `Backend tests` and `Frontend tests`
+  (from GitHub Actions)
+- Block force pushes, and restrict deletions
+
+Check that it's in place: `gh api repos/gebrielmolla19/Groupify/rules/branches/main`
+should list `pull_request`, `required_status_checks`, `non_fast_forward`
+and `deletion`. An empty list (`[]`) means nothing is enforced.
 
 ### 1.7 Merge, confirm, close
 - Merge only with green CI and the PR's manual checklist ticked.
