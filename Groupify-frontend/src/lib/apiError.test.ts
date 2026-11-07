@@ -60,6 +60,32 @@ describe('fetchWithAuth errors', () => {
     expect(isApiError(err) && err.status).toBe(401);
   });
 
+  it('throws an ApiError when the retry after a token refresh fails', async () => {
+    localStorage.setItem('groupify_token', 'expired-jwt');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Token expired' }), { status: 401 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, token: 'fresh-jwt' }), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const err = await fetchWithAuth('/groups/abc').catch((e: unknown) => e);
+    localStorage.removeItem('groupify_token');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/auth/refresh-jwt');
+    expect(isApiError(err)).toBe(true);
+    if (!isApiError(err)) return;
+    expect(err.status).toBe(403);
+    expect(err.message).toBe('Forbidden');
+  });
+
   it('marks fetch failures as network errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 

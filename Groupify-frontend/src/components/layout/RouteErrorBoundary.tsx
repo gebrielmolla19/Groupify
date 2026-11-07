@@ -53,7 +53,7 @@ export class RouteErrorBoundary extends Component<
                 This screen crashed. Try reloading, or navigate to another page using
                 the sidebar.
               </p>
-              <Button type="button" onClick={this.handleReload}>
+              <Button type="button" className="min-h-11" onClick={this.handleReload}>
                 Reload
               </Button>
             </CardContent>
