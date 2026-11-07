@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Invite, Group } from '../types';
+import { Invite } from '../types';
 import {
   getUserInvites as apiGetUserInvites,
   acceptInvite as apiAcceptInvite,

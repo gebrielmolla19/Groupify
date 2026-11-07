@@ -76,9 +76,9 @@ function AuthenticatedLayoutInner() {
       <SidebarProvider defaultOpen={false}>
         <AppSidebar />
         <SidebarInset>
-          <RouteErrorBoundary key={location.pathname}>
-            <Suspense fallback={<LoadingFallback />}>
-              <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
+          <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
+            <RouteErrorBoundary key={location.pathname}>
+              <Suspense fallback={<LoadingFallback />}>
                 <Routes>
                   <Route path="/" element={<DashboardScreen />} />
                   <Route path="/profile" element={<ProfileScreen />} />
@@ -89,9 +89,9 @@ function AuthenticatedLayoutInner() {
                   <Route path="/changelog" element={<ChangelogScreen />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
-              </div>
-            </Suspense>
-          </RouteErrorBoundary>
+              </Suspense>
+            </RouteErrorBoundary>
+          </div>
         </SidebarInset>
 
         {showPlayer && <SpotifyPlayerCard />}
