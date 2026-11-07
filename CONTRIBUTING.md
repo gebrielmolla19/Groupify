@@ -85,11 +85,23 @@ PR. A red CI blocks the merge.
 - Review your own diff before asking anyone else.
 
 ### 1.6 Review
-- At least one review before merging: a person, or an AI review followed
-  by the author reading and resolving every comment.
+- Every PR gets a review before merging. In practice this is a Claude
+  review run from a Claude Code session (the `/groupify-pr` skill does
+  it), posted as **inline review comments** on the PR. A human reviewer
+  works too.
 - Reviewers check correctness first (edge cases, error paths, auth), then
   design, then style. Style nits that a linter could catch should become
   lint rules instead.
+- **Each review comment gets fixed or answered**, then its thread is
+  resolved. `main`'s ruleset requires all conversations to be resolved,
+  so an open finding blocks the merge.
+- **The merge click is the owner's approval.** The ruleset needs 0 formal
+  approvals: GitHub doesn't let a PR's author approve it, and every PR
+  here is opened under the owner's account.
+
+`main`'s ruleset enforces: PR required · status checks `Backend tests` +
+`Frontend tests` must pass · conversations resolved · no force pushes or
+deletion.
 
 ### 1.7 Merge, confirm, close
 - Merge only with green CI and the PR's manual checklist ticked.
