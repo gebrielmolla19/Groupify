@@ -910,6 +910,18 @@ export const skipToPrevious = async (deviceId?: string): Promise<void> => {
   if (!data.success) throw new Error(data.message || 'Failed to skip to previous');
 };
 
+/**
+ * Seek to a position (ms) in the current track on the active or specified device
+ */
+export const seekPlayback = async (positionMs: number, deviceId?: string): Promise<void> => {
+  const response = await fetchWithAuth('/player/seek', {
+    method: 'PUT',
+    body: JSON.stringify({ position_ms: Math.max(0, Math.round(positionMs)), device_id: deviceId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message || 'Failed to seek');
+};
+
 // ==================== ANALYTICS OPERATIONS ====================
 
 /**

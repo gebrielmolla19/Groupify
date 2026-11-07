@@ -30,14 +30,7 @@ import { useState, useEffect, useMemo } from "react";
 import { logger } from "../../../utils/logger";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
-
-// Format duration from milliseconds to MM:SS
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
+import { formatTrackTime as formatDuration } from "../../../lib/formatTime";
 
 export default function PlaylistViewScreen() {
   const { groupId } = useParams<{ groupId: string }>();

@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { formatTime } from './formatTime';
+import { formatTime, formatTrackTime } from './formatTime';
+
+describe('formatTrackTime', () => {
+  it('formats as m:ss', () => {
+    expect(formatTrackTime(0)).toBe('0:00');
+    expect(formatTrackTime(9_999)).toBe('0:09');
+    expect(formatTrackTime(245_000)).toBe('4:05');
+  });
+
+  it('switches to h:mm:ss past an hour', () => {
+    expect(formatTrackTime(3_725_000)).toBe('1:02:05');
+  });
+
+  it('clamps negative values to 0:00', () => {
+    expect(formatTrackTime(-500)).toBe('0:00');
+  });
+});
 
 describe('formatTime', () => {
   it('returns "0s" for negative ms', () => {

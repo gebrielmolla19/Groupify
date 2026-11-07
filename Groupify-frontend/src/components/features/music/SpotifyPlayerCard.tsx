@@ -13,7 +13,8 @@ import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
 import { SpotifyDevice } from '../../../types';
 import { toast } from 'sonner';
-import { getSpotifyDevices, transferPlayback, pausePlayback as apiPausePlayback, resumePlayback as apiResumePlayback, skipToNext as apiSkipToNext, skipToPrevious as apiSkipToPrevious } from '../../../lib/api';
+import { getSpotifyDevices, transferPlayback, pausePlayback as apiPausePlayback, resumePlayback as apiResumePlayback, skipToNext as apiSkipToNext, skipToPrevious as apiSkipToPrevious, seekPlayback as apiSeekPlayback } from '../../../lib/api';
+import PlaybackScrubber from './PlaybackScrubber';
 import { logger } from '../../../utils/logger';
 import { useParams } from 'react-router-dom';
 import { useGroups } from '../../../hooks/useGroups';
@@ -21,7 +22,7 @@ import { useGroups } from '../../../hooks/useGroups';
 export default function SpotifyPlayerCard() {
   const { groupId } = useParams<{ groupId: string }>();
   const { groups } = useGroups();
-  const { player, currentTrack, isPlaying, isLoading, error, deviceId, deviceReadyTimestamp, playTrack } = useSpotifyPlayer();
+  const { player, currentTrack, isPlaying, position, duration, isLoading, error, deviceId, deviceReadyTimestamp, playTrack } = useSpotifyPlayer();
   const { playingGroup, setPlayingGroup, sortBy: contextSortBy } = usePlayingGroup();
   const { shares: playlistShares } = usePlaylist(playingGroup?._id || '', contextSortBy);
   const { state: sidebarState, isMobile } = useSidebar();
@@ -54,6 +55,10 @@ export default function SpotifyPlayerCard() {
   } : null);
   
   const displayIsPlaying = currentTrack ? isPlaying : (remotePlayback?.is_playing ?? false);
+  // Progress for the scrubber: the in-browser player when it has a track,
+  // otherwise whatever Spotify reports for the remote device.
+  const displayPosition = currentTrack ? position : (remotePlayback?.progress_ms ?? 0);
+  const displayDuration = currentTrack ? duration : (remotePlayback?.item?.duration_ms ?? 0);
   const activeDeviceName = remotePlayback?.device?.name || (deviceId ? 'Groupify Web Player' : null);
   
   // Check if device was recently initialized (within last 10 seconds)
@@ -219,6 +224,20 @@ export default function SpotifyPlayerCard() {
       toast.error(errorMsg);
     } finally {
       setIsControlling(false);
+    }
+  };
+
+  const handleSeek = async (positionMs: number) => {
+    const isRemote = !currentTrack && !!remotePlayback;
+    try {
+      if (isRemote) {
+        await apiSeekPlayback(positionMs, remotePlayback?.device?.id || undefined);
+      } else if (player) {
+        await player.seek(positionMs);
+      }
+    } catch (err) {
+      logger.error('Seek error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to seek');
     }
   };
 
@@ -555,8 +574,10 @@ export default function SpotifyPlayerCard() {
         style={playerStyle}
         data-testid="spotify-player-global"
       >
-      <Card className="rounded-full border border-zinc-800 shadow-2xl transition-colors overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-        <CardContent className="px-4 md:px-6 py-2 md:py-3">
+      {/* Rounded rectangle rather than a full pill: the scrubber row makes the
+          card taller, and a pill's curved ends would clip the row's edges. */}
+      <Card className="rounded-[1.75rem] border border-zinc-800 shadow-2xl transition-colors overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
+        <CardContent className="px-4 md:px-6 pt-2 md:pt-3 pb-1.5 md:pb-2">
           <div className="flex items-center gap-3 md:gap-4 h-auto md:h-14">
             {/* Album Artwork */}
             <div className="h-10 w-10 md:h-10 md:w-10 shrink-0 rounded overflow-hidden relative bg-neutral-800/50">
@@ -741,6 +762,16 @@ export default function SpotifyPlayerCard() {
             </div>
 
           </div>
+
+          <PlaybackScrubber
+            className="mt-1"
+            position={displayPosition}
+            duration={displayDuration}
+            isPlaying={displayIsPlaying}
+            trackKey={displayTrack.uri}
+            onSeek={handleSeek}
+            disabled={isControlling}
+          />
         </CardContent>
       </Card>
       </div>
