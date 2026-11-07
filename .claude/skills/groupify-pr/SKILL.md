@@ -26,6 +26,8 @@ description: Open or update a Groupify pull request the project's way — verifi
    - **Not verified**: unchecked boxes for anything left to the user
      (Premium playback, a real phone, and so on)
    - **Risk & rollback**: env vars, OAuth scopes, migrations
+   - **Evidence**: before/after proof of the change. Required, see
+     "Evidence" below.
 4. Create it with `gh pr create`. On this machine the `gh` token can't
    create PRs (it returns 403), so use the GitHub MCP connector instead:
    `mcp__github__create_pull_request` with owner `gebrielmolla19` and
@@ -35,6 +37,61 @@ description: Open or update a Groupify pull request the project's way — verifi
    Don't poll CI in a loop.
 6. Comment on the issue only if something needs explaining. `Fixes #N`
    already links them.
+
+## Evidence
+Every PR shows the thing it fixed or built, so the user can see it
+works without checking out the branch. Capture it **before** opening
+the PR (for bugs, capture the "before" while reproducing, ahead of the
+fix).
+
+**What to capture**
+- **UI change:** before and after screenshots of the affected screen,
+  at desktop width and at 375 px.
+- **Flow or interaction** (playback, seek, drag, toasts, navigation): a
+  short GIF or video of the after, plus the before if it's a bug.
+- **Backend, API or logic:** before/after text in fenced code blocks,
+  such as the `curl` response (status and body), the relevant log lines,
+  or the regression test failing on the old code and passing on the new.
+- **Refactor or chore with no visible change:** one line saying so, plus
+  the verify output. That's the evidence.
+
+**How to capture**
+- Run the app (`run` skill, or the dev servers in CLAUDE.md) and open it
+  in a browser you can save files from. The `chrome-devtools` MCP works:
+  `resize_page` (1280×800, then 375×812), then
+  `take_screenshot` with a `filePath` in the scratchpad directory.
+  `screencast_start` / `screencast_stop` records a flow. Convert it to a
+  GIF with `ffmpeg` if that's installed, so it plays inline on GitHub.
+- iOS Simulator: the simulator `screenshot` action.
+- Look at every image before using it. It must show the change, not a
+  login page, a loading spinner or the wrong screen.
+- **The repo is public.** Use test data only. No real emails, tokens,
+  Spotify account names or other personal data in a screenshot. Crop or
+  retake if any show up.
+
+**How to attach**
+GitHub's API can't upload images to a PR body, so images go on the
+`pr-evidence` branch, which holds only evidence and is never merged.
+Never commit them to the feature branch.
+```bash
+git fetch origin pr-evidence 2>/dev/null \
+  && git worktree add <scratch>/pr-evidence pr-evidence \
+  || git worktree add --orphan -b pr-evidence <scratch>/pr-evidence
+mkdir -p <scratch>/pr-evidence/<branch> && cp <images> <scratch>/pr-evidence/<branch>/
+git -C <scratch>/pr-evidence add <branch>
+git -C <scratch>/pr-evidence commit -m "evidence: <branch>"
+git -C <scratch>/pr-evidence push -u origin pr-evidence
+git worktree remove <scratch>/pr-evidence
+```
+Then reference each image in the Evidence table as
+`![after, 375 px](https://raw.githubusercontent.com/gebrielmolla19/Groupify/pr-evidence/<branch>/after-375.png)`.
+Name files `before-desktop.png`, `after-375.png`, `after-flow.gif` and
+so on. Open one raw URL to check it loads before you finish the PR.
+
+**Couldn't capture it?** For example, it needs Premium audio or a real
+phone. Say why in Evidence, and add an unchecked box under "Not
+verified". Never use a mock-up, an edited image or a screenshot of
+other code as evidence.
 
 ## Review (every PR, before telling the user it's ready)
 This is the project's review gate. It costs nothing beyond the user's
@@ -89,6 +146,9 @@ that's exactly what hides bugs.
 ## After opening
 - **CI fails:** read the failing job's log, fix the cause, push again,
   and say what you changed.
+- **The change looks different after new commits** (a review fix changed
+  the UI, say): retake the after shots, push them to `pr-evidence`, and
+  update the PR body.
 - **Review comments** (yours or anyone else's): fix each one or reply
   with a reason, run `groupify-verify` again, and resolve the thread.
 - **New commits after a review** that do more than fix review findings:

@@ -38,7 +38,9 @@ gh pr diff <n>
 3. **Tests:** does a bug fix have a regression test? Is new logic
    covered? Do the tests actually check the behavior?
 4. **The PR's own claims:** do the description and checklist match the
-   diff?
+   diff? Does the Evidence section actually show the change (the right
+   screen, before and after, phone width for UI)? Missing evidence for a
+   UI change, with no reason given, is a blocking finding.
 
 If the `code-review` skill is available, you can also run it on the PR
 for a second pass, report-only (no `--comment` option). Its findings get

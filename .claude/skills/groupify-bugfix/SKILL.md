@@ -14,6 +14,10 @@ for the real fix.
   or phone, in-browser player or Spotify app, Premium?) and expected vs
   actual behavior.
 - If you can't reproduce it, gather evidence (step 2) before guessing.
+- **Capture the "before" now**, while the bug still happens: a screenshot
+  or recording of the broken UI, or the failing request and log lines.
+  Once it's fixed you can't get it back. See "Evidence" in the
+  `groupify-pr` skill for how to capture and save it.
 
 ## 2. Gather evidence
 - **Backend logs:** `Groupify-backend/logs/combined-<date>.log` and
@@ -62,5 +66,5 @@ for the real fix.
 ## 6. Verify and ship
 - The regression test passes. Run the `groupify-verify` skill.
 - Then the `groupify-pr` skill. The PR explains **root cause → fix →
-  evidence it's fixed**, and lists anything that needs the user (for
+  evidence it's fixed** (the before/after in its Evidence section), and lists anything that needs the user (for
   example "retest on a phone with Premium").
