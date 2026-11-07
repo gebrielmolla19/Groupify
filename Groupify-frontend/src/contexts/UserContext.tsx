@@ -81,6 +81,12 @@ export function UserProvider({ children }: UserProviderProps) {
   };
 
   const handleLogout = async () => {
+    // Tell the Spotify player to disconnect so "Groupify Web Player" leaves
+    // the user's Spotify Connect device list. An event (rather than an
+    // import) avoids a circular dependency: useSpotifyPlayer imports this
+    // context. Must match SPOTIFY_LOGOUT_EVENT in hooks/useSpotifyPlayer.ts.
+    window.dispatchEvent(new Event('groupify:logout'));
+
     // Call backend logout (which also removes token client-side)
     await apiLogout();
     

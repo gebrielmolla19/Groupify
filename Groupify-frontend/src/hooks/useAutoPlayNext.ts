@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { usePlayingGroup } from '../contexts/PlayingGroupContext';
 import { usePlaylist } from './usePlaylist';
-import { useSpotifyPlayer } from './useSpotifyPlayer';
+import { useSpotifyPlayer, wasPlaybackErrorNotified } from './useSpotifyPlayer';
 import { toast } from 'sonner';
 import { logger } from '../utils/logger';
 
@@ -34,7 +34,9 @@ export function useAutoPlayNext() {
           await playTrack(nextTrackUri);
         } catch (err) {
           logger.error('Auto-play next track failed:', err);
-          toast.error('Failed to auto-play next track');
+          if (!wasPlaybackErrorNotified(err)) {
+            toast.error('Failed to auto-play next track');
+          }
         } finally {
           isAutoPlayingRef.current = false;
         }

@@ -1,11 +1,14 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useUser } from '../contexts/UserContext';
-import { getSpotifyAccessToken, transferPlayback, playTrack as apiPlayTrack, getSpotifyDevices as apiGetSpotifyDevices } from '../lib/api';
+import { getSpotifyAccessToken, playTrack as apiPlayTrack, getSpotifyDevices as apiGetSpotifyDevices } from '../lib/api';
 import { toast } from 'sonner';
 import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/spotifyPlayer';
 import { logger } from '../utils/logger';
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
+
+/** Dispatched on `window` by UserContext on logout so the player can tear down. */
+export const SPOTIFY_LOGOUT_EVENT = 'groupify:logout';
 
 export interface UseSpotifyPlayerReturn {
   player: SpotifyPlayer | null;
@@ -18,7 +21,6 @@ export interface UseSpotifyPlayerReturn {
   error: string | null;
   deviceReadyTimestamp: number | null;
   playTrack: (trackUri: string) => Promise<void>;
-  onTrackComplete?: (trackUri: string) => void;
   setOnTrackComplete?: (callback?: (trackUri: string) => void) => void;
 }
 
@@ -37,48 +39,72 @@ interface PlayerSnapshot {
   isLoading: boolean;
   error: string | null;
   deviceReadyTimestamp: number | null;
-  onTrackComplete?: (trackUri: string) => void;
 }
+
+const INITIAL_SNAPSHOT: PlayerSnapshot = {
+  player: null,
+  deviceId: null,
+  currentTrack: null,
+  isPlaying: false,
+  position: 0,
+  duration: 0,
+  isLoading: true,
+  error: null,
+  deviceReadyTimestamp: null,
+};
+
+/**
+ * Errors that `playTrack` has already shown a toast for. Callers check
+ * this via `wasPlaybackErrorNotified` so the user doesn't see the same
+ * failure twice.
+ */
+const notifiedErrors = new WeakSet<object>();
+
+export const wasPlaybackErrorNotified = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && notifiedErrors.has(err);
+
+const isDeviceGoneError = (msg: string) =>
+  msg.includes('404') || msg.includes('not found') || msg.includes('not ready');
 
 /**
  * Spotify Web Playback singleton store.
  *
  * There is exactly one Spotify SDK player per page, so the state that
- * backs it is genuinely process-wide. Rather than scattering that across
- * loose module variables + a hand-rolled listener Set (the previous
- * design), it is encapsulated here behind a small store with a stable
- * `getSnapshot`/`subscribe` pair, consumed via React 18's
- * `useSyncExternalStore`. Behavior is unchanged; the difference is that
- * all mutable state lives in one place, snapshots are referentially
- * stable, and the polling interval is owned by the store (so multiple
- * hook instances can no longer create competing intervals).
+ * backs it is genuinely process-wide. It is encapsulated here behind a
+ * small store with a stable `getSnapshot`/`subscribe` pair, consumed via
+ * React 18's `useSyncExternalStore`. All mutable state lives in one
+ * place, snapshots are referentially stable, and the polling interval is
+ * owned by the store (so multiple hook instances can't create competing
+ * intervals).
+ *
+ * Follows https://developer.spotify.com/documentation/web-playback-sdk/reference:
+ * - `activateElement()` is called synchronously inside the user's tap
+ *   before playback starts, which browser autoplay rules (iOS in
+ *   particular) require. Without it the device sits paused after the
+ *   transfer and later requests 404.
+ * - Every documented error event is handled.
+ * - Playback is never transferred to this device until the user plays
+ *   something, so opening Groupify doesn't pause the user's Spotify app.
  */
 const spotifyPlayerStore = (() => {
-  let snapshot: PlayerSnapshot = {
-    player: null,
-    deviceId: null,
-    currentTrack: null,
-    isPlaying: false,
-    position: 0,
-    duration: 0,
-    isLoading: true,
-    error: null,
-    deviceReadyTimestamp: null,
-    onTrackComplete: undefined,
-  };
+  let snapshot: PlayerSnapshot = INITIAL_SNAPSHOT;
 
   const listeners = new Set<() => void>();
 
   // Non-reactive internals (initialization guards + completion tracking).
   const internal = {
     scriptLoaded: false,
-    playerInitialized: false,
-    transferCalled: false,
     initStarted: false,
+    initializing: false,
+    readyAnnounced: false,
+    reconnecting: false,
     lastTrackUri: null as string | null,
     hasTrackCompleted: false,
     lastPosition: 0,
     pollInterval: null as ReturnType<typeof setInterval> | null,
+    // No component renders from this, so it lives outside the snapshot —
+    // changing it must not re-render every consumer.
+    onTrackComplete: undefined as ((trackUri: string) => void) | undefined,
   };
 
   const getSnapshot = () => snapshot;
@@ -110,13 +136,19 @@ const spotifyPlayerStore = (() => {
 
   const fireTrackComplete = (trackUri: string) => {
     window.dispatchEvent(new CustomEvent('spotifyTrackComplete', { detail: { trackUri } }));
-    if (snapshot.onTrackComplete) {
+    if (internal.onTrackComplete) {
       try {
-        snapshot.onTrackComplete(trackUri);
+        internal.onTrackComplete(trackUri);
       } catch (err) {
         logger.error('Error in track completion callback:', err);
       }
     }
+  };
+
+  const resetCompletionTracking = () => {
+    internal.lastTrackUri = null;
+    internal.hasTrackCompleted = false;
+    internal.lastPosition = 0;
   };
 
   /**
@@ -176,9 +208,7 @@ const spotifyPlayerStore = (() => {
             internal.hasTrackCompleted = true;
             fireTrackComplete(internal.lastTrackUri);
           }
-          internal.lastTrackUri = null;
-          internal.hasTrackCompleted = false;
-          internal.lastPosition = 0;
+          resetCompletionTracking();
         }
       } catch (err) {
         if (err instanceof Error && !err.message.includes('No active device')) {
@@ -199,11 +229,47 @@ const spotifyPlayerStore = (() => {
   };
   listeners.add(syncPolling);
 
+  /**
+   * Re-register the SDK device with Spotify. Used after `not_ready`
+   * (typically a dropped connection), when the network comes back, when
+   * the tab becomes visible again (phones suspend background tabs), and
+   * after Spotify reports the device as gone (`force`).
+   */
+  const reconnect = async (reason: string, { force = false } = {}) => {
+    const player = snapshot.player;
+    if (!player || internal.reconnecting) return;
+    if (!force && snapshot.deviceId) return;
+    internal.reconnecting = true;
+    logger.info('[SpotifyPlayer] Reconnecting', { reason });
+    try {
+      if (force) {
+        // The SDK still thinks it's connected but Spotify has dropped the
+        // device. Disconnect first so connect() re-registers it and emits
+        // a fresh 'ready' with a device id.
+        player.disconnect();
+        setState({ deviceId: null, deviceReadyTimestamp: null });
+      }
+      await player.connect();
+    } catch (err) {
+      logger.warn('[SpotifyPlayer] Reconnect failed', err);
+    } finally {
+      internal.reconnecting = false;
+    }
+  };
+
+  const handleOnline = () => {
+    void reconnect('online');
+  };
+  const handleVisibility = () => {
+    if (document.visibilityState === 'visible') void reconnect('visible');
+  };
+
   const loadSdkScript = (onReady: () => void) => {
     if (internal.scriptLoaded) {
       if (window.Spotify) onReady();
       return;
     }
+    // Must be defined before the SDK script runs (per Spotify docs).
     window.onSpotifyWebPlaybackSDKReady = onReady;
 
     const existing = document.querySelector(`script[src="${SDK_URL}"]`);
@@ -230,7 +296,10 @@ const spotifyPlayerStore = (() => {
   };
 
   const initializePlayer = async () => {
-    if (internal.playerInitialized || !window.Spotify) return;
+    // onload and onSpotifyWebPlaybackSDKReady can both call this — make
+    // sure only one player is ever created.
+    if (internal.initializing || snapshot.player || !window.Spotify) return;
+    internal.initializing = true;
 
     try {
       setState({ isLoading: true, error: null });
@@ -253,45 +322,38 @@ const spotifyPlayerStore = (() => {
             const freshToken = await getSpotifyAccessToken();
             cb(freshToken);
           } catch (err) {
+            // The SDK keeps waiting if cb is never called; surface it so
+            // the UI doesn't sit on a dead player.
             logger.error('Failed to refresh Spotify token:', err);
-            toast.error('Failed to refresh Spotify token');
+            setState({ error: 'Lost connection to Spotify. Please log in again.', isPlaying: false });
+            toast.error('Failed to refresh Spotify token. Please log in again.');
           }
         },
         volume: 1.0,
       });
 
-      spotifyPlayer.addListener('ready', async ({ device_id }) => {
-        internal.playerInitialized = true;
+      spotifyPlayer.addListener('ready', ({ device_id }) => {
         setState({
           deviceId: device_id,
           deviceReadyTimestamp: Date.now(),
           isLoading: false,
+          error: null,
         });
-        logger.info('Spotify player initialized:', { deviceId: device_id });
+        logger.info('Spotify player ready:', { deviceId: device_id });
 
-        // Web Playback SDK devices need activation — a resume() nudge
-        // makes Spotify's backend recognize the device.
-        try {
-          await spotifyPlayer.resume();
-        } catch {
-          // Expected when nothing is playing.
+        // Playback is deliberately NOT transferred here. Transferring on
+        // page load (even with play=false) moves the user's Spotify
+        // session to the browser and pauses whatever they were listening
+        // to elsewhere. The first playTrack() targets this device_id
+        // directly instead.
+        if (!internal.readyAnnounced) {
+          internal.readyAnnounced = true;
+          toast.success('Spotify player ready! Click any track to play.', { duration: 3000 });
         }
-
-        setTimeout(async () => {
-          if (!internal.transferCalled) {
-            internal.transferCalled = true;
-            try {
-              await transferPlayback(device_id);
-              toast.success('Spotify player ready! Click any track to play.', { duration: 3000 });
-            } catch (err) {
-              logger.warn('⚠️ Initial transfer failed (device will activate on first play):', err);
-              toast.info('Player connected. Click any track to start playing.', { duration: 3000 });
-            }
-          }
-        }, 2000);
       });
 
-      spotifyPlayer.addListener('not_ready', () => {
+      spotifyPlayer.addListener('not_ready', ({ device_id }) => {
+        logger.warn('Spotify player went offline:', { deviceId: device_id });
         setState({
           deviceId: null,
           deviceReadyTimestamp: null,
@@ -299,6 +361,8 @@ const spotifyPlayerStore = (() => {
           currentTrack: null,
           position: 0,
         });
+        // Usually a dropped connection — try to come back if we're online.
+        if (navigator.onLine) void reconnect('not_ready');
       });
 
       spotifyPlayer.addListener('player_state_changed', (state: SpotifyPlayerState | null) => {
@@ -318,9 +382,7 @@ const spotifyPlayerStore = (() => {
             duration: newDuration,
           });
         } else {
-          internal.lastTrackUri = null;
-          internal.hasTrackCompleted = false;
-          internal.lastPosition = 0;
+          resetCompletionTracking();
           setState({
             currentTrack: null,
             isPlaying: false,
@@ -328,6 +390,19 @@ const spotifyPlayerStore = (() => {
             duration: 0,
           });
         }
+      });
+
+      spotifyPlayer.addListener('initialization_error', ({ message }) => {
+        // Most likely the browser lacks EME (encrypted media) — common in
+        // in-app browsers such as Instagram or Messages.
+        logger.error('Spotify initialization error:', message);
+        setState({
+          error: "This browser can't play Spotify audio. Open Groupify in Chrome, Safari, Firefox or Edge.",
+          isLoading: false,
+        });
+        toast.error("This browser can't play Spotify audio. Try opening Groupify in Chrome or Safari.", {
+          duration: 8000,
+        });
       });
 
       spotifyPlayer.addListener('authentication_error', ({ message }) => {
@@ -341,7 +416,23 @@ const spotifyPlayerStore = (() => {
         const msg = `Spotify account error: ${message}`;
         logger.error(msg);
         setState({ error: msg, isLoading: false });
-        toast.error('Spotify account error. Premium account may be required.');
+        toast.error('Spotify Premium is required for playback (mobile-only Premium plans are not supported).');
+      });
+
+      spotifyPlayer.addListener('playback_error', ({ message }) => {
+        // A track failed to load or play — don't leave the UI showing it
+        // as playing.
+        logger.error('Spotify playback error:', message);
+        setState({ isPlaying: false });
+        toast.error("Couldn't play this track. Try another one or skip ahead.");
+      });
+
+      spotifyPlayer.addListener('autoplay_failed', () => {
+        // The browser blocked audio because playback didn't start from a
+        // user tap (e.g. auto-advance on iOS).
+        logger.warn('Spotify autoplay blocked by the browser');
+        setState({ isPlaying: false });
+        toast.info('Tap play to start listening.', { duration: 6000 });
       });
 
       const connected = await spotifyPlayer.connect();
@@ -349,12 +440,17 @@ const spotifyPlayerStore = (() => {
         throw new Error('Failed to connect Spotify player');
       }
 
+      window.addEventListener('online', handleOnline);
+      document.addEventListener('visibilitychange', handleVisibility);
+
       setState({ player: spotifyPlayer });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to initialize Spotify player';
       logger.error('Player initialization error:', err);
       setState({ error: msg, isLoading: false });
       toast.error(msg);
+    } finally {
+      internal.initializing = false;
     }
   };
 
@@ -370,6 +466,28 @@ const spotifyPlayerStore = (() => {
     });
   };
 
+  /**
+   * Disconnect and reset everything (on logout), so the device leaves the
+   * user's Spotify Connect list and the next login starts fresh.
+   */
+  const teardown = () => {
+    stopPolling();
+    window.removeEventListener('online', handleOnline);
+    document.removeEventListener('visibilitychange', handleVisibility);
+    try {
+      snapshot.player?.disconnect();
+    } catch (err) {
+      logger.warn('Error disconnecting Spotify player:', err);
+    }
+    internal.initStarted = false;
+    internal.readyAnnounced = false;
+    internal.reconnecting = false;
+    internal.onTrackComplete = undefined;
+    resetCompletionTracking();
+    setState(INITIAL_SNAPSHOT);
+  };
+  window.addEventListener(SPOTIFY_LOGOUT_EVENT, teardown);
+
   const playTrack = async (trackUri: string) => {
     const { deviceId, player, deviceReadyTimestamp } = snapshot;
 
@@ -382,6 +500,13 @@ const spotifyPlayerStore = (() => {
     if (!trackUri || !trackUri.startsWith('spotify:track:')) {
       throw new Error('Invalid track URI. Expected format: spotify:track:xxx');
     }
+
+    // Must run synchronously inside the user's tap, before any await.
+    // Otherwise browsers (iOS especially) block the audio element and the
+    // device stays paused after Spotify transfers playback to it.
+    player.activateElement().catch(() => {
+      // Not fatal; 'autoplay_failed' fires if audio was actually blocked.
+    });
 
     // If the device was just registered, confirm it's visible to Spotify
     // before issuing the play command.
@@ -400,43 +525,31 @@ const spotifyPlayerStore = (() => {
 
     try {
       await apiPlayTrack(deviceId, trackUri);
-      try {
-        await player.resume();
-      } catch {
-        // SDK will pick it up via state change.
-      }
       logger.info('Playback started:', { trackUri });
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to play track';
       logger.error('❌ Play track error:', error);
-      if (msg.includes('404') || msg.includes('not found') || msg.includes('not ready')) {
-        // The Web Playback device is gone. The backend no longer
-        // silently transfers playback to another device (e.g. the
-        // phone Spotify app), so nothing is playing. Reflect that in
-        // state so the UI doesn't stay frozen showing a "playing"
-        // track, and best-effort re-register the SDK device so the
-        // next attempt can succeed. (On mobile browsers Spotify's Web
-        // Playback SDK is unsupported, so this will keep failing there
-        // — see the planned mobile remote-control mode.)
+      if (isDeviceGoneError(msg)) {
+        // Spotify no longer knows this device. The backend no longer
+        // silently transfers playback to another device (e.g. the phone
+        // Spotify app), so nothing is playing — reflect that so the UI
+        // doesn't freeze on the old track, then re-register the device.
         setState({ isPlaying: false, position: 0 });
-        try {
-          await snapshot.player?.connect();
-        } catch {
-          // best effort — device may re-register and emit 'ready'
-        }
-        toast.error(
-          'Playback device unavailable. On a phone, control playback from the Spotify app — the in-browser player isn’t supported on mobile.',
-          { duration: 8000 }
-        );
+        toast.error('Lost connection to the Spotify player. Reconnecting — tap play again in a moment.', {
+          duration: 6000,
+        });
+        if (error instanceof Error) notifiedErrors.add(error);
+        void reconnect('play-404', { force: true });
       } else if (msg.includes('403') || msg.includes('Premium')) {
-        toast.error('Spotify Premium is REQUIRED for web playback');
+        toast.error('Spotify Premium is required for playback.');
+        if (error instanceof Error) notifiedErrors.add(error);
       }
       throw error;
     }
   };
 
   const setOnTrackComplete = (callback?: (trackUri: string) => void) => {
-    setState({ onTrackComplete: callback });
+    internal.onTrackComplete = callback;
   };
 
   return {
@@ -474,7 +587,6 @@ export const useSpotifyPlayer = (): UseSpotifyPlayerReturn => {
     error: snapshot.error,
     deviceReadyTimestamp: snapshot.deviceReadyTimestamp,
     playTrack: spotifyPlayerStore.playTrack,
-    onTrackComplete: snapshot.onTrackComplete,
     setOnTrackComplete: spotifyPlayerStore.setOnTrackComplete,
   };
 };
