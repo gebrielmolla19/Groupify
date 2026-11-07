@@ -57,12 +57,13 @@ describe('SpotifyService.playTrack', () => {
     expect(axios.put.mock.calls[2][0]).toContain('/me/player/play?device_id=dev1');
   });
 
-  it('on 404 from play, falls back to Groupify Web Player device if original not found', async () => {
-    // Device discovery returns a different device
+  it('on 404 from play, never moves playback to a different device when the requested one is gone', async () => {
+    // The requested device is gone. Another Groupify tab and the user's
+    // phone are still listed, but neither should take over the audio.
     axios.get.mockResolvedValueOnce({
       data: {
         devices: [
-          { id: 'web-player-id', name: 'Groupify Web Player', is_active: false },
+          { id: 'other-tab-id', name: 'Groupify Web Player', is_active: false },
           { id: 'phone', name: 'My Phone', is_active: true }
         ]
       }
@@ -71,17 +72,15 @@ describe('SpotifyService.playTrack', () => {
     const play404 = new Error('No active device found');
     play404.response = { status: 404, data: { error: { message: 'Not found' } }, headers: {} };
 
-    axios.put
-      .mockRejectedValueOnce(play404)       // play with stale ID -> 404
-      .mockResolvedValueOnce({ data: {} })   // transfer to web-player-id
-      .mockResolvedValueOnce({ data: {} });  // retry play on web-player-id
+    axios.put.mockRejectedValueOnce(play404); // play with stale ID -> 404
 
-    await SpotifyService.playTrack('token', 'stale-id', 'spotify:track:789');
+    await expect(
+      SpotifyService.playTrack('token', 'stale-id', 'spotify:track:789')
+    ).rejects.toMatchObject({ statusCode: 404 });
 
-    // Transfer should use the discovered Groupify Web Player device
-    expect(axios.put.mock.calls[1][1]).toEqual({ device_ids: ['web-player-id'], play: true });
-    // Retry play should also use it
-    expect(axios.put.mock.calls[2][0]).toContain('/me/player/play?device_id=web-player-id');
+    // Only the original play attempt — no transfer, no retry elsewhere.
+    expect(axios.put).toHaveBeenCalledTimes(1);
+    expect(axios.put.mock.calls[0][0]).toContain('/me/player/play?device_id=stale-id');
   });
 });
 

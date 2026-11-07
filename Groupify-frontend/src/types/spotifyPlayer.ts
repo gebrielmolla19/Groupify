@@ -33,6 +33,7 @@ export interface SpotifyPlayerState {
     pausing?: boolean;
     peeking_next?: boolean;
     peeking_prev?: boolean;
+    resuming?: boolean;
     seeking?: boolean;
     skipping_next?: boolean;
     skipping_prev?: boolean;
@@ -65,6 +66,9 @@ export interface SpotifyPlayer {
   addListener(event: 'player_state_changed', callback: (state: SpotifyPlayerState | null) => void): boolean;
   addListener(event: 'authentication_error', callback: (error: SpotifyPlayerError) => void): boolean;
   addListener(event: 'account_error', callback: (error: SpotifyPlayerError) => void): boolean;
+  addListener(event: 'initialization_error', callback: (error: SpotifyPlayerError) => void): boolean;
+  addListener(event: 'playback_error', callback: (error: SpotifyPlayerError) => void): boolean;
+  addListener(event: 'autoplay_failed', callback: () => void): boolean;
   removeListener(event: string, callback?: (...args: unknown[]) => void): boolean;
   getCurrentState(): Promise<SpotifyPlayerState | null>;
   setName(name: string): Promise<void>;
@@ -76,6 +80,12 @@ export interface SpotifyPlayer {
   seek(position_ms: number): Promise<void>;
   previousTrack(): Promise<void>;
   nextTrack(): Promise<void>;
+  /**
+   * Unlocks audio playback. Must be called synchronously inside a user
+   * gesture before playback is started/transferred to this device, or the
+   * browser's autoplay rules (notably iOS) leave it paused.
+   */
+  activateElement(): Promise<void>;
 }
 
 export interface SpotifyPlayerConstructor {

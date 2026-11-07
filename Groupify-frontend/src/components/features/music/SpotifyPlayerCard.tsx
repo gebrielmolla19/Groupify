@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../../
 import { useSidebar } from '../../ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
+import { useSpotifyPlayer, wasPlaybackErrorNotified } from "../../../hooks/useSpotifyPlayer";
 import { useCurrentPlayback } from "../../../hooks/useCurrentPlayback";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { usePlaylist } from "../../../hooks/usePlaylist";
@@ -208,6 +208,9 @@ export default function SpotifyPlayerCard() {
           await apiResumePlayback(remoteDeviceId);
         }
       } else if (player) {
+        // Unlock audio inside this tap (required after the browser blocks
+        // autoplay, e.g. on iOS) before resuming.
+        player.activateElement().catch(() => {});
         await player.togglePlay();
       }
     } catch (err) {
@@ -250,11 +253,14 @@ export default function SpotifyPlayerCard() {
         logger.info('Next track:', { nextIndex, total: playlistShares.length, trackName: nextShare.trackName });
         await playTrack(nextTrackUri);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
         logger.error('Next track error:', err);
-        toast.error(errorMsg);
-        // Try to resume if play failed so user isn't left in silence
-        if (player) player.resume().catch(() => {});
+        // playTrack already showed a toast (and is reconnecting) when the
+        // device is gone — don't stack a second one or resume a dead device.
+        if (!wasPlaybackErrorNotified(err)) {
+          toast.error(err instanceof Error ? err.message : 'Failed to skip to next track');
+          // Try to resume if play failed so user isn't left in silence
+          if (player) player.resume().catch(() => {});
+        }
       } finally {
         setIsControlling(false);
       }
@@ -300,11 +306,14 @@ export default function SpotifyPlayerCard() {
         logger.info('Previous track:', { prevIndex, total: playlistShares.length, trackName: prevShare.trackName });
         await playTrack(prevTrackUri);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
         logger.error('Previous track error:', err);
-        toast.error(errorMsg);
-        // Try to resume if play failed so user isn't left in silence
-        if (player) player.resume().catch(() => {});
+        // playTrack already showed a toast (and is reconnecting) when the
+        // device is gone — don't stack a second one or resume a dead device.
+        if (!wasPlaybackErrorNotified(err)) {
+          toast.error(err instanceof Error ? err.message : 'Failed to skip to previous track');
+          // Try to resume if play failed so user isn't left in silence
+          if (player) player.resume().catch(() => {});
+        }
       } finally {
         setIsControlling(false);
       }

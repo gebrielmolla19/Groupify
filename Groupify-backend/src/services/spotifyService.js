@@ -1039,19 +1039,14 @@ class SpotifyService {
     };
 
     try {
-      // Resolve the best device_id to target.
-      // Priority:
-      // 1) Requested deviceId if present in /devices
-      // 2) Any device matching our web player name
-      // 3) Any currently active device
-      // 4) First available device
-      // Use the provided deviceId directly. Only fall back to device discovery on 404.
-      let actualDeviceId = deviceId;
+      // Always target the exact device the client asked for. On a 404 we
+      // only retry (transfer + play) if that same device is still listed;
+      // we never pick a different device.
 
       // Attempt playback. If Spotify reports no active device, transfer then retry once.
       const playOnce = async () => {
         const response = await axios.put(
-          `${SPOTIFY_API_BASE}/me/player/play?device_id=${actualDeviceId}`,
+          `${SPOTIFY_API_BASE}/me/player/play?device_id=${deviceId}`,
           { uris: [trackUri] },
           {
             headers: {
@@ -1068,34 +1063,38 @@ class SpotifyService {
       } catch (firstPlayError) {
         const status = firstPlayError?.response?.status;
 
-        // 404 commonly means "No active device found" for playback endpoints.
-        // Try device discovery fallback, then transfer + retry.
+        // 404 commonly means the device exists but isn't the active one yet.
+        // If the requested device is still registered, transfer + retry once.
         if (status === 404) {
+          let devices = [];
           try {
-            // Discover available devices and pick the best one
-            let devices = [];
-            try {
-              devices = await getDevicesWithRetry(2, 500);
-            } catch (deviceListError) {
-              // Device discovery failed; we'll fall through and let the
-              // outer transfer+retry attempt handle it.
-              logger.warn('[Spotify] Device discovery failed during 404 fallback', {
-                message: deviceListError.message
-              });
-            }
+            devices = await getDevicesWithRetry(2, 500);
+          } catch (deviceListError) {
+            logger.warn('[Spotify] Device discovery failed during 404 fallback', {
+              message: deviceListError.message
+            });
+          }
 
-            if (devices.length > 0) {
-              const fallback = devices.find(d => d.id === deviceId)
-                || devices.find(d => d.name && d.name.includes('Groupify Web Player'))
-                || devices.find(d => d.is_active)
-                || devices[0];
-              if (fallback?.id) actualDeviceId = fallback.id;
-            }
+          // Only ever recover onto the exact device that was requested.
+          // Never fall back to another device: the user's phone Spotify app
+          // (an "active" device) or another Groupify tab (same "Groupify
+          // Web Player" name) would silently take the audio away from the
+          // device the user is actually using. If the requested device is
+          // gone, surface the 404 so the client can reconnect it.
+          const requestedDevice = devices.find(d => d.id === deviceId);
+          if (!requestedDevice) {
+            throw firstPlayError;
+          }
 
-            await this.transferPlayback(accessToken, actualDeviceId, true);
+          try {
+            await this.transferPlayback(accessToken, deviceId, true);
             await sleep(800);
             return await playOnce();
           } catch (transferOrRetryError) {
+            logger.warn('[Spotify] Transfer + retry after 404 failed', {
+              status: transferOrRetryError?.response?.status,
+              message: transferOrRetryError.message
+            });
             throw firstPlayError;
           }
         }
