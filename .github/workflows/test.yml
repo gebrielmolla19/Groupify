@@ -3,8 +3,13 @@ name: Test
 on:
   push:
     branches: [main, master]
+  # Every PR, including stacked PRs whose base is another feature branch.
   pull_request:
-    branches: [main, master]
+
+# A new push to the same PR cancels the run that's still in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -23,8 +28,11 @@ jobs:
       - name: Install backend deps
         run: cd Groupify-backend && npm ci
 
+      - name: Lint backend
+        run: cd Groupify-backend && npm run lint -- --quiet
+
       - name: Run backend tests
-        run: cd Groupify-backend && npm test -- --testPathIgnorePatterns=analyticsService.test.js
+        run: cd Groupify-backend && npm test
         env:
           NODE_ENV: test
           JWT_SECRET: test-jwt-secret-for-ci
@@ -49,5 +57,11 @@ jobs:
       - name: Install frontend deps
         run: cd Groupify-frontend && npm ci --legacy-peer-deps
 
+      - name: Lint frontend
+        run: cd Groupify-frontend && npm run lint -- --quiet
+
       - name: Run frontend tests
         run: cd Groupify-frontend && npm run test:run
+
+      - name: Build frontend
+        run: cd Groupify-frontend && npm run build
