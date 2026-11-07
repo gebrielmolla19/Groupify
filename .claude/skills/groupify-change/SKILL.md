@@ -20,7 +20,7 @@ apply, say so in one line.
   existing behavior, related or not) becomes **a new issue** by default,
   not part of this branch. Fold it in only for the exceptions in
   CONTRIBUTING §1.1: this change causes it, this change can't be correct
-  without it, or it's trivial and on lines you already touch. When
+  or pass review without it, or it's trivial and on lines you already touch. When
   unsure, open the issue and ask the user.
 - Don't start the new issue's work, or a session for it, unless the
   user asks. Two places fixing the same thing produce duplicate PRs.

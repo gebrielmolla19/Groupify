@@ -250,4 +250,4 @@ touching the player, auth or the API client):
 - Use the `needs-review` label for branches that are pushed and waiting
   on review.
 - Tech debt gets an issue with the `refactor` or `performance` label. It
-  doesn't get fixed inside an unrelated PR.
+  doesn't get fixed inside another PR (see §1.1).
