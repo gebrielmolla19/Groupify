@@ -16,8 +16,14 @@ apply, say so in one line.
   It must have a **"Done when"** line. Typo-level changes are exempt.
 - If the request is ambiguous, settle the scope with the user now, not
   after building.
-- Anything unrelated you notice later becomes **a new issue**, not part
-  of this branch.
+- Anything new you find later (a bug, a gap, a review suggestion about
+  existing behavior, related or not) becomes **a new issue** by default,
+  not part of this branch. Fold it in only for the exceptions in
+  CONTRIBUTING §1.1: this change causes it, this change can't be correct
+  or pass review without it, or it's trivial and on lines you already touch. When
+  unsure, open the issue and ask the user.
+- Don't start the new issue's work, or a session for it, unless the
+  user asks. Two places fixing the same thing produce duplicate PRs.
 
 ## 2. Branch
 - `git fetch origin`, then branch from `origin/main`:

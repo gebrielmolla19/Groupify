@@ -37,8 +37,18 @@ Issue → Branch → Build → Verify → Pull request → Review → Merge → 
   someone else could check.
 - Label it with an area (`frontend`, `backend`, `playback`, `tests`) and a
   kind (`bug`, `enhancement`, `refactor`, `performance`, `documentation`).
-- Found something unrelated while working? **Open an issue for it.** Don't
-  fix it in the current branch.
+- **Found something new while working?** A bug, a gap, tech debt, or a
+  review suggestion about behavior that predates your change, even in a
+  file you're already editing: **open an issue for it** and handle it
+  separately. Fix it in the current branch only when:
+  1. your change causes it or makes it worse,
+  2. your change can't be correct, or can't pass review, without it, or
+  3. it's trivial and on lines you're already touching (for example an
+     unused import in a touched file).
+
+  When unsure, open the issue and ask. Mention it in the PR ("Found
+  #N, left for later"). Don't start work on it until it's picked up on
+  its own.
 
 ### 1.2 Branch
 - Branch from an up-to-date `main`. Use one branch per concern:
@@ -240,4 +250,4 @@ touching the player, auth or the API client):
 - Use the `needs-review` label for branches that are pushed and waiting
   on review.
 - Tech debt gets an issue with the `refactor` or `performance` label. It
-  doesn't get fixed inside an unrelated PR.
+  doesn't get fixed inside another PR (see §1.1).
