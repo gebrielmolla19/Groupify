@@ -70,16 +70,25 @@ it's fixed or answered.
      `line` in the new version of the file. Start each with
      `🔴 Blocking:` or `🟡 Suggestion:`, then say what's wrong, the
      concrete failure case, and the suggested fix.
-   - Inline comments must land on lines inside the diff. If a finding is
-     about unchanged code, put it in the review body instead.
+   - Inline comments must land on lines inside the diff. **Every
+     blocking finding must be inline,** because only inline comments
+     create threads, and only threads block the merge. If a blocking
+     finding is about unchanged code, anchor it on the nearest changed
+     line in the same file (or the PR's first changed line if the file
+     isn't in the diff), and name the real location in the comment.
+     Suggestions about unchanged code can go in the body.
    - `body`: starts **"Claude review — ✅ No blocking issues"** or
      **"Claude review — 🔴 N blocking issue(s)"**, then says in one or two
-     lines what was checked, and lists any findings that aren't inline.
+     lines what was checked, and lists any suggestions that aren't inline.
    - With no findings, still post the review: the ✅ body and no
      comments.
 4. **Blocking findings on your own PR:** fix them on the branch, run
-   `groupify-verify`, push, and reply on each thread with the commit
-   that fixed it. Then try to resolve each thread:
+   `groupify-verify`, push, and record which commit fixed each finding.
+   Try replying on each thread first. If that isn't possible (the
+   connector has no reply tool, and the `gh` token can't write to PRs),
+   post **one** PR comment with `mcp__github__add_issue_comment` listing
+   each finding → the commit that fixed it. Then try to resolve each
+   thread:
    `gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"<id>"}){thread{isResolved}}}'`.
    Get thread ids from
    `gh api graphql -f query='{repository(owner:"gebrielmolla19",name:"Groupify"){pullRequest(number:<n>){reviewThreads(first:50){nodes{id isResolved comments(first:1){nodes{body}}}}}}}'`.
