@@ -1,0 +1,25 @@
+<!-- See CONTRIBUTING.md. Delete sections that don't apply. -->
+
+Fixes #
+
+<!-- If this is stacked on another unmerged PR: "Stacked on #N — merge that first." -->
+
+## What & why
+<!-- What changes, and why. For bugs: the root cause, not just the symptom. -->
+
+## How it was verified
+<!-- Paste real results. Never tick a box you didn't run. -->
+- [ ] Backend: `npm run lint -- --quiet && npm test`
+- [ ] Frontend: `npm run lint -- --quiet && npm run test:run && npm run build`
+- [ ] Regression test added (bug fixes)
+- [ ] Manually tested in the app, including at 375 px for UI changes
+- [ ] Playback checklist (CONTRIBUTING.md §4), if this touches the player, auth or the API client
+
+## Not verified
+<!-- Anything you couldn't check (e.g. "needs Premium on a phone"). Leave as unchecked boxes. -->
+
+## Risk & rollback
+<!-- What could break, who notices, and how to undo it (usually: revert this PR). Mention env vars, migrations, or OAuth scope changes. -->
+
+## Screenshots
+<!-- For UI changes: before / after, desktop and phone. -->
