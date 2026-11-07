@@ -94,8 +94,10 @@ PR. A red CI blocks the merge.
 - **Show evidence** in the PR's Evidence section: before/after screenshots
   (desktop and 375 px) for UI changes, a GIF or video for flows, and
   before/after output (curl, logs, the failing-then-passing test) for
-  backend changes. The repo is public, so nothing personal or secret
-  goes in a screenshot.
+  backend changes. With no visible change, say so and point to the
+  verify output. If you can't capture it, say why and list it under
+  "Not verified". The repo is public, so nothing personal or secret goes
+  in a screenshot.
 - **List anything you could not verify** (for example "needs a Premium
   account on a phone") as an unchecked box. Never claim a test you didn't run.
 - Review your own diff before asking anyone else.

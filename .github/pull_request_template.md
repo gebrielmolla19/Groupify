@@ -25,7 +25,8 @@ Fixes #
 <!-- Required. Show the change working; don't just describe it. See the groupify-pr skill, "Evidence".
      UI: before / after screenshots, desktop and 375 px. A GIF or video for flows (playback, drag, toasts).
      Backend or logic: before / after output in code blocks (curl response, log lines, the regression test failing then passing).
-     Couldn't capture it? Say why here and add it to "Not verified". -->
+     Couldn't capture it? Say why here and add it to "Not verified".
+     Images go in the table. Text output can't go in a table cell: use "**Before**" / "**After**" headings, each followed by a code block, and delete the table. -->
 
 | Before | After |
 |---|---|

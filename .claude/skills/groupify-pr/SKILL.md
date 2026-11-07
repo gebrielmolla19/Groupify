@@ -74,15 +74,25 @@ GitHub's API can't upload images to a PR body, so images go on the
 `pr-evidence` branch, which holds only evidence and is never merged.
 Never commit them to the feature branch.
 ```bash
-git fetch origin pr-evidence 2>/dev/null \
-  && git worktree add <scratch>/pr-evidence pr-evidence \
-  || git worktree add --orphan -b pr-evidence <scratch>/pr-evidence
-mkdir -p <scratch>/pr-evidence/<branch> && cp <images> <scratch>/pr-evidence/<branch>/
-git -C <scratch>/pr-evidence add <branch>
-git -C <scratch>/pr-evidence commit -m "evidence: <branch>"
-git -C <scratch>/pr-evidence push -u origin pr-evidence
-git worktree remove <scratch>/pr-evidence
+W=<scratch>/pr-evidence
+if git ls-remote --exit-code --heads origin pr-evidence >/dev/null; then
+  git fetch origin pr-evidence
+  git worktree add -B pr-evidence "$W" origin/pr-evidence
+else
+  git worktree add --orphan -b pr-evidence "$W"
+fi
+mkdir -p "$W/<branch>" && cp <images> "$W/<branch>/"
+git -C "$W" add <branch>
+git -C "$W" commit -m "evidence: <branch>"
+git -C "$W" pull --rebase origin pr-evidence 2>/dev/null || true  # skip on first push
+git -C "$W" push -u origin pr-evidence
+git worktree remove "$W"
 ```
+Always start from `origin/pr-evidence` (`-B` resets any stale local
+copy), so another session's evidence is never lost. If the push is still
+rejected, someone pushed at the same moment: run the `pull --rebase` and
+push again. If any step fails, stop and fix it. Never create a new orphan
+branch over an existing `pr-evidence`.
 Then reference each image in the Evidence table as
 `![after, 375 px](https://raw.githubusercontent.com/gebrielmolla19/Groupify/pr-evidence/<branch>/after-375.png)`.
 Name files `before-desktop.png`, `after-375.png`, `after-flow.gif` and
