@@ -6,6 +6,22 @@ making changes, including AI assistants (Claude Code, Cursor, Codex).
 The rules are short on purpose. Most of them come from real bugs this
 project has had; those are noted inline so the reason is never lost.
 
+**Using Claude Code?** These practices are also packaged as project
+skills in `.claude/skills/`. Claude picks them up automatically, and you
+can run any of them as a slash command:
+
+| Skill | Use it for |
+|---|---|
+| `/groupify-change` | Any change, from issue to merged PR (the overall flow) |
+| `/groupify-bugfix` | Bugs: reproduce → evidence → root cause → failing test → fix |
+| `/groupify-verify` | The Definition of Done checks (`scripts/verify.sh`) |
+| `/groupify-pr` | Opening or updating a PR the project's way |
+| `/groupify-playback` | Anything touching Spotify playback: doc links, invariants, checklist |
+
+Without Claude, you can run the checks directly:
+`bash .claude/skills/groupify-verify/scripts/verify.sh` (add `--all`, or
+a base ref for stacked branches).
+
 ---
 
 ## 1. The lifecycle of a change
@@ -57,7 +73,9 @@ A change is done when **all** of these are true:
       (`npx tsc --noEmit -p Groupify-frontend`).
 - [ ] The issue's "Done when" line is satisfied.
 
-CI runs the automated items on every PR. A red CI blocks the merge.
+`bash .claude/skills/groupify-verify/scripts/verify.sh` runs all the
+automated items for the apps your branch touched. CI runs them on every
+PR. A red CI blocks the merge.
 
 ### 1.5 Pull request
 - Fill in the PR template: linked issue (`Fixes #N`), what changed and why,
