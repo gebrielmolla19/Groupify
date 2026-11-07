@@ -72,14 +72,32 @@ const startServer = async () => {
 startServer();
 
 // Graceful shutdown
+const SHUTDOWN_TIMEOUT_MS = 10000;
+let shuttingDown = false;
+
 const gracefulShutdown = (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info(`[Server] ${signal} received — shutting down gracefully...`);
-  server.close(() => {
+
+  // Open keep-alive / socket.io connections can keep server.close() from
+  // ever calling back — don't hang forever.
+  setTimeout(() => {
+    logger.error('[Server] Graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS).unref();
+
+  server.close(async () => {
     logger.info('[Server] HTTP server closed');
-    mongoose.connection.close(false, () => {
+    try {
+      // Mongoose 7+ removed the callback form of close(); it returns a promise.
+      await mongoose.connection.close(false);
       logger.info('[Server] MongoDB connection closed');
       process.exit(0);
-    });
+    } catch (error) {
+      logger.error('[Server] Error closing MongoDB connection', { error: error.message });
+      process.exit(1);
+    }
   });
 };
 
