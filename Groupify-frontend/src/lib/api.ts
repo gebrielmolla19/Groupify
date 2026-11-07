@@ -4,6 +4,7 @@
  */
 
 import { API_BASE_URL } from './config';
+import { ApiError } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences } from '../types';
 import { TasteGravityResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
@@ -62,6 +63,28 @@ const refreshJwtToken = async (): Promise<string | null> => {
 };
 
 /**
+ * Call fetch, turning a failure to reach the server into an ApiError.
+ * fetch() rejects with a TypeError for network failures in every browser,
+ * but the message varies ("Failed to fetch" in Chrome, "Load failed" in
+ * Safari, "NetworkError when attempting to fetch resource." in Firefox),
+ * so classify by where it was thrown, not by its message. Aborts reject
+ * with a DOMException and pass through unchanged.
+ */
+const fetchOrNetworkError = async (input: string, init: RequestInit): Promise<Response> => {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new ApiError(
+        'Network error: Unable to reach the server. Please check your connection.',
+        { isNetworkError: true }
+      );
+    }
+    throw error;
+  }
+};
+
+/**
  * Make an authenticated API request
  */
 export const fetchWithAuth = async (
@@ -81,72 +104,53 @@ export const fetchWithAuth = async (
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+  const response = await fetchOrNetworkError(url, {
+    ...options,
+    headers,
+  });
 
-    // On 401 "Token expired", try to refresh and retry once
-    if (response.status === 401) {
-      const body = await response.json().catch(() => ({ message: '' }));
-      if (body.message === 'Token expired') {
-        // Deduplicate concurrent refresh attempts
-        if (!refreshPromise) {
-          refreshPromise = refreshJwtToken().finally(() => { refreshPromise = null; });
-        }
-        const newToken = await refreshPromise;
-
-        if (newToken) {
-          // Retry the original request with the new token
-          const retryHeaders: HeadersInit = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-            'Authorization': `Bearer ${newToken}`,
-          };
-          const retryResponse = await fetch(url, { ...options, headers: retryHeaders });
-
-          if (!retryResponse.ok) {
-            const retryError = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
-            const apiError = new Error(retryError.message || `HTTP error! status: ${retryResponse.status}`);
-            (apiError as any).status = retryResponse.status;
-            (apiError as any).statusCode = retryResponse.status;
-            throw apiError;
-          }
-          return retryResponse;
-        }
+  // On 401 "Token expired", try to refresh and retry once
+  if (response.status === 401) {
+    const body = await response.json().catch(() => ({ message: '' }));
+    if (body.message === 'Token expired') {
+      // Deduplicate concurrent refresh attempts
+      if (!refreshPromise) {
+        refreshPromise = refreshJwtToken().finally(() => { refreshPromise = null; });
       }
+      const newToken = await refreshPromise;
 
-      // Refresh failed or non-expiry 401 — throw as normal
-      const errorMessage = body.message || `HTTP error! status: ${response.status}`;
-      const apiError = new Error(errorMessage);
-      (apiError as any).status = response.status;
-      (apiError as any).statusCode = response.status;
-      throw apiError;
+      if (newToken) {
+        // Retry the original request with the new token
+        const retryHeaders: HeadersInit = {
+          'Content-Type': 'application/json',
+          ...options.headers,
+          'Authorization': `Bearer ${newToken}`,
+        };
+        const retryResponse = await fetchOrNetworkError(url, { ...options, headers: retryHeaders });
+
+        if (!retryResponse.ok) {
+          const retryError = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
+          throw new ApiError(
+            retryError.message || `HTTP error! status: ${retryResponse.status}`,
+            { status: retryResponse.status }
+          );
+        }
+        return retryResponse;
+      }
     }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-      const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-
-      // Create error with status code for better handling
-      const apiError = new Error(errorMessage);
-      (apiError as any).status = response.status;
-      (apiError as any).statusCode = response.status;
-      throw apiError;
-    }
-
-    return response;
-  } catch (error) {
-    // Re-throw with more context for network errors
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      // Network error - could be CORS, backend down, or no internet
-      const networkError = new Error('Network error: Unable to reach the server. Please check your connection.');
-      (networkError as any).isNetworkError = true;
-      throw networkError;
-    }
-    throw error;
+    // Refresh failed or non-expiry 401 — throw as normal
+    const errorMessage = body.message || `HTTP error! status: ${response.status}`;
+    throw new ApiError(errorMessage, { status: response.status });
   }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+    const errorMessage = error.message || `HTTP error! status: ${response.status}`;
+    throw new ApiError(errorMessage, { status: response.status });
+  }
+
+  return response;
 };
 
 /**

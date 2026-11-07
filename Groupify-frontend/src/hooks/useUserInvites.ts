@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Invite, Group } from '../types';
+import { Invite } from '../types';
 import {
   getUserInvites as apiGetUserInvites,
   acceptInvite as apiAcceptInvite,
   declineInvite as apiDeclineInvite,
   getToken
 } from '../lib/api';
+import { isApiError } from '../lib/apiError';
 import { toast } from 'sonner';
 import { useUser } from '../contexts/UserContext';
 import { logger } from '../utils/logger';
@@ -39,7 +40,11 @@ export const useUserInvites = () => {
     } catch (err) {
       // Handle "no token" errors gracefully (user is logged out)
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch invites';
-      if (errorMessage.includes('token') || errorMessage.includes('authentication') || (err as any)?.status === 401) {
+      if (
+        errorMessage.includes('token') ||
+        errorMessage.includes('authentication') ||
+        (isApiError(err) && err.status === 401)
+      ) {
         // User is logged out, clear invites silently
         setInvites([]);
         setError(null);
