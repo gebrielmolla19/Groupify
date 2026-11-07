@@ -15,7 +15,8 @@ can run any of them as a slash command:
 | `/groupify-change` | Any change, from issue to merged PR (the overall flow) |
 | `/groupify-bugfix` | Bugs: reproduce → evidence → root cause → failing test → fix |
 | `/groupify-verify` | The Definition of Done checks (`scripts/verify.sh`) |
-| `/groupify-pr` | Opening or updating a PR the project's way |
+| `/groupify-pr` | Opening or updating a PR the project's way (launches a fresh reviewer) |
+| `/groupify-review` | Independent review of a PR, posted as inline comments; run it in a fresh context |
 | `/groupify-playback` | Anything touching Spotify playback: doc links, invariants, checklist |
 
 Without Claude, you can run the checks directly:
@@ -85,10 +86,12 @@ PR. A red CI blocks the merge.
 - Review your own diff before asking anyone else.
 
 ### 1.6 Review
-- Every PR gets a review before merging. In practice this is a Claude
-  review run from a Claude Code session (the `/groupify-pr` skill does
-  it), posted as **inline review comments** on the PR. A human reviewer
-  works too.
+- Every PR gets a review before merging, from **a reviewer who didn't
+  write the code.** In practice that's Claude in a fresh context: a
+  reviewer subagent or a new session running `/groupify-review`. Never
+  the session that wrote the change. `/groupify-pr` launches it
+  automatically. The findings are posted as **inline review comments**
+  on the PR. A human reviewer works too.
 - Reviewers check correctness first (edge cases, error paths, auth), then
   design, then style. Style nits that a linter could catch should become
   lint rules instead.

@@ -1,6 +1,6 @@
 ---
 name: groupify-pr
-description: Open, review or update a Groupify pull request the project's way — verified, linked to its issue, filled from the PR template, stacked correctly, reviewed with inline comments posted to GitHub, and tracked. Use when a change is ready for review, when asked to "open a PR", "push this", "review this PR" (including PRs opened by the user or Cursor), or "get this merged", or when a stacked PR's base has merged.
+description: Open or update a Groupify pull request the project's way — verified, linked to its issue, filled from the PR template, stacked correctly, reviewed by a fresh-context reviewer, and tracked. Use when a change is ready for review, when asked to "open a PR", "push this" or "get this merged", or when a stacked PR's base has merged. (To review a PR someone else opened, use groupify-review.)
 ---
 
 # Opening a Groupify pull request
@@ -37,52 +37,29 @@ description: Open, review or update a Groupify pull request the project's way �
    already links them.
 
 ## Review (every PR, before telling the user it's ready)
-This is the project's review gate. It runs in the Claude Code session, so
-it costs nothing beyond the user's plan. `main`'s ruleset requires every
-review thread to be resolved, so a posted finding blocks the merge until
-it's fixed or answered.
+This is the project's review gate. It costs nothing beyond the user's
+Claude Code plan. `main`'s ruleset requires every review thread to be
+resolved, so a posted finding blocks the merge until it's fixed or
+answered.
 
-1. **Review the PR as a reviewer, not as its author.**
-   - Read the whole diff (`gh pr diff <n>`) and enough of the surrounding
-     code to judge it.
-   - Use the `code-review` skill on the PR number if it's available, at
-     its default level. Run it report-only: don't use its `--comment`
-     option, because this repo's `gh` token can't post reviews.
-   - Check correctness first: edge cases, error paths, auth and
-     authorization, races, state left behind after failures.
-   - Then check the rules in `CONTRIBUTING.md` §2, and for playback
-     changes the `groupify-playback` invariants.
-   - Then check tests: does a bug fix have a regression test? Is new
-     logic covered?
-   - **Verify every finding before posting it.** Re-read the code, and
-     run it or write a quick check where you can. Drop anything you
-     can't support.
-2. **Classify each finding:**
-   - `🔴 Blocking`: a bug, security problem, broken `CONTRIBUTING.md`
-     rule, or missing regression test
-   - `🟡 Suggestion`: worth doing, but not a reason to hold the merge
-3. **Post one review** with `mcp__github__create_pull_request_review`:
-   - `event: "COMMENT"`. GitHub rejects `APPROVE` and `REQUEST_CHANGES`
-     on PRs authored by the same account, which is every PR here.
-   - `commit_id`: the PR's head SHA
-     (`gh pr view <n> --json headRefOid -q .headRefOid`).
-   - `comments`: one inline comment per finding, with `path` and the
-     `line` in the new version of the file. Start each with
-     `🔴 Blocking:` or `🟡 Suggestion:`, then say what's wrong, the
-     concrete failure case, and the suggested fix.
-   - Inline comments must land on lines inside the diff. **Every
-     blocking finding must be inline,** because only inline comments
-     create threads, and only threads block the merge. If a blocking
-     finding is about unchanged code, anchor it on the nearest changed
-     line in the same file (or the PR's first changed line if the file
-     isn't in the diff), and name the real location in the comment.
-     Suggestions about unchanged code can go in the body.
-   - `body`: starts **"Claude review — ✅ No blocking issues"** or
-     **"Claude review — 🔴 N blocking issue(s)"**, then says in one or two
-     lines what was checked, and lists any suggestions that aren't inline.
-   - With no findings, still post the review: the ✅ body and no
-     comments.
-4. **Blocking findings on your own PR:** fix them on the branch, run
+**The review must come from a fresh context, never from the session that
+wrote the code.** The author knows what the code was *meant* to do, and
+that's exactly what hides bugs.
+
+1. **Launch a fresh reviewer.** Use the Agent tool with a
+   general-purpose subagent. **Not a fork:** a fork inherits this
+   conversation, which defeats the purpose. Give it only this brief,
+   nothing about how the code was written:
+   > Review pull request #<n> in gebrielmolla19/Groupify. Read
+   > `.claude/skills/groupify-review/SKILL.md` and follow it exactly:
+   > review independently, post one GitHub review with inline comments,
+   > and return the summary it describes. Don't modify the branch.
+
+   If the user wants to watch or steer the review, start a separate
+   session for it instead (fresh context, same brief).
+2. **Wait for the summary**, then check that the review actually posted
+   (its link, or `gh pr view <n> --json reviews`).
+3. **Blocking findings:** fix them on the branch, run
    `groupify-verify`, push, and record which commit fixed each finding.
    Try replying on each thread first. If that isn't possible (the
    connector has no reply tool, and the `gh` token can't write to PRs),
@@ -94,6 +71,11 @@ it's fixed or answered.
    `gh api graphql -f query='{repository(owner:"gebrielmolla19",name:"Groupify"){pullRequest(number:<n>){reviewThreads(first:50){nodes{id isResolved comments(first:1){nodes{body}}}}}}}'`.
    If the token can't resolve threads, tell the user which ones are ready
    to resolve.
+   - **Disagree with a finding?** Don't resolve it silently. Reply with
+     your reasoning (or put it in the summary comment) and leave the
+     thread for the user to decide.
+4. **Suggestions:** apply the cheap, clearly right ones. List the rest
+   for the user.
 5. **Report to the user:** the verdict, a link to the review, the
    blocking items and how each was handled, and the suggestions left
    for them to decide. **The merge is theirs.**
@@ -103,9 +85,9 @@ it's fixed or answered.
   and say what you changed.
 - **Review comments** (yours or anyone else's): fix each one or reply
   with a reason, run `groupify-verify` again, and resolve the thread.
-- **New commits after a review:** re-review the new changes (`gh pr diff`
-  or `git diff <old-head>..<new-head>`) and post a short follow-up
-  review.
+- **New commits after a review** that do more than fix review findings:
+  launch a **new** fresh reviewer (step 1) and tell it to focus on
+  `git diff <old-head>..<new-head>`.
 - **A stacked PR's base merged:** confirm GitHub retargeted it to `main`
   (`gh pr view <n> --json baseRefName`) and that it still merges cleanly.
 - **Merging is the user's call.** Don't merge or enable auto-merge unless
