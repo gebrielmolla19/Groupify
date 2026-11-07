@@ -121,6 +121,17 @@ describe('fetchWithAuth errors', () => {
     expect(isApiError(err) && err.isNetworkError).toBe(true);
   });
 
+  it('does not mark a TypeError raised after fetch resolves as a network error', async () => {
+    // A response-like object without json(): handling it throws a TypeError
+    // after fetch() has already succeeded, which must not be reported as
+    // "unable to reach the server".
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    const err = await fetchWithAuth('/groups').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TypeError);
+    expect(isApiError(err)).toBe(false);
+  });
+
   it('passes aborts through unchanged', async () => {
     const abort = new DOMException('The operation was aborted.', 'AbortError');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort));
