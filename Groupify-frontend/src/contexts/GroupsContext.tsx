@@ -61,18 +61,20 @@ export function GroupsProvider({ children }: GroupsProviderProps) {
       const fetchedGroups = await apiGetUserGroups();
       setGroups(fetchedGroups);
     } catch (err) {
-      // Network and auth failures are expected (offline, logged out):
-      // clear groups silently. Classify from the typed error, not its text.
-      const isNetworkError = isApiError(err) && err.isNetworkError;
-      const isAuthError = isApiError(err) && (err.status === 401 || err.status === 403);
+      // Classify from the typed error, not its message text.
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch groups';
 
-      if (isNetworkError || isAuthError) {
+      if (isApiError(err) && err.isNetworkError) {
+        // Offline or backend down: keep any groups already loaded and tell
+        // the user. Clearing them would show the "create your first group"
+        // empty state to someone who has groups.
+        setError(errorMessage);
+        logger.warn('Groups fetch failed - server unreachable');
+      } else if (isApiError(err) && (err.status === 401 || err.status === 403)) {
+        // Logged out or no longer authorized: clear groups silently.
         setGroups([]);
         setError(null);
-        if (isAuthError) {
-          logger.debug('Groups fetch skipped - user not authenticated');
-        }
+        logger.debug('Groups fetch skipped - user not authorized', { status: err.status });
       } else {
         // Real error - log it
         setError(errorMessage);
