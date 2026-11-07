@@ -1259,6 +1259,32 @@ class SpotifyService {
       throw error;
     }
   }
+
+  /**
+   * Seek to a position (ms) in the currently playing track
+   */
+  static async seekToPosition(accessToken, positionMs, deviceId) {
+    const params = new URLSearchParams({ position_ms: String(positionMs) });
+    if (deviceId) params.set('device_id', deviceId);
+    try {
+      await axios.put(`${SPOTIFY_API_BASE}/me/player/seek?${params.toString()}`, null, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } catch (error) {
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 404) {
+          const err = new Error('No active device found');
+          err.statusCode = 404;
+          throw err;
+        }
+        const err = new Error(error.response.data?.error?.message || 'Failed to seek');
+        err.statusCode = status;
+        throw err;
+      }
+      throw error;
+    }
+  }
 }
 
 module.exports = SpotifyService;

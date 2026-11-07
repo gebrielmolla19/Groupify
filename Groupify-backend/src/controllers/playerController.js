@@ -312,6 +312,29 @@ class PlayerController {
       next(error);
     }
   }
+
+  /**
+   * Seek to a position in the current track
+   */
+  static async seek(req, res, next) {
+    try {
+      const userId = req.userId;
+      if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
+
+      const positionMs = Number(req.body?.position_ms);
+      if (!Number.isInteger(positionMs) || positionMs < 0) {
+        return res.status(400).json({ success: false, message: 'position_ms must be a non-negative integer' });
+      }
+
+      const accessToken = await TokenManager.getValidAccessToken(userId);
+      await SpotifyService.seekToPosition(accessToken, positionMs, req.body?.device_id || undefined);
+
+      res.json({ success: true, message: 'Seeked', data: { positionMs } });
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      next(error);
+    }
+  }
 }
 
 module.exports = PlayerController;

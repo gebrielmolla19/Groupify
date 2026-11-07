@@ -32,5 +32,8 @@ router.post('/next', authMiddleware, PlayerController.skipToNext);
 // Skip to previous track (protected)
 router.post('/previous', authMiddleware, PlayerController.skipToPrevious);
 
+// Seek within the current track (protected)
+router.put('/seek', authMiddleware, PlayerController.seek);
+
 module.exports = router;
 

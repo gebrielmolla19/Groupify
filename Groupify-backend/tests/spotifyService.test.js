@@ -258,3 +258,37 @@ describe('SpotifyService.skipToPrevious', () => {
       .rejects.toThrow('No active device found');
   });
 });
+
+describe('SpotifyService.seekToPosition', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('seeks on the active device', async () => {
+    axios.put.mockResolvedValueOnce({ data: {} });
+
+    await SpotifyService.seekToPosition('token', 42000);
+
+    expect(axios.put).toHaveBeenCalledTimes(1);
+    expect(axios.put.mock.calls[0][0]).toContain('/me/player/seek?position_ms=42000');
+    expect(axios.put.mock.calls[0][0]).not.toContain('device_id');
+  });
+
+  it('seeks on a specific device', async () => {
+    axios.put.mockResolvedValueOnce({ data: {} });
+
+    await SpotifyService.seekToPosition('token', 1500, 'device-5');
+
+    expect(axios.put.mock.calls[0][0]).toContain('position_ms=1500');
+    expect(axios.put.mock.calls[0][0]).toContain('device_id=device-5');
+  });
+
+  it('throws on 404', async () => {
+    const err404 = new Error('Not found');
+    err404.response = { status: 404, data: { error: { message: 'No device' } } };
+    axios.put.mockRejectedValueOnce(err404);
+
+    await expect(SpotifyService.seekToPosition('token', 0))
+      .rejects.toThrow('No active device found');
+  });
+});
