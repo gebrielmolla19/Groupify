@@ -76,8 +76,12 @@ that's exactly what hides bugs.
    - **Disagree with a finding?** Don't resolve it silently. Reply with
      your reasoning (or put it in the summary comment) and leave the
      thread for the user to decide.
-4. **Suggestions:** apply the cheap, clearly right ones. List the rest
-   for the user.
+4. **Suggestions:** apply the cheap, clearly right ones that are about
+   this PR's own changes. A finding about **existing behavior** (it
+   predates the PR, even in a touched file) gets a new issue instead
+   (CONTRIBUTING §1.1). Reply on its thread, or in the summary comment,
+   with "Tracked in #N", and resolve the thread. Don't fix it here
+   unless the user says so. List anything left for the user.
 5. **Report to the user:** the verdict, a link to the review, the
    blocking items and how each was handled, and the suggestions left
    for them to decide. **The merge is theirs.**

@@ -53,6 +53,9 @@ volume: three real findings are better than ten maybes.
 - `🔴 Blocking`: a bug, security problem, broken `CONTRIBUTING.md` rule,
   missing regression test, or the PR claiming something it doesn't do
 - `🟡 Suggestion`: worth doing, but not a reason to hold the merge
+- If a finding is about behavior that **predates the PR**, say so
+  ("existing behavior"). It belongs in its own issue, not this PR,
+  unless this PR makes it worse. In that case it's blocking.
 
 ## 4. Post one review
 Use `mcp__github__create_pull_request_review`:
