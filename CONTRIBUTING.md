@@ -15,7 +15,8 @@ can run any of them as a slash command:
 | `/groupify-change` | Any change, from issue to merged PR (the overall flow) |
 | `/groupify-bugfix` | Bugs: reproduce → evidence → root cause → failing test → fix |
 | `/groupify-verify` | The Definition of Done checks (`scripts/verify.sh`) |
-| `/groupify-pr` | Opening or updating a PR the project's way |
+| `/groupify-pr` | Opening or updating a PR the project's way (launches a fresh reviewer) |
+| `/groupify-review` | Independent review of a PR, posted as inline comments; run it in a fresh context |
 | `/groupify-playback` | Anything touching Spotify playback: doc links, invariants, checklist |
 
 Without Claude, you can run the checks directly:
@@ -85,11 +86,33 @@ PR. A red CI blocks the merge.
 - Review your own diff before asking anyone else.
 
 ### 1.6 Review
-- At least one review before merging: a person, or an AI review followed
-  by the author reading and resolving every comment.
+- Every PR gets a review before merging, from **a reviewer who didn't
+  write the code.** In practice that's Claude in a fresh context: a
+  reviewer subagent or a new session running `/groupify-review`. Never
+  the session that wrote the change. `/groupify-pr` launches it
+  automatically. The findings are posted as **inline review comments**
+  on the PR. A human reviewer works too.
 - Reviewers check correctness first (edge cases, error paths, auth), then
   design, then style. Style nits that a linter could catch should become
   lint rules instead.
+- **Each review comment gets fixed or answered**, then its thread is
+  resolved. With the ruleset below, an open thread blocks the merge.
+- **The merge click is the owner's approval.** The ruleset needs 0 formal
+  approvals: GitHub doesn't let a PR's author approve it, and every PR
+  here is opened under the owner's account.
+
+#### Ruleset on `main` (Settings → Rules → Rulesets)
+The merge gate is only real if this ruleset exists with **Enforcement
+status: Active**:
+- Require a pull request before merging, with **0** required approvals
+  and **Require conversation resolution** on
+- Require status checks to pass: `Backend tests` and `Frontend tests`
+  (from GitHub Actions)
+- Block force pushes, and restrict deletions
+
+Check that it's in place: `gh api repos/gebrielmolla19/Groupify/rules/branches/main`
+should list `pull_request`, `required_status_checks`, `non_fast_forward`
+and `deletion`. An empty list (`[]`) means nothing is enforced.
 
 ### 1.7 Merge, confirm, close
 - Merge only with green CI and the PR's manual checklist ticked.
