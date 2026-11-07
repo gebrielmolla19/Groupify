@@ -22,7 +22,8 @@ Fixes #
 <!-- What could break, who notices, and how to undo it (usually: revert this PR). Mention env vars, migrations, or OAuth scope changes. -->
 
 ## Evidence
-<!-- Required. Show the change working; don't just describe it. See the groupify-pr skill, "Evidence".
+<!-- Only when someone could see the difference: UI, an interaction, or a bug a user hit. Delete this section for
+     docs, refactors, tests, dependencies, CI, or backend internals already covered by tests. See the groupify-pr skill, "Evidence".
      UI: before / after screenshots, desktop and 375 px. A GIF or video for flows (playback, drag, toasts).
      Backend or logic: before / after output in code blocks (curl response, log lines, the regression test failing then passing).
      Couldn't capture it? Say why here and add it to "Not verified".

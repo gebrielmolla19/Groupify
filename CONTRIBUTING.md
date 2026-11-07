@@ -91,13 +91,14 @@ PR. A red CI blocks the merge.
 ### 1.5 Pull request
 - Fill in the PR template: linked issue (`Fixes #N`), what changed and why,
   how it was verified (with real output), risk and rollback.
-- **Show evidence** in the PR's Evidence section: before/after screenshots
-  (desktop and 375 px) for UI changes, a GIF or video for flows, and
-  before/after output (curl, logs, the failing-then-passing test) for
-  backend changes. With no visible change, say so and point to the
-  verify output. If you can't capture it, say why and list it under
-  "Not verified". The repo is public, so nothing personal or secret goes
-  in a screenshot.
+- **Show evidence when there's something to see.** Use the PR's Evidence
+  section for UI changes (before/after screenshots, desktop and 375 px),
+  flows (a GIF or video), and bugs with a visible symptom (before/after
+  curl or log output). Leave it out for docs, refactors, tests,
+  dependencies and backend internals the tests already cover. If it
+  applies but you can't capture it, say why and list it under "Not
+  verified". The repo is public, so nothing personal or secret goes in a
+  screenshot.
 - **List anything you could not verify** (for example "needs a Premium
   account on a phone") as an unchecked box. Never claim a test you didn't run.
 - Review your own diff before asking anyone else.

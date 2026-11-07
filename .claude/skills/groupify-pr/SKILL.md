@@ -26,8 +26,9 @@ description: Open or update a Groupify pull request the project's way — verifi
    - **Not verified**: unchecked boxes for anything left to the user
      (Premium playback, a real phone, and so on)
    - **Risk & rollback**: env vars, OAuth scopes, migrations
-   - **Evidence**: before/after proof of the change. Required, see
-     "Evidence" below.
+   - **Evidence**: before/after proof, only when the change is
+     something you can see. See "Evidence" below. Otherwise delete the
+     section.
 4. Create it with `gh pr create`. On this machine the `gh` token can't
    create PRs (it returns 403), so use the GitHub MCP connector instead:
    `mcp__github__create_pull_request` with owner `gebrielmolla19` and
@@ -39,21 +40,30 @@ description: Open or update a Groupify pull request the project's way — verifi
    already links them.
 
 ## Evidence
-Every PR shows the thing it fixed or built, so the user can see it
-works without checking out the branch. Capture it **before** opening
-the PR (for bugs, capture the "before" while reproducing, ahead of the
-fix).
+Add evidence when it lets the user see that the change works without
+checking out the branch. Not every PR needs it.
+
+**When it makes sense:** the change has a difference someone can
+observe. That means a UI change, an interaction or flow, or a bug a user
+actually hit (a broken screen, an error toast, a failed request).
+
+**When to skip it:** docs, refactors with no behavior change, tests,
+dependency bumps, CI or config, and backend internals that the tests and
+verify output already prove. Delete the Evidence section. Don't fill it
+with "N/A" or a copy of the diff.
+
+When it applies, capture it **before** opening the PR. For bugs, capture
+the "before" while reproducing, ahead of the fix.
 
 **What to capture**
 - **UI change:** before and after screenshots of the affected screen,
   at desktop width and at 375 px.
 - **Flow or interaction** (playback, seek, drag, toasts, navigation): a
   short GIF or video of the after, plus the before if it's a bug.
-- **Backend, API or logic:** before/after text in fenced code blocks,
+- **Backend bug with a visible symptom** (a wrong status, a bad
+  response, an error in the logs the user reported): before/after text in fenced code blocks,
   such as the `curl` response (status and body), the relevant log lines,
   or the regression test failing on the old code and passing on the new.
-- **Refactor or chore with no visible change:** one line saying so, plus
-  the verify output. That's the evidence.
 
 **How to capture**
 - Run the app (`run` skill, or the dev servers in CLAUDE.md) and open it
