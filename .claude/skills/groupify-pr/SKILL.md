@@ -26,6 +26,9 @@ description: Open or update a Groupify pull request the project's way — verifi
    - **Not verified**: unchecked boxes for anything left to the user
      (Premium playback, a real phone, and so on)
    - **Risk & rollback**: env vars, OAuth scopes, migrations
+   - **Evidence**: before/after proof, only when the change is
+     something you can see. See "Evidence" below. Otherwise delete the
+     section.
 4. Create it with `gh pr create`. On this machine the `gh` token can't
    create PRs (it returns 403), so use the GitHub MCP connector instead:
    `mcp__github__create_pull_request` with owner `gebrielmolla19` and
@@ -35,6 +38,80 @@ description: Open or update a Groupify pull request the project's way — verifi
    Don't poll CI in a loop.
 6. Comment on the issue only if something needs explaining. `Fixes #N`
    already links them.
+
+## Evidence
+Add evidence when it lets the user see that the change works without
+checking out the branch. Not every PR needs it.
+
+**When it makes sense:** the change has a difference someone can
+observe. That means a UI change, an interaction or flow, or a bug a user
+actually hit (a broken screen, an error toast, a failed request).
+
+**When to skip it:** docs, refactors with no behavior change, tests,
+dependency bumps, CI or config, and backend internals that the tests and
+verify output already prove. Delete the Evidence section. Don't fill it
+with "N/A" or a copy of the diff.
+
+When it applies, capture it **before** opening the PR. For bugs, capture
+the "before" while reproducing, ahead of the fix.
+
+**What to capture**
+- **UI change:** before and after screenshots of the affected screen,
+  at desktop width and at 375 px.
+- **Flow or interaction** (playback, seek, drag, toasts, navigation): a
+  short GIF or video of the after, plus the before if it's a bug.
+- **Backend bug with a visible symptom** (a wrong status, a bad
+  response, an error in the logs the user reported): before/after text in fenced code blocks,
+  such as the `curl` response (status and body), the relevant log lines,
+  or the regression test failing on the old code and passing on the new.
+
+**How to capture**
+- Run the app (`run` skill, or the dev servers in CLAUDE.md) and open it
+  in a browser you can save files from. The `chrome-devtools` MCP works:
+  `resize_page` (1280×800, then 375×812), then
+  `take_screenshot` with a `filePath` in the scratchpad directory.
+  `screencast_start` / `screencast_stop` records a flow. Convert it to a
+  GIF with `ffmpeg` if that's installed, so it plays inline on GitHub.
+- iOS Simulator: the simulator `screenshot` action.
+- Look at every image before using it. It must show the change, not a
+  login page, a loading spinner or the wrong screen.
+- **The repo is public.** Use test data only. No real emails, tokens,
+  Spotify account names or other personal data in a screenshot. Crop or
+  retake if any show up.
+
+**How to attach**
+GitHub's API can't upload images to a PR body, so images go on the
+`pr-evidence` branch, which holds only evidence and is never merged.
+Never commit them to the feature branch.
+```bash
+W=<scratch>/pr-evidence
+if git ls-remote --exit-code --heads origin pr-evidence >/dev/null; then
+  git fetch origin pr-evidence
+  git worktree add -B pr-evidence "$W" origin/pr-evidence
+else
+  git worktree add --orphan -b pr-evidence "$W"
+fi
+mkdir -p "$W/<branch>" && cp <images> "$W/<branch>/"
+git -C "$W" add <branch>
+git -C "$W" commit -m "evidence: <branch>"
+git -C "$W" pull --rebase origin pr-evidence 2>/dev/null || true  # skip on first push
+git -C "$W" push -u origin pr-evidence
+git worktree remove "$W"
+```
+Always start from `origin/pr-evidence` (`-B` resets any stale local
+copy), so another session's evidence is never lost. If the push is still
+rejected, someone pushed at the same moment: run the `pull --rebase` and
+push again. If any step fails, stop and fix it. Never create a new orphan
+branch over an existing `pr-evidence`.
+Then reference each image in the Evidence table as
+`![after, 375 px](https://raw.githubusercontent.com/gebrielmolla19/Groupify/pr-evidence/<branch>/after-375.png)`.
+Name files `before-desktop.png`, `after-375.png`, `after-flow.gif` and
+so on. Open one raw URL to check it loads before you finish the PR.
+
+**Couldn't capture it?** For example, it needs Premium audio or a real
+phone. Say why in Evidence, and add an unchecked box under "Not
+verified". Never use a mock-up, an edited image or a screenshot of
+other code as evidence.
 
 ## Review (every PR, before telling the user it's ready)
 This is the project's review gate. It costs nothing beyond the user's
@@ -89,6 +166,9 @@ that's exactly what hides bugs.
 ## After opening
 - **CI fails:** read the failing job's log, fix the cause, push again,
   and say what you changed.
+- **The change looks different after new commits** (a review fix changed
+  the UI, say): retake the after shots, push them to `pr-evidence`, and
+  update the PR body.
 - **Review comments** (yours or anyone else's): fix each one or reply
   with a reason, run `groupify-verify` again, and resolve the thread.
 - **New commits after a review** that do more than fix review findings:

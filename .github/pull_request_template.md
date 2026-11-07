@@ -21,5 +21,14 @@ Fixes #
 ## Risk & rollback
 <!-- What could break, who notices, and how to undo it (usually: revert this PR). Mention env vars, migrations, or OAuth scope changes. -->
 
-## Screenshots
-<!-- For UI changes: before / after, desktop and phone. -->
+## Evidence
+<!-- Only when someone could see the difference: UI, an interaction, or a bug a user hit. Delete this section for
+     docs, refactors, tests, dependencies, CI, or backend internals already covered by tests. See the groupify-pr skill, "Evidence".
+     UI: before / after screenshots, desktop and 375 px. A GIF or video for flows (playback, drag, toasts).
+     Backend bug with a visible symptom: before / after output in code blocks (curl response, log lines, the regression test failing then passing).
+     Couldn't capture it? Say why here and add it to "Not verified".
+     Images go in the table. Text output can't go in a table cell: use "**Before**" / "**After**" headings, each followed by a code block, and delete the table. -->
+
+| Before | After |
+|---|---|
+|  |  |
