@@ -62,3 +62,6 @@ Groupify-backend/check-server.js
 CLAUDE.md
 /package.json
 /package-lock.json
+
+# PR evidence screenshots (pushed to the pr-evidence branch, never committed here)
+.evidence/
