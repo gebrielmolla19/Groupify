@@ -86,6 +86,65 @@ describe('fetchWithAuth errors', () => {
     expect(err.message).toBe('Forbidden');
   });
 
+  describe('when the token has expired and the refresh fails', () => {
+    const tokenExpired = () =>
+      new Response(JSON.stringify({ message: 'Token expired' }), { status: 401 });
+
+    afterEach(() => {
+      localStorage.removeItem('groupify_token');
+    });
+
+    it('reports a network error, not the 401, when the refresh cannot reach the server', async () => {
+      localStorage.setItem('groupify_token', 'expired-jwt');
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValueOnce(tokenExpired()).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      );
+
+      const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
+
+      expect(isApiError(err) && err.isNetworkError).toBe(true);
+    });
+
+    it('reports the server error, not the 401, when the refresh fails with a 5xx', async () => {
+      localStorage.setItem('groupify_token', 'expired-jwt');
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(tokenExpired())
+          .mockResolvedValueOnce(
+            new Response(JSON.stringify({ message: 'Database unavailable' }), { status: 500 })
+          )
+      );
+
+      const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
+
+      expect(isApiError(err)).toBe(true);
+      if (!isApiError(err)) return;
+      expect(err.status).toBe(500);
+      expect(err.isNetworkError).toBe(false);
+    });
+
+    it.each([400, 401, 403])('still reports the 401 when the server refuses the refresh (%i)', async (status) => {
+      localStorage.setItem('groupify_token', 'expired-jwt');
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(tokenExpired())
+          .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Invalid token' }), { status }))
+      );
+
+      const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
+
+      expect(isApiError(err)).toBe(true);
+      if (!isApiError(err)) return;
+      expect(err.status).toBe(401);
+      expect(err.message).toBe('Token expired');
+    });
+  });
+
   it.each([
     ['Chrome', 'Failed to fetch'],
     ['Safari', 'Load failed'],

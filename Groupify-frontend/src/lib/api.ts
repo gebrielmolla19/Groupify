@@ -35,31 +35,44 @@ export const removeToken = (): void => {
 // Track whether a token refresh is already in progress to avoid parallel refreshes
 let refreshPromise: Promise<string | null> | null = null;
 
+/** Statuses /auth/refresh-jwt uses to refuse a token. Anything else is a failure, not a verdict. */
+const REFRESH_REFUSED_STATUSES = [400, 401, 403];
+
 /**
- * Attempt to refresh an expired JWT token
+ * Attempt to refresh an expired JWT token.
+ *
+ * Returns the new token, or null when the server refused the refresh, which
+ * ends the session. If the refresh couldn't be completed (network error or a
+ * server failure), it throws an ApiError instead. That says nothing about the
+ * token, so callers mustn't treat it as a sign-out.
  */
 const refreshJwtToken = async (): Promise<string | null> => {
   const expiredToken = getToken();
   if (!expiredToken) return null;
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh-jwt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: expiredToken }),
+  // fetchOrNetworkError is defined further down. That's fine: this only runs
+  // after the module has finished loading.
+  const response = await fetchOrNetworkError(`${API_BASE_URL}/auth/refresh-jwt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: expiredToken }),
+  });
+
+  if (REFRESH_REFUSED_STATUSES.includes(response.status)) return null;
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: '' }));
+    throw new ApiError(error.message || `Token refresh failed (status ${response.status})`, {
+      status: response.status,
     });
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    if (data.success && data.token) {
-      setToken(data.token);
-      return data.token;
-    }
-    return null;
-  } catch {
-    return null;
   }
+
+  const data = await response.json();
+  if (data.success && data.token) {
+    setToken(data.token);
+    return data.token;
+  }
+  return null;
 };
 
 /**
