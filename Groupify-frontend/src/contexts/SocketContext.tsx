@@ -25,7 +25,7 @@ interface SocketProviderProps {
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
-  const { token } = useUser();
+  const { token, isAuthenticated } = useUser();
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -37,8 +37,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
       setIsConnected(false);
     }
 
-    // Only connect when the user has a valid token
-    if (!token) return;
+    // Only connect once the server has accepted the token. A stored token
+    // is kept through an outage (UserContext), and connecting with it then
+    // would just retry against a server that's down.
+    if (!token || !isAuthenticated) return;
 
     const socket = io(SOCKET_URL, {
       auth: { token },
@@ -68,7 +70,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
       socketRef.current = null;
       setIsConnected(false);
     };
-  }, [token]);
+  }, [token, isAuthenticated]);
 
   const joinGroup = (groupId: string) => {
     if (socketRef.current?.connected) {
