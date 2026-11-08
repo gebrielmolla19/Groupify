@@ -27,8 +27,8 @@ description: Open or update a Groupify pull request the project's way — verifi
      (Premium playback, a real phone, and so on)
    - **Risk & rollback**: env vars, OAuth scopes, migrations
    - **Evidence**: before/after proof, only when the change is
-     something you can see. See "Evidence" below. Otherwise delete the
-     section.
+     something you can see. It goes here in the description, not in a
+     comment. See "Evidence" below. Otherwise delete the section.
 4. Create it with `gh pr create`. On this machine the `gh` token can't
    create PRs (it returns 403), so use the GitHub MCP connector instead:
    `mcp__github__create_pull_request` with owner `gebrielmolla19` and
@@ -55,6 +55,15 @@ with "N/A" or a copy of the diff.
 When it applies, capture it **before** opening the PR. For bugs, capture
 the "before" while reproducing, ahead of the fix.
 
+**Where it goes:** the PR description's Evidence section, because that's
+where reviewers look. If you capture it after the PR is open, edit the
+description: read the current body (`mcp__github__pull_request_read`,
+method `get`), fill in its Evidence section, and send the whole body
+back with `mcp__github__update_pull_request` (it replaces the body, so
+never send only the new section). A PR comment is a **fallback**, only
+for when the description can't be edited. In that case, put a link to
+the comment in the description's Evidence section.
+
 **What to capture**
 - **UI change:** before and after screenshots of the affected screen,
   at desktop width and at 375 px.
@@ -67,14 +76,50 @@ the "before" while reproducing, ahead of the fix.
 
 **How to capture**
 - Run the app (`run` skill, or the dev servers in CLAUDE.md) and open it
-  in a browser you can save files from. The `chrome-devtools` MCP works:
-  `resize_page` (1280×800, then 375×812), then
-  `take_screenshot` with a `filePath` in the scratchpad directory.
-  `screencast_start` / `screencast_stop` records a flow. Convert it to a
+  in a browser you can save files from. The `chrome-devtools` MCP works.
+- **Save to `.evidence/`** at the root of the checkout you're working in
+  (`take_screenshot` with `filePath: "<checkout>/.evidence/before-desktop.png"`).
+  Start with it empty (`rm -rf .evidence && mkdir .evidence`), because
+  everything in it gets uploaded, including leftovers from an earlier run.
+  The `chrome-devtools` MCP only writes inside its workspace roots, so a
+  scratchpad path is refused with `Access denied: … not within any of
+  the configured workspace roots`. `.evidence/` is gitignored, so it
+  can't be committed by accident. Delete it after the push to
+  `pr-evidence` (below).
+- **One viewport at a time, in this order:** set the viewport first
+  (`resize_page` 1280×800, or `emulate` with `375x812x2,mobile,touch`),
+  *then* reproduce, *then* take the shot. Changing the viewport can
+  reload the page, and a reload drops anything that set up the
+  reproduction, such as a `navigate_page` `initScript`. After every
+  viewport change, reproduce again before the next shot.
+- `screencast_start` / `screencast_stop` records a flow. Convert it to a
   GIF with `ffmpeg` if that's installed, so it plays inline on GitHub.
 - iOS Simulator: the simulator `screenshot` action.
-- Look at every image before using it. It must show the change, not a
-  login page, a loading spinner or the wrong screen.
+- **Look at every image before using it.** It must show the state you're
+  proving (the bug in a "before" shot, the fix in an "after"), not just
+  the right page. A shot can look plausible and still show the normal
+  screen because the reproduction was lost. It also mustn't be a login
+  page, a loading spinner or the wrong screen.
+- **Reproducing an outage or a failed request:** don't stop the backend.
+  Reloading with it down logs you out first (#46), so the request you
+  care about never runs. Instead, make only that request fail with an
+  `initScript` on `navigate_page`. This goes through the same
+  `fetchWithAuth` → `ApiError { isNetworkError: true }` path as a real
+  outage:
+  ```js
+  const realFetch = window.fetch;
+  window.fetch = (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+    const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    if (method === 'GET' && url.pathname === '/api/v1/groups') {
+      return Promise.reject(new TypeError('Failed to fetch'));
+    }
+    return realFetch(input, init);
+  };
+  ```
+  Change the method and path to the request you're testing. For an HTTP
+  error instead of a network one, resolve with
+  `new Response(JSON.stringify({ message: '…' }), { status: 500 })`.
 - **The repo is public.** Use test data only. No real emails, tokens,
   Spotify account names or other personal data in a screenshot. Crop or
   retake if any show up.
@@ -91,18 +136,24 @@ if git ls-remote --exit-code --heads origin pr-evidence >/dev/null; then
 else
   git worktree add --orphan -b pr-evidence "$W"
 fi
-mkdir -p "$W/<branch>" && cp <images> "$W/<branch>/"
-git -C "$W" add <branch>
-git -C "$W" commit -m "evidence: <branch>"
-git -C "$W" pull --rebase origin pr-evidence 2>/dev/null || true  # skip on first push
-git -C "$W" push -u origin pr-evidence
-git worktree remove "$W"
+mkdir -p "$W/<branch>" && cp .evidence/* "$W/<branch>/" &&
+git -C "$W" add <branch> &&
+git -C "$W" commit -m "evidence: <branch>" &&
+{ git -C "$W" pull --rebase origin pr-evidence 2>/dev/null || true; } &&  # no-op on first push
+git -C "$W" push -u origin pr-evidence &&
+git worktree remove "$W" &&
+rm -rf .evidence
 ```
 Always start from `origin/pr-evidence` (`-B` resets any stale local
-copy), so another session's evidence is never lost. If the push is still
-rejected, someone pushed at the same moment: run the `pull --rebase` and
-push again. If any step fails, stop and fix it. Never create a new orphan
-branch over an existing `pr-evidence`.
+copy), so another session's evidence is never lost. The steps are
+chained with `&&`, so cleanup only runs after a successful push. If any
+step fails, the chain stops and `$W` and `.evidence/` are left in place.
+Don't rerun the whole script then, because the `worktree add -B` at the
+top would throw away the unpushed commit. If the push was rejected,
+someone pushed at the same moment: run the `pull --rebase` and `push`
+again in `$W`, then `git worktree remove "$W" && rm -rf .evidence`. For
+any other failure, stop and fix it. Never create a new orphan branch
+over an existing `pr-evidence`.
 Then reference each image in the Evidence table as
 `![after, 375 px](https://raw.githubusercontent.com/gebrielmolla19/Groupify/pr-evidence/<branch>/after-375.png)`.
 Name files `before-desktop.png`, `after-375.png`, `after-flow.gif` and

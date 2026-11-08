@@ -91,8 +91,9 @@ PR. A red CI blocks the merge.
 ### 1.5 Pull request
 - Fill in the PR template: linked issue (`Fixes #N`), what changed and why,
   how it was verified (with real output), risk and rollback.
-- **Show evidence when there's something to see.** Use the PR's Evidence
-  section for UI changes (before/after screenshots, desktop and 375 px),
+- **Show evidence when there's something to see.** Put it in the
+  Evidence section of the PR description (not a comment, even when it's
+  captured after the PR is open). Use it for UI changes (before/after screenshots, desktop and 375 px),
   flows (a GIF or video), and bugs with a visible symptom (before/after
   curl or log output). Leave it out for docs, refactors, tests,
   dependencies and backend internals the tests already cover. If it
