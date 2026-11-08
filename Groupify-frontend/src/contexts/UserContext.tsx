@@ -6,6 +6,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { getToken, setToken, getCurrentUser, logout as apiLogout, removeToken } from '../lib/api';
+import { isApiError } from '../lib/apiError';
 import { registerServiceWorker, requestPermissionAndSubscribe } from '../lib/pushNotifications';
 import { logger } from '../utils/logger';
 
@@ -14,10 +15,22 @@ interface UserContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * Set when a stored token exists but the session couldn't be checked
+   * (server unreachable or failing). The token is kept; call retryAuth.
+   */
+  authError: string | null;
+  retryAuth: () => Promise<void>;
   login: (token: string) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
 }
+
+const SESSION_CHECK_FAILED = "Couldn't load your account. Try again in a moment.";
+
+/** The server looked at the token and refused it. Anything else says nothing about the token. */
+const isTokenRejected = (error: unknown): boolean =>
+  isApiError(error) && (error.status === 401 || error.status === 403);
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
@@ -29,30 +42,52 @@ export function UserProvider({ children }: UserProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Initialize auth state from localStorage on mount
-  useEffect(() => {
-    const initAuth = async () => {
-      const storedToken = getToken();
-      if (storedToken) {
-        setTokenState(storedToken);
-        try {
-          await fetchUserData(storedToken);
-          // Re-register SW for returning users (non-blocking, no permission prompt — must come from user gesture)
-          registerServiceWorker().catch(() => {});
-        } catch (error) {
-          // Token might be invalid, clear it
-          logger.warn('Token invalid, clearing auth state');
+  // Check the stored token with the server. Only a 401/403 means the token
+  // is bad. A network error or server failure leaves it in place, so a
+  // backend outage doesn't sign the user out.
+  const loadStoredSession = async () => {
+    const storedToken = getToken();
+    if (storedToken) {
+      setTokenState(storedToken);
+      try {
+        await fetchUserData(storedToken);
+        setAuthError(null);
+        // Re-register SW for returning users (non-blocking, no permission prompt — must come from user gesture)
+        registerServiceWorker().catch(() => {});
+      } catch (error) {
+        if (isTokenRejected(error)) {
+          logger.warn('Stored token rejected, clearing auth state', {
+            status: isApiError(error) ? error.status : undefined,
+          });
           removeToken();
           setTokenState(null);
           setUser(null);
+          setAuthError(null);
+        } else {
+          setAuthError(isApiError(error) && error.isNetworkError ? error.message : SESSION_CHECK_FAILED);
         }
       }
-      setIsLoading(false);
-    };
+    } else {
+      // No stored token, e.g. logged out in another tab before a retry.
+      setTokenState(null);
+      setUser(null);
+      setAuthError(null);
+    }
+    setIsLoading(false);
+  };
 
-    initAuth();
+  // Initialize auth state from localStorage on mount
+  useEffect(() => {
+    loadStoredSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
+
+  const retryAuth = async () => {
+    setIsLoading(true);
+    await loadStoredSession();
+  };
 
   const fetchUserData = async (authToken?: string) => {
     const tokenToUse = authToken || token;
@@ -65,7 +100,12 @@ export function UserProvider({ children }: UserProviderProps) {
       setUser(userData);
       return userData;
     } catch (error) {
-      logger.error('Failed to fetch user data:', error);
+      if (isApiError(error) && error.isNetworkError) {
+        // Expected when the server is down: callers show it to the user.
+        logger.warn('Could not fetch user data - server unreachable');
+      } else {
+        logger.error('Failed to fetch user data:', error);
+      }
       throw error;
     }
   };
@@ -95,7 +135,8 @@ export function UserProvider({ children }: UserProviderProps) {
     // Clear state
     setTokenState(null);
     setUser(null);
-    
+    setAuthError(null);
+
     // Clear URL and go back to root
     window.history.replaceState({}, document.title, '/');
   };
@@ -112,6 +153,8 @@ export function UserProvider({ children }: UserProviderProps) {
     token,
     isAuthenticated: !!token && !!user,
     isLoading,
+    authError,
+    retryAuth,
     login: handleLogin,
     logout: handleLogout,
     fetchUser: handleFetchUser,
