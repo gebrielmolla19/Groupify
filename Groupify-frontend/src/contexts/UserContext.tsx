@@ -69,6 +69,11 @@ export function UserProvider({ children }: UserProviderProps) {
           setAuthError(isApiError(error) && error.isNetworkError ? error.message : SESSION_CHECK_FAILED);
         }
       }
+    } else {
+      // No stored token, e.g. logged out in another tab before a retry.
+      setTokenState(null);
+      setUser(null);
+      setAuthError(null);
     }
     setIsLoading(false);
   };

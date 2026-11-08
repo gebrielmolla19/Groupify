@@ -88,6 +88,19 @@ describe('UserContext startup with a stored token', () => {
     expect(result.current.authError).toBeNull();
   });
 
+  it('drops the session on retry if the stored token is gone (logged out in another tab)', async () => {
+    vi.mocked(getCurrentUser).mockRejectedValue(networkError());
+    const { result } = await renderLoaded();
+    expect(result.current.authError).not.toBeNull();
+
+    vi.mocked(getToken).mockReturnValue(null);
+    await act(() => result.current.retryAuth());
+
+    expect(result.current.token).toBeNull();
+    expect(result.current.authError).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it('loads the user normally when the server accepts the token', async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(user);
 
