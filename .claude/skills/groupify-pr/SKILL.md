@@ -79,6 +79,8 @@ the comment in the description's Evidence section.
   in a browser you can save files from. The `chrome-devtools` MCP works.
 - **Save to `.evidence/`** at the root of the checkout you're working in
   (`take_screenshot` with `filePath: "<checkout>/.evidence/before-desktop.png"`).
+  Start with it empty (`rm -rf .evidence && mkdir .evidence`), because
+  everything in it gets uploaded, including leftovers from an earlier run.
   The `chrome-devtools` MCP only writes inside its workspace roots, so a
   scratchpad path is refused with `Access denied: … not within any of
   the configured workspace roots`. `.evidence/` is gitignored, so it
@@ -134,19 +136,24 @@ if git ls-remote --exit-code --heads origin pr-evidence >/dev/null; then
 else
   git worktree add --orphan -b pr-evidence "$W"
 fi
-mkdir -p "$W/<branch>" && cp .evidence/* "$W/<branch>/"
-git -C "$W" add <branch>
-git -C "$W" commit -m "evidence: <branch>"
-git -C "$W" pull --rebase origin pr-evidence 2>/dev/null || true  # skip on first push
-git -C "$W" push -u origin pr-evidence
-git worktree remove "$W"
+mkdir -p "$W/<branch>" && cp .evidence/* "$W/<branch>/" &&
+git -C "$W" add <branch> &&
+git -C "$W" commit -m "evidence: <branch>" &&
+{ git -C "$W" pull --rebase origin pr-evidence 2>/dev/null || true; } &&  # no-op on first push
+git -C "$W" push -u origin pr-evidence &&
+git worktree remove "$W" &&
 rm -rf .evidence
 ```
 Always start from `origin/pr-evidence` (`-B` resets any stale local
-copy), so another session's evidence is never lost. If the push is still
-rejected, someone pushed at the same moment: run the `pull --rebase` and
-push again. If any step fails, stop and fix it. Never create a new orphan
-branch over an existing `pr-evidence`.
+copy), so another session's evidence is never lost. The steps are
+chained with `&&`, so cleanup only runs after a successful push. If any
+step fails, the chain stops and `$W` and `.evidence/` are left in place.
+Don't rerun the whole script then, because the `worktree add -B` at the
+top would throw away the unpushed commit. If the push was rejected,
+someone pushed at the same moment: run the `pull --rebase` and `push`
+again in `$W`, then `git worktree remove "$W" && rm -rf .evidence`. For
+any other failure, stop and fix it. Never create a new orphan branch
+over an existing `pr-evidence`.
 Then reference each image in the Evidence table as
 `![after, 375 px](https://raw.githubusercontent.com/gebrielmolla19/Groupify/pr-evidence/<branch>/after-375.png)`.
 Name files `before-desktop.png`, `after-375.png`, `after-flow.gif` and
