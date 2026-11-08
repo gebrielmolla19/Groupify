@@ -67,7 +67,10 @@ const refreshJwtToken = async (): Promise<string | null> => {
     });
   }
 
-  const data = await response.json();
+  // A 200 that isn't JSON (a proxy or captive portal page) is a failure, not a refusal.
+  const data = await response.json().catch(() => {
+    throw new ApiError('Token refresh returned an unexpected response', { status: response.status });
+  });
   if (data.success && data.token) {
     setToken(data.token);
     return data.token;

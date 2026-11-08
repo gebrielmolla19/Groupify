@@ -126,6 +126,39 @@ describe('fetchWithAuth errors', () => {
       expect(err.isNetworkError).toBe(false);
     });
 
+    it('reports an ApiError, not a SyntaxError, when the refresh returns a 200 that isn\'t JSON', async () => {
+      localStorage.setItem('groupify_token', 'expired-jwt');
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(tokenExpired())
+          .mockResolvedValueOnce(new Response('<html>Sign in to Wi-Fi</html>', { status: 200 }))
+      );
+
+      const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
+
+      expect(isApiError(err)).toBe(true);
+      if (!isApiError(err)) return;
+      expect(err.status).toBe(200);
+      expect(err.message).toBe('Token refresh returned an unexpected response');
+    });
+
+    it('still reports the 401 when the refresh succeeds without a token', async () => {
+      localStorage.setItem('groupify_token', 'expired-jwt');
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(tokenExpired())
+          .mockResolvedValueOnce(new Response(JSON.stringify({ success: false }), { status: 200 }))
+      );
+
+      const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
+
+      expect(isApiError(err) && err.status).toBe(401);
+    });
+
     it.each([400, 401, 403])('still reports the 401 when the server refuses the refresh (%i)', async (status) => {
       localStorage.setItem('groupify_token', 'expired-jwt');
       vi.stubGlobal(
