@@ -15,6 +15,7 @@ import {
   leaveGroup as apiLeaveGroup,
   getToken
 } from '../lib/api';
+import { isApiError } from '../lib/apiError';
 import { toast } from 'sonner';
 import { useUser } from './UserContext';
 import { logger } from '../utils/logger';
@@ -60,24 +61,20 @@ export function GroupsProvider({ children }: GroupsProviderProps) {
       const fetchedGroups = await apiGetUserGroups();
       setGroups(fetchedGroups);
     } catch (err) {
-      // Handle network errors and auth errors gracefully
+      // Classify from the typed error, not its message text.
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch groups';
 
-      // Check if it's a network error (Failed to fetch) or auth error
-      if (
-        errorMessage.includes('Failed to fetch') ||
-        errorMessage.includes('token') ||
-        errorMessage.includes('authentication') ||
-        errorMessage.includes('401') ||
-        errorMessage.includes('403')
-      ) {
-        // User is logged out or network issue - clear groups silently
+      if (isApiError(err) && err.isNetworkError) {
+        // Offline or backend down: keep any groups already loaded and tell
+        // the user. Clearing them would show the "create your first group"
+        // empty state to someone who has groups.
+        setError(errorMessage);
+        logger.warn('Groups fetch failed - server unreachable');
+      } else if (isApiError(err) && (err.status === 401 || err.status === 403)) {
+        // Logged out or no longer authorized: clear groups silently.
         setGroups([]);
         setError(null);
-        // Only log if it's not a simple "no auth" case
-        if (!errorMessage.includes('Failed to fetch')) {
-          logger.debug('Groups fetch skipped - user not authenticated');
-        }
+        logger.debug('Groups fetch skipped - user not authorized', { status: err.status });
       } else {
         // Real error - log it
         setError(errorMessage);
