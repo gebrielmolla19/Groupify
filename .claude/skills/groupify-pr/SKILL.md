@@ -135,6 +135,11 @@ if git ls-remote --exit-code --heads origin pr-evidence >/dev/null; then
   git worktree add -B pr-evidence "$W" origin/pr-evidence
 else
   git worktree add --orphan -b pr-evidence "$W"
+  # Stop Vercel building this branch (see below)
+  mkdir -p "$W/Groupify-frontend" &&
+  printf '{ "git": { "deploymentEnabled": { "pr-evidence": false } } }\n' \
+    > "$W/Groupify-frontend/vercel.json" &&
+  git -C "$W" add Groupify-frontend/vercel.json
 fi
 mkdir -p "$W/<branch>" && cp .evidence/* "$W/<branch>/" &&
 git -C "$W" add <branch> &&
@@ -154,6 +159,10 @@ someone pushed at the same moment: run the `pull --rebase` and `push`
 again in `$W`, then `git worktree remove "$W" && rm -rf .evidence`. For
 any other failure, stop and fix it. Never create a new orphan branch
 over an existing `pr-evidence`.
+`pr-evidence` keeps a `Groupify-frontend/vercel.json` that turns Vercel
+deployments off for that branch. Vercel builds every pushed branch from
+`Groupify-frontend`, so without it each evidence push fails with "Root
+Directory does not exist" and emails the owner. Don't delete it.
 Then reference each image in the Evidence table as
 `![after, 375 px](https://raw.githubusercontent.com/gebrielmolla19/Groupify/pr-evidence/<branch>/after-375.png)`.
 Name files `before-desktop.png`, `after-375.png`, `after-flow.gif` and
