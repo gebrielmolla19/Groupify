@@ -17,8 +17,14 @@ describe('config/env in test mode', () => {
         savedEnv = { ...process.env };
     });
 
+    // Restore keys in place so process.env stays Node's real env object.
     afterEach(() => {
-        process.env = savedEnv;
+        for (const key of Object.keys(process.env)) {
+            if (!(key in savedEnv)) {
+                delete process.env[key];
+            }
+        }
+        Object.assign(process.env, savedEnv);
     });
 
     function loadEnvConfig() {
