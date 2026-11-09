@@ -102,8 +102,9 @@ What goes in the review:
 
 ## 5. Return a summary
 End with a short report for whoever launched you:
-- The verdict, and a link to the review (from the submit response, or
-  `mcp__github__pull_request_read` with `method: "get_reviews"`)
+- The verdict, and a link to the review. `submit_pending` doesn't return
+  one, so get it from `mcp__github__pull_request_read` with
+  `method: "get_reviews"` (the review's `html_url`)
 - Each finding: severity, `path:line`, a one-line description
 - Anything you couldn't check (for example "needs Spotify Premium to
   exercise")

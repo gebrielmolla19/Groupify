@@ -203,7 +203,10 @@ that's exactly what hides bugs.
 3. **Blocking findings:** fix them on the branch, run
    `groupify-verify`, push, and record which commit fixed each finding.
    All of the writes below go through the GitHub MCP connector, since
-   the `gh` token can't write to PRs:
+   the `gh` token can't write to PRs. Every call takes
+   `owner: "gebrielmolla19"`, `repo: "Groupify"` and `pullNumber: <n>`,
+   including `resolve_thread` (the schema requires them even though that
+   method ignores them):
    - List the threads with `mcp__github__pull_request_read`,
      `method: "get_review_comments"`. Each thread has its node `id`
      (`PRRT_…`), and each comment has an `html_url` ending in
@@ -211,7 +214,7 @@ that's exactly what hides bugs.
    - Reply on each thread with
      `mcp__github__add_reply_to_pull_request_comment` (`commentId`: the
      `<number>` from the thread's first comment's `html_url`, plus
-     `pullNumber` and `body`)
+     `body`)
      naming the commit that fixed it. If replies fail, post **one** PR
      comment with `mcp__github__add_issue_comment` listing each
      finding → the commit that fixed it.
