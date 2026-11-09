@@ -22,19 +22,26 @@ const envSchema = Joi.object({
 // aren't already set. `tests/setup.js` spins up an in-memory Mongo and
 // reconnects mongoose directly, and tests stub external services — these
 // placeholders only need to satisfy the schema, not be functional.
+// They are written into process.env itself (not just a copy for Joi),
+// because some code reads process.env.JWT_SECRET etc. directly at runtime.
 // Production/dev validation is unchanged.
-const envForValidation = process.env.NODE_ENV === 'test'
-    ? {
-        ...process.env,
-        MONGO_URI: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/test-placeholder',
-        JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret',
-        SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID || 'test-client-id',
-        SPOTIFY_CLIENT_SECRET: process.env.SPOTIFY_CLIENT_SECRET || 'test-client-secret',
-        SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:5001/api/v1/auth/callback',
-    }
-    : process.env;
+const TEST_PLACEHOLDERS = {
+    MONGO_URI: 'mongodb://127.0.0.1:27017/test-placeholder',
+    JWT_SECRET: 'test-jwt-secret',
+    SPOTIFY_CLIENT_ID: 'test-client-id',
+    SPOTIFY_CLIENT_SECRET: 'test-client-secret',
+    SPOTIFY_REDIRECT_URI: 'http://localhost:5001/api/v1/auth/callback',
+};
 
-const { error, value: envVars } = envSchema.validate(envForValidation);
+if (process.env.NODE_ENV === 'test') {
+    for (const [key, placeholder] of Object.entries(TEST_PLACEHOLDERS)) {
+        if (!process.env[key]) {
+            process.env[key] = placeholder;
+        }
+    }
+}
+
+const { error, value: envVars } = envSchema.validate(process.env);
 
 if (error) {
     throw new Error(`Config validation error: ${error.message}`);
