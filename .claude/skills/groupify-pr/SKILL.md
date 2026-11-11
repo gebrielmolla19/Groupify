@@ -202,16 +202,26 @@ that's exactly what hides bugs.
    (its link, or `gh pr view <n> --json reviews`).
 3. **Blocking findings:** fix them on the branch, run
    `groupify-verify`, push, and record which commit fixed each finding.
-   Try replying on each thread first. If that isn't possible (the
-   connector has no reply tool, and the `gh` token can't write to PRs),
-   post **one** PR comment with `mcp__github__add_issue_comment` listing
-   each finding → the commit that fixed it. Then try to resolve each
-   thread:
-   `gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"<id>"}){thread{isResolved}}}'`.
-   Get thread ids from
-   `gh api graphql -f query='{repository(owner:"gebrielmolla19",name:"Groupify"){pullRequest(number:<n>){reviewThreads(first:50){nodes{id isResolved comments(first:1){nodes{body}}}}}}}'`.
-   If the token can't resolve threads, tell the user which ones are ready
-   to resolve.
+   All of the writes below go through the GitHub MCP connector, since
+   the `gh` token can't write to PRs. Every call takes
+   `owner: "gebrielmolla19"`, `repo: "Groupify"` and `pullNumber: <n>`,
+   including `resolve_thread` (the schema requires them even though that
+   method ignores them):
+   - List the threads with `mcp__github__pull_request_read`,
+     `method: "get_review_comments"`. Each thread has its node `id`
+     (`PRRT_…`), and each comment has an `html_url` ending in
+     `#discussion_r<number>`.
+   - Reply on each thread with
+     `mcp__github__add_reply_to_pull_request_comment` (`commentId`: the
+     `<number>` from the thread's first comment's `html_url`, plus
+     `body`)
+     naming the commit that fixed it. If replies fail, post **one** PR
+     comment with `mcp__github__add_issue_comment` listing each
+     finding → the commit that fixed it.
+   - Resolve each fixed thread with
+     `mcp__github__pull_request_review_write`,
+     `method: "resolve_thread"`, `threadId: "<PRRT_…>"`. If that fails,
+     tell the user which threads are ready to resolve.
    - **Disagree with a finding?** Don't resolve it silently. Reply with
      your reasoning (or put it in the summary comment) and leave the
      thread for the user to decide.
