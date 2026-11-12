@@ -35,6 +35,13 @@ describe('ThemeSwitch', () => {
     expect(document.documentElement).toHaveClass('dark');
   });
 
+  it('gives every option a 44px touch target below md', () => {
+    renderSwitch();
+    for (const name of ['Dark', 'Light', 'Device']) {
+      expect(screen.getByRole('radio', { name })).toHaveClass('h-11', 'md:h-9');
+    }
+  });
+
   it('switches to light and remembers the choice', async () => {
     const user = userEvent.setup();
     renderSwitch();
