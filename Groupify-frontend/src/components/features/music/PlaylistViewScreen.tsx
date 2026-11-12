@@ -325,12 +325,12 @@ export default function PlaylistViewScreen() {
               >
                 {isPlaying ? (
                   <>
-                    <Loader2 className="w-4 h-4 md:mr-2 animate-spin" aria-hidden="true" />
+                    <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" aria-hidden="true" />
                     <span className="hidden lg:inline">Playing...</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4 fill-current md:mr-2" aria-hidden="true" />
+                    <Play className="w-4 h-4 fill-current lg:mr-2" aria-hidden="true" />
                     <span className="hidden lg:inline">Play All</span>
                   </>
                 )}
