@@ -7,7 +7,7 @@ import { SidebarTrigger } from "../../ui/sidebar";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
 import NotificationsDropdown from "../notifications/NotificationsDropdown";
-import GroupThumbnail from "../groups/GroupThumbnail";
+import GroupCover from "../groups/GroupCover";
 import { Group } from "../../../types";
 import { useGroups } from "../../../hooks/useGroups";
 import { formatDistanceToNow } from "date-fns";
@@ -143,7 +143,7 @@ export default function DashboardScreen() {
                     onClick={() => handleNavigateToGroup(group)}
                   >
                     <div className="relative h-48 overflow-hidden">
-                      <GroupThumbnail groupId={group._id} groupName={group.name} />
+                      <GroupCover groupId={group._id} />
                       <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent pt-12">
                         <h3 className="text-white text-xl font-semibold mb-1 truncate drop-shadow-md">{group.name}</h3>
                         <p className="text-sm text-zinc-200 line-clamp-1 drop-shadow-sm font-normal">
