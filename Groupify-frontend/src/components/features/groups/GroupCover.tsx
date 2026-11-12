@@ -28,10 +28,11 @@ export default function GroupCover({ groupId, className }: GroupCoverProps) {
         className="absolute left-1/2 top-1/2 aspect-square -translate-x-1/2 -translate-y-1/2"
         style={{ width: "max(100cqw, 100cqh)" }}
       >
-        {cover.shapes.map((shape, i) => (
+        {cover.shapes.map((shape) => (
           <span
-            // Shapes are a fixed, ordered list for a given ID, so the index is stable.
-            key={i}
+            // No two shapes in a cover share a position and width (rings share a
+            // centre but differ in size; bars and tiles each have their own slot).
+            key={`${shape.left}|${shape.top}|${shape.width}`}
             className="absolute"
             style={{
               left: shape.left,
