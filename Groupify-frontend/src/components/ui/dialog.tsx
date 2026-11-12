@@ -5,8 +5,6 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 
 import { cn } from "../../lib/utils";
-import { useSidebar } from "./sidebar";
-import { useIsMobile } from "./use-mobile";
 
 function Dialog({
   ...props
@@ -41,7 +39,7 @@ const DialogOverlay = React.forwardRef<
       ref={ref}
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-ground/70",
         className,
       )}
       {...props}
@@ -50,65 +48,26 @@ const DialogOverlay = React.forwardRef<
 });
 DialogOverlay.displayName = "DialogOverlay";
 
+// Centred and at most 440px wide, never full width (#57). Raised surface on
+// a dimmed overlay. The phone bottom-sheet variant comes with the dialogs slice.
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  const isMobile = useIsMobile();
-  // Try to get sidebar context, but don't fail if not available (e.g., on login screen)
-  let sidebarState: "expanded" | "collapsed" = "expanded";
-  try {
-    const sidebar = useSidebar();
-    sidebarState = sidebar.state;
-  } catch {
-    // Not in a sidebar context, use defaults
-  }
-
-  // Calculate sidebar offset
-  // On mobile, sidebar is a sheet overlay, so no offset needed
-  // On desktop: expanded = 16rem (256px), collapsed = 4rem (64px)
-  // Note: sidebar is always visible on desktop (either expanded or collapsed), so we always need offset
-  const sidebarOffset = isMobile
-    ? 0
-    : sidebarState === 'expanded'
-      ? 256 // 16rem
-      : 64; // 4rem
-
-  // Calculate left and right positions accounting for sidebar
-  // Left should start after sidebar + padding
-  // Right should have padding from viewport edge
-  const leftPosition = isMobile ? '1.5rem' : `calc(${sidebarOffset}px + 1.5rem)`;
-  const rightPosition = '1.5rem';
-  const maxWidth = isMobile 
-    ? 'calc(100% - 3rem)' 
-    : `calc(100% - ${sidebarOffset}px - 3rem)`;
-
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
         data-slot="dialog-content"
-          className={cn(
-            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid gap-4 rounded-lg border p-4 md:p-6 shadow-lg duration-200 sm:max-w-lg",
-            className,
-          )}
-        style={{
-          top: '50%',
-          left: leftPosition,
-          right: rightPosition,
-          transform: 'translateY(-50%)',
-          margin: '0 auto',
-          maxWidth: maxWidth,
-          width: 'auto',
-          maxHeight: 'calc(100vh - 3rem)',
-          overflowY: 'auto',
-          ...props.style,
-        }}
+        className={cn(
+          "bg-popover text-popover-foreground border-hair data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-[440px] max-h-[calc(100dvh-3rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-[20px] border p-6 duration-200",
+          className,
+        )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <DialogPrimitive.Close className="text-soft hover:text-foreground hover:bg-selected focus-visible:ring-ring absolute top-3 right-3 inline-flex size-11 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -148,7 +107,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("font-display text-2xl leading-tight font-extrabold tracking-tight", className)}
       {...props}
     />
   );
@@ -161,7 +120,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-soft text-sm", className)}
       {...props}
     />
   );

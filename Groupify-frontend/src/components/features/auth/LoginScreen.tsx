@@ -1,10 +1,19 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Music } from "lucide-react";
 import { Button } from "../../ui/button";
-import { Music, Waves } from "lucide-react";
 import { login } from "../../../lib/api";
 import { toast } from "sonner";
 import { logger } from "../../../utils/logger";
+
+// Seven rings, one 35s cycle, staggered evenly so the page loads mid-cycle
+// with every ring visible. The third ring uses the text colour (#57).
+const RING_COUNT = 7;
+const RING_SECONDS = 35;
+const RINGS = Array.from({ length: RING_COUNT }, (_, i) => ({
+  delay: `${(-i * RING_SECONDS) / RING_COUNT}s`,
+  tone: i === 2 ? "text" : "iris",
+}));
 
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,144 +35,52 @@ export default function LoginScreen() {
     }
   };
 
-  // Generate audio visualizer bar data to fill the entire width
-  // Create fewer, thicker bars with varying heights and delays
-  const barData = useMemo(() => {
-    const bars = [];
-    const heights = [0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0];
-    // Generate fewer bars - enough to fill width but with thicker bars
-    // Reduce bar count on mobile for better performance
-    const barCount = typeof window !== 'undefined' 
-      ? window.innerWidth < 640 
-        ? Math.max(20, Math.floor(window.innerWidth / 25)) // Fewer bars on mobile
-        : Math.max(40, Math.floor(window.innerWidth / 20))
-      : 40;
-    for (let i = 0; i < barCount; i++) {
-      bars.push({
-        height: heights[Math.floor(Math.random() * heights.length)],
-        delay: Math.random() * 0.5,
-      });
-    }
-    return bars;
-  }, []);
-
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-black via-zinc-950 to-black flex items-center justify-center" style={{ overflow: 'hidden' }}>
-      {/* Audio Visualizer Background */}
-      <div className="absolute inset-0 audio-visualizer-container" style={{ opacity: 0.25 }} aria-hidden="true">
-        <div className="absolute bottom-0 left-0 right-0 top-0 flex items-end gap-[3px] w-full" style={{ width: '100%', paddingLeft: 0, paddingRight: 0 }}>
-          {barData.map((bar, index) => {
-            // Calculate height as percentage of viewport height
-            const barHeight = Math.max(bar.height * 100, 10); // 10% to 100% of container height
-            return (
-              <div
-                key={index}
-                className={`audio-bar audio-bar-${(index % 4) + 1}`}
-                style={{
-                  flex: '1 1 0',
-                  minWidth: '8px',
-                  width: 'auto',
-                  height: `${barHeight}%`,
-                  minHeight: '10%',
-                  background: 'linear-gradient(to top, rgba(0, 255, 136, 0.8), rgba(0, 255, 136, 0.3), rgba(0, 255, 136, 0.05))',
-                  borderRadius: '4px 4px 0 0',
-                  animationDelay: `${bar.delay}s`,
-                } as React.CSSProperties}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Content */}
-      <main className="relative z-10 max-w-xl mx-auto px-4 md:px-6 text-center">
-        {/* Logo/Icon */}
-        <div className="mb-6 md:mb-8 flex justify-center">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" aria-hidden="true" />
-            <div className="relative bg-zinc-900 border border-primary/30 p-4 md:p-6 rounded-2xl">
-              <Music className="w-12 h-12 md:w-16 md:h-16 text-primary" strokeWidth={1.5} aria-hidden="true" />
-            </div>
-          </div>
+    <div className="flex min-h-dvh bg-background p-2 text-foreground">
+      <main className="login-pane relative flex min-w-0 flex-1 flex-col justify-center gap-7 overflow-hidden rounded-2xl bg-pane px-[clamp(24px,6vw,96px)] py-12">
+        <div aria-hidden="true" data-testid="login-rings" className="pointer-events-none absolute inset-0">
+          {RINGS.map((ring) => (
+            <span
+              key={ring.delay}
+              className="login-ring"
+              data-tone={ring.tone}
+              style={{ animationDelay: ring.delay }}
+            />
+          ))}
         </div>
 
-        {/* Heading */}
-        <h1 className="mb-3 md:mb-4 text-3xl md:text-5xl bg-gradient-to-r from-white via-white to-primary bg-clip-text text-transparent">
-          Groupify
-        </h1>
+        <div className="relative flex items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="flex size-9 items-center justify-center rounded-[10px] bg-primary text-primary-foreground"
+          >
+            <Music className="size-5" strokeWidth={2.5} />
+          </span>
+          <span className="font-display text-[22px] font-extrabold tracking-tight">Groupify</span>
+        </div>
 
-        {/* Tagline */}
-        <p className="mb-8 md:mb-12 text-base md:text-xl text-zinc-400 max-w-md mx-auto px-2">
-          Share music, compete with friends, and discover what makes your group
-          unique
-        </p>
+        <div className="relative flex max-w-[480px] flex-col gap-3.5">
+          <h1 className="text-[clamp(40px,5vw,64px)] leading-none tracking-[-0.03em]">
+            Send songs to the people who get it.
+          </h1>
+          <p className="text-[17px] leading-relaxed text-soft">
+            Share tracks with a small group, see who actually listened, and find out whose taste
+            matches yours.
+          </p>
+        </div>
 
-        {/* CTA Button */}
-        <div className="mb-16 md:mb-20">
+        <div className="relative flex flex-col items-start gap-3">
           <Button
-            size="lg"
-            className="bg-primary hover:bg-primary/90 text-black px-8 md:px-12 py-6 md:py-8 h-auto min-h-[56px] md:min-h-[64px] text-lg md:text-xl w-full sm:w-auto group relative overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(0,255,136,0.3)]"
+            className="h-13 px-6 text-base"
             onClick={handleLogin}
             disabled={isLoading}
-            aria-label="Login with Spotify"
           >
-            <span className="relative z-10 flex items-center gap-3 md:gap-4">
-              {isLoading ? (
-                <>
-                  <svg
-                    className="w-7 h-7 md:w-8 md:h-8"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                  </svg>
-                  Connecting to Spotify...
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="w-7 h-7 md:w-8 md:h-8"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                  </svg>
-                  Login with Spotify
-                </>
-              )}
-            </span>
+            {isLoading ? "Connecting to Spotify…" : "Continue with Spotify"}
           </Button>
-        </div>
-
-        {/* Features list */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 text-xs md:text-sm text-zinc-500">
-          <div className="space-y-2">
-            <Waves className="w-5 h-5 text-primary mx-auto" aria-hidden="true" />
-            <p>Real-time sharing</p>
-          </div>
-          <div className="space-y-2">
-            <Music className="w-5 h-5 text-primary mx-auto" aria-hidden="true" />
-            <p>Group playlists</p>
-          </div>
-          <div className="space-y-2">
-            <svg
-              className="w-5 h-5 text-primary mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <p>Analytics & leaderboards</p>
-          </div>
+          <p className="max-w-[400px] text-[13px] leading-normal text-quiet">
+            Playback needs Spotify Premium. Groupify reads your profile and controls playback; it
+            never posts for you.
+          </p>
         </div>
       </main>
     </div>

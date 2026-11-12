@@ -105,7 +105,7 @@ export default function CreateGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Group</DialogTitle>
           <DialogDescription>

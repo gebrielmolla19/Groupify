@@ -25,6 +25,11 @@ describe('Button', () => {
   it('applies variant classes', () => {
     render(<Button variant="destructive">Delete</Button>);
     const btn = screen.getByRole('button', { name: /delete/i });
-    expect(btn).toHaveClass('bg-destructive');
+    expect(btn).toHaveClass('text-danger');
+  });
+
+  it('meets the 44px touch target at the default size', () => {
+    render(<Button>Share</Button>);
+    expect(screen.getByRole('button', { name: /share/i })).toHaveClass('h-11', 'rounded-lg');
   });
 });
