@@ -262,7 +262,7 @@ export default function PlaylistViewScreen() {
                 aria-label="View group analytics"
               >
                 <TrendingUp className="w-4 h-4" aria-hidden="true" />
-                <span className="hidden md:block ml-2">Analytics</span>
+                <span className="hidden lg:block ml-2">Analytics</span>
               </Button>
               {/* Show Create/Update button for playlist owner, or Create button if no playlist exists */}
               {group && (!hasCollaborativePlaylist || isPlaylistOwner) && (
@@ -276,7 +276,7 @@ export default function PlaylistViewScreen() {
                   {isExporting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span className="hidden md:block ml-2">
+                      <span className="hidden lg:block ml-2">
                         {hasCollaborativePlaylist ? 'Updating...' : 'Creating...'}
                       </span>
                     </>
@@ -287,7 +287,7 @@ export default function PlaylistViewScreen() {
                       ) : (
                         <Plus className="w-4 h-4" aria-hidden="true" />
                       )}
-                      <span className="hidden md:block ml-2">
+                      <span className="hidden lg:block ml-2">
                         {hasCollaborativePlaylist ? 'Update Collaborative Playlist' : 'Create Collaborative Playlist'}
                       </span>
                     </>
@@ -307,12 +307,12 @@ export default function PlaylistViewScreen() {
                   {isFollowing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span className="hidden md:block ml-2">Following...</span>
+                      <span className="hidden lg:block ml-2">Following...</span>
                     </>
                   ) : (
                     <>
                       <ListMusic className="w-4 h-4" aria-hidden="true" />
-                      <span className="hidden md:block ml-2">Follow Collaborative Playlist</span>
+                      <span className="hidden lg:block ml-2">Follow Collaborative Playlist</span>
                     </>
                   )}
                 </Button>
@@ -326,12 +326,12 @@ export default function PlaylistViewScreen() {
                 {isPlaying ? (
                   <>
                     <Loader2 className="w-4 h-4 md:mr-2 animate-spin" aria-hidden="true" />
-                    <span className="hidden md:inline">Playing...</span>
+                    <span className="hidden lg:inline">Playing...</span>
                   </>
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-current md:mr-2" aria-hidden="true" />
-                    <span className="hidden md:inline">Play All</span>
+                    <span className="hidden lg:inline">Play All</span>
                   </>
                 )}
               </Button>

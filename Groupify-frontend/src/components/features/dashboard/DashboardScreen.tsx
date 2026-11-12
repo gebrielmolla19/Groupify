@@ -92,7 +92,7 @@ export default function DashboardScreen() {
                   data-tour="join-group"
                 >
                   <UserPlus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden md:block ml-2">Join Group</span>
+                  <span className="hidden lg:block ml-2">Join Group</span>
                 </Button>
                 <Button
                   className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px] px-2 sm:px-4"
@@ -101,7 +101,7 @@ export default function DashboardScreen() {
                   data-tour="create-group"
                 >
                   <Plus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden md:block ml-2">Create New Group</span>
+                  <span className="hidden lg:block ml-2">Create New Group</span>
                 </Button>
               </div>
             </div>
