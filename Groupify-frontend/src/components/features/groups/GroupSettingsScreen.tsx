@@ -405,7 +405,7 @@ export default function GroupSettingsScreen() {
                 setMemberToRemove(null);
               }
             }}>
-              <DialogContent className="max-w-md">
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Remove Member</DialogTitle>
                   <DialogDescription>

@@ -5,8 +5,6 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "../../lib/utils";
 import { buttonVariants } from "./button";
-import { useSidebar } from "./sidebar";
-import { useIsMobile } from "./use-mobile";
 
 function AlertDialog({
   ...props
@@ -39,7 +37,7 @@ const AlertDialogOverlay = React.forwardRef<
       ref={ref}
       data-slot="alert-dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-ground/70",
         className,
       )}
       {...props}
@@ -51,17 +49,8 @@ AlertDialogOverlay.displayName = "AlertDialogOverlay";
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, style, ...props }, ref) => {
-  const isMobile = useIsMobile();
-  let sidebarState: "expanded" | "collapsed" = "expanded";
-  try {
-    const sidebar = useSidebar();
-    sidebarState = sidebar.state;
-  } catch {
-    // Not in a sidebar context
-  }
-
-  const sidebarOffset = isMobile ? 0 : sidebarState === 'expanded' ? 256 : 64;
+>(({ className, ...props }, ref) => {
+  // Same surface and width rule as DialogContent: centred, at most 440px.
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -69,17 +58,9 @@ const AlertDialogContent = React.forwardRef<
         ref={ref}
         data-slot="alert-dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid gap-4 rounded-lg border p-4 md:p-6 shadow-lg duration-200",
+          "bg-popover text-popover-foreground border-hair data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[20px] border p-6 duration-200",
           className,
         )}
-        style={{
-          top: '50%',
-          left: isMobile ? '50vw' : `calc(${sidebarOffset / 2}px + 50vw)`,
-          transform: 'translate(-50%, -50%)',
-          width: 'calc(100vw - 3rem)',
-          maxWidth: '28rem',
-          ...style,
-        }}
         {...props}
       />
     </AlertDialogPortal>
@@ -120,7 +101,7 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("text-lg font-semibold", className)}
+      className={cn("font-display text-2xl leading-tight font-extrabold tracking-tight", className)}
       {...props}
     />
   );

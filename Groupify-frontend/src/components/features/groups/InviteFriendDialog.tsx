@@ -74,7 +74,7 @@ export default function InviteFriendDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite a Friend</DialogTitle>
           <DialogDescription>

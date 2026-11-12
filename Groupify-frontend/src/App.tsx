@@ -1,5 +1,6 @@
-import { useEffect, lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Loader2 } from "lucide-react";
@@ -110,11 +111,6 @@ function AuthenticatedLayout() {
 }
 
 function AppContent() {
-  // Apply dark mode by default
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
-
   return (
     <Routes>
       {/* Public Routes */}
@@ -136,6 +132,15 @@ function AppContent() {
 
 export default function App() {
   return (
+    // Dark by default. Users can pick light or "match device" in Profile.
+    // Light is opt-in until every screen is restyled (#57 slices 3-10).
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem
+      storageKey="groupify-theme"
+      disableTransitionOnChange
+    >
     <BrowserRouter>
       <UserProvider>
         {/* SocketProvider is inside UserProvider so it can read the auth token */}
@@ -150,5 +155,6 @@ export default function App() {
         </SocketProvider>
       </UserProvider>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }

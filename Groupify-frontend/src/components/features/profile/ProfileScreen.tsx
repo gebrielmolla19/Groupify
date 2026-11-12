@@ -10,6 +10,7 @@ import { Input } from "../../ui/input";
 import { Separator } from "../../ui/separator";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Badge } from "../../ui/badge";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile } from "../../../lib/api";
@@ -405,16 +406,14 @@ export default function ProfileScreen() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 py-3">
                   <div className="space-y-0.5">
                     <Label>Theme</Label>
                     <p className="text-sm text-muted-foreground">
-                      Dark mode with cyber-green accents
+                      Dark, light, or match your device
                     </p>
                   </div>
-                  <Badge className="bg-primary/10 text-primary border-primary/30">
-                    Active
-                  </Badge>
+                  <ThemeSwitch />
                 </div>
               </CardContent>
             </Card>

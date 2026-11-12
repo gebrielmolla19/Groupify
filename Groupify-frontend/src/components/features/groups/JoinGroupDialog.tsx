@@ -78,7 +78,7 @@ export default function JoinGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Join a Group</DialogTitle>
           <DialogDescription>
