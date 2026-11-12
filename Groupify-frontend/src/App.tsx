@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/react";
@@ -8,7 +8,7 @@ import { UserProvider, useUser } from "./contexts/UserContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
 import { GroupsProvider } from "./contexts/GroupsContext";
-import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
+import { SidebarProvider } from "./components/ui/sidebar";
 import LoginScreen from "./components/features/auth/LoginScreen";
 import DashboardScreen from "./components/features/dashboard/DashboardScreen";
 import GroupFeedScreen from "./components/features/groups/GroupFeedScreen";
@@ -20,6 +20,7 @@ import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
 import { useAutoPlayNext } from "./hooks/useAutoPlayNext";
+import { usePaneWidth } from "./hooks/usePaneWidth";
 import OnboardingWalkthrough from "./components/features/onboarding/OnboardingWalkthrough";
 import UpdatePrompt from "./components/features/pwa/UpdatePrompt";
 
@@ -64,6 +65,8 @@ function AuthenticatedLayoutInner() {
   // Auto-play next song in group playlist when current track finishes
   useAutoPlayNext();
 
+  const rail = usePaneWidth({ storageKey: "groupify-rail-width", initial: 248, min: 72, max: 340 });
+
   // Determine if we should show the floating player
   const showPlayer = !isLoading &&
     !location.pathname.includes('/profile') &&
@@ -73,10 +76,13 @@ function AuthenticatedLayoutInner() {
     !location.pathname.includes('/changelog');
 
   return (
-    <div className="min-h-screen bg-background">
-      <SidebarProvider defaultOpen={false}>
-        <AppSidebar />
-        <SidebarInset>
+    <SidebarProvider defaultOpen={false} style={{ "--rail-w": `${rail.width}px` } as CSSProperties}>
+      {/* Desktop: rail and content are panes on the ground colour with 8px
+          gutters. Phone: one pane; the rail is a sheet. Inside the content
+          pane, "background" is the pane and cards are raised. */}
+      <div className="flex w-full bg-ground md:h-dvh md:p-2">
+        <AppSidebar rail={rail} />
+        <div className="min-w-0 flex-1 bg-pane [--background:var(--pane)] [--card:var(--raised)] md:overflow-y-auto md:rounded-2xl">
           <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
             <RouteErrorBoundary key={location.pathname}>
               <Suspense fallback={<LoadingFallback />}>
@@ -93,12 +99,12 @@ function AuthenticatedLayoutInner() {
               </Suspense>
             </RouteErrorBoundary>
           </div>
-        </SidebarInset>
+        </div>
+      </div>
 
-        {showPlayer && <SpotifyPlayerCard />}
-        <OnboardingWalkthrough />
-      </SidebarProvider>
-    </div>
+      {showPlayer && <SpotifyPlayerCard />}
+      <OnboardingWalkthrough />
+    </SidebarProvider>
   );
 }
 
