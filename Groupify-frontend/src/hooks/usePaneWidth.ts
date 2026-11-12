@@ -33,26 +33,31 @@ export function usePaneWidth(options: PaneWidthOptions) {
   const { storageKey, min, max, step = 16 } = options;
   const [width, setWidthState] = useState(() => readWidth(options));
   const drag = useRef<{ x: number; width: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const setWidth = useCallback((w: number) => setWidthState(clamp(Math.round(w), min, max)), [min, max]);
 
+  // Save when a change is finished: after a drag ends, or right away for keys.
   useEffect(() => {
+    if (drag.current) return;
     try {
       localStorage.setItem(storageKey, String(width));
     } catch (err) {
       logger.warn('Could not save pane width', err);
     }
-  }, [storageKey, width]);
+  }, [storageKey, width, dragging]);
 
   const onPointerDown = (e: PointerEvent<HTMLElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { x: e.clientX, width };
+    setDragging(true);
   };
   const onPointerMove = (e: PointerEvent<HTMLElement>) => {
     if (drag.current) setWidth(drag.current.width + e.clientX - drag.current.x);
   };
   const endDrag = () => {
     drag.current = null;
+    setDragging(false);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     const next = { ArrowLeft: width - step, ArrowRight: width + step, Home: min, End: max }[e.key];

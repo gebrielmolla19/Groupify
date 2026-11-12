@@ -149,13 +149,16 @@ export default function SpotifyPlayerCard() {
   // Centre over the content pane: it starts after the rail (--rail-w, set by
   // the app layout) and its 8px gutter, so shift by half of that.
   const railOffset = 'calc((var(--rail-w, 0px) + 8px) / 2)';
+  // The content pane is the viewport minus the rail, its gutter and the 8px
+  // outer padding on both sides; keep 1rem clear on each side of it.
+  const paneFit = 'calc(100vw - var(--rail-w, 0px) - 24px - 2rem)';
 
   const playerStyle: React.CSSProperties = {
     position: 'fixed',
     bottom: isMobile ? '20px' : '24px',
     left: isMobile ? '50%' : `calc(50% + ${railOffset})`,
     transform: 'translateX(-50%)',
-    width: isMobile ? 'calc(100% - 2rem)' : 'min(90%, 600px)',
+    width: isMobile ? 'calc(100% - 2rem)' : `min(600px, ${paneFit})`,
     maxWidth: '600px',
     zIndex: 9999,
     // Add padding bottom for safe area on mobile (will be added via CSS)

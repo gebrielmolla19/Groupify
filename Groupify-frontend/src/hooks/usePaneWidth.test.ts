@@ -34,8 +34,12 @@ describe('usePaneWidth', () => {
     act(() => result.current.separatorProps.onPointerMove(pointer(-900)));
     expect(result.current.width).toBe(72);
 
-    // After the pointer is released, moving it no longer resizes.
+    // Saved once, when the drag ends, not on every move.
+    expect(localStorage.getItem('test-pane')).toBe('248');
     act(() => result.current.separatorProps.onPointerUp());
+    expect(localStorage.getItem('test-pane')).toBe('72');
+
+    // After the pointer is released, moving it no longer resizes.
     act(() => result.current.separatorProps.onPointerMove(pointer(400)));
     expect(result.current.width).toBe(72);
   });
