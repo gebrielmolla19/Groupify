@@ -283,14 +283,19 @@ html {
 }
 
 .login-ring {
+  /* Spec: a 200vmin ring with a 9vmin border (4.5% of the diameter). The
+     diameter is capped so the ring's radius never reaches the text column
+     (8px inset + 6vw padding + 480px text + 24px margin from the left edge),
+     which keeps it clear of text on landscape screens just over 900px wide. */
+  --ring-d: min(200vmin, 188vw - 1024px);
   position: absolute;
-  right: -100vmin;
-  bottom: -100vmin;
-  width: 200vmin;
-  height: 200vmin;
+  right: calc(var(--ring-d) / -2);
+  bottom: calc(var(--ring-d) / -2);
+  width: var(--ring-d);
+  height: var(--ring-d);
   box-sizing: border-box;
   border-radius: 50%;
-  border: 9vmin solid var(--iris);
+  border: calc(var(--ring-d) * 0.045) solid var(--iris);
   animation: login-radiate 35s linear infinite;
   will-change: transform, opacity;
 }
@@ -316,10 +321,7 @@ html {
   }
 
   .login-ring {
-    width: 68vh;
-    height: 68vh;
-    right: -34vh;
-    bottom: -34vh;
+    --ring-d: 68vh;
     border-width: 3vh;
   }
 }
