@@ -25,7 +25,7 @@ export default function SpotifyPlayerCard() {
   const { player, currentTrack, isPlaying, position, duration, isLoading, error, deviceId, deviceReadyTimestamp, playTrack } = useSpotifyPlayer();
   const { playingGroup, setPlayingGroup, sortBy: contextSortBy } = usePlayingGroup();
   const { shares: playlistShares } = usePlaylist(playingGroup?._id || '', contextSortBy);
-  const { state: sidebarState, isMobile } = useSidebar();
+  const { isMobile } = useSidebar();
   
   // Find the group currently being viewed
   const viewedGroup = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
@@ -146,22 +146,14 @@ export default function SpotifyPlayerCard() {
     }
   };
 
-  // Calculate sidebar offset based on state
-  // Expanded: 16rem (half = 8rem) | Collapsed: 4rem (half = 2rem) | Mobile: 0rem
-  const sidebarOffset = isMobile 
-    ? '0rem' 
-    : sidebarState === 'expanded' 
-      ? '8rem'  // Half of 16rem expanded width
-      : '2rem'; // Half of 4rem collapsed width
+  // Centre over the content pane: it starts after the rail (--rail-w, set by
+  // the app layout) and its 8px gutter, so shift by half of that.
+  const railOffset = 'calc((var(--rail-w, 0px) + 8px) / 2)';
 
-  // Responsive positioning: centered with dynamic sidebar offset
-  // Use safe area insets for mobile devices (handled via CSS class)
-  // Responsive positioning: centered with dynamic sidebar offset
-  // For mobile, use fixed bottom with safe area handled via CSS class
   const playerStyle: React.CSSProperties = {
     position: 'fixed',
     bottom: isMobile ? '20px' : '24px',
-    left: isMobile ? '50%' : `calc(50% + ${sidebarOffset})`,
+    left: isMobile ? '50%' : `calc(50% + ${railOffset})`,
     transform: 'translateX(-50%)',
     width: isMobile ? 'calc(100% - 2rem)' : 'min(90%, 600px)',
     maxWidth: '600px',
