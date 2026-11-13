@@ -422,7 +422,7 @@ export default function ProfileScreen() {
 
             <Card className="border-destructive/50">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-destructive-foreground">
+                <CardTitle className="flex items-center gap-2 text-danger">
                   <LogOut className="w-5 h-5" />
                   Account Actions
                 </CardTitle>
@@ -433,7 +433,7 @@ export default function ProfileScreen() {
               <CardContent className="space-y-3">
                 <Button
                   variant="outline"
-                  className="w-full border-destructive/30 hover:bg-destructive/10 text-destructive-foreground min-h-[44px]"
+                  className="w-full border-destructive/30 hover:bg-destructive/10 text-danger min-h-[44px]"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
@@ -441,7 +441,7 @@ export default function ProfileScreen() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full border-destructive/50 hover:bg-destructive/20 text-destructive-foreground min-h-[44px]"
+                  className="w-full border-destructive/50 hover:bg-destructive/20 text-danger min-h-[44px]"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
