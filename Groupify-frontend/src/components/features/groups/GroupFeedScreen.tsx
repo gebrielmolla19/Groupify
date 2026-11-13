@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Share, SpotifyTrack } from "../../../types";
 import { toast } from "sonner";
 import { useGroupFeed } from "../../../hooks/useGroupFeed";
+import { DESKTOP_PLAYER_HEIGHT } from "../../../lib/layout";
 import { useSpotifySearch } from "../../../hooks/useSpotifySearch";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { useUser } from "../../../contexts/UserContext";
@@ -678,7 +679,7 @@ export default function GroupFeedScreen() {
           something to show. Otherwise it permanently occupies 320px of
           right-side screen real estate just to display "No pending invites". */}
       {groupId && invites.some(invite => invite.status === 'pending') && (
-        <div className="hidden lg:block fixed right-0 top-0 bottom-0 w-80 border-l border-border bg-card overflow-y-auto z-20" style={{ marginTop: '73px' }}>
+        <div className="hidden lg:block fixed right-0 top-0 w-80 border-l border-border bg-card overflow-y-auto z-20" style={{ marginTop: '73px', bottom: DESKTOP_PLAYER_HEIGHT }}>
           <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Group Invites</h2>
             <InvitesList

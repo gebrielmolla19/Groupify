@@ -511,9 +511,10 @@ export default function SpotifyPlayerCard() {
       </div>
       <div className="flex min-w-0 flex-col items-center gap-1">
         <div className="flex items-center gap-2">
-          {skipButton('previous', 'h-9')}
-          {playButton('size-10')}
-          {skipButton('next', 'h-9')}
+          {/* Compact for a mouse; 44px on touch screens (CONTRIBUTING §2.4). */}
+          {skipButton('previous', 'h-9 pointer-coarse:h-11')}
+          {playButton('size-10 pointer-coarse:size-11')}
+          {skipButton('next', 'h-9 pointer-coarse:h-11')}
         </div>
         {displayTrack && (
           <PlaybackScrubber
