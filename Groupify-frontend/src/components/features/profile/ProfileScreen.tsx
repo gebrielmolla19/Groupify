@@ -439,14 +439,18 @@ export default function ProfileScreen() {
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
                 </Button>
-                <Button
-                  variant="outline"
-                  className="w-full border-destructive/50 hover:bg-destructive/20 text-danger min-h-[44px]"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Disconnect Spotify
-                </Button>
+                <p className="text-sm text-muted-foreground">
+                  To remove Groupify's access to your Spotify account, go to{" "}
+                  <a
+                    href="https://www.spotify.com/account/apps/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    Apps in your Spotify account settings
+                  </a>
+                  .
+                </p>
               </CardContent>
             </Card>
           </main>
