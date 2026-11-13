@@ -83,7 +83,8 @@ function AuthenticatedLayoutInner() {
       <div className="flex w-full bg-ground md:h-dvh md:p-2">
         <AppSidebar rail={rail} />
         <div className="min-w-0 flex-1 bg-pane [--background:var(--pane)] [--card:var(--raised)] md:overflow-y-auto md:rounded-2xl">
-          <div className="pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
+          {/* Phones: room for the tab bar and the floating player above it. */}
+          <div className="pb-[calc(188px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
             <RouteErrorBoundary key={location.pathname}>
               <Suspense fallback={<LoadingFallback />}>
                 <Routes>
