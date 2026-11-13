@@ -28,6 +28,12 @@ function SheetPortal({
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
+/**
+ * The sheet sits above the floating player card (z 9999). Anything that
+ * opens from inside a sheet (menus, dialogs) must stack above this.
+ */
+export const SHEET_Z_INDEX = 10000;
+
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
@@ -41,7 +47,7 @@ const SheetOverlay = React.forwardRef<
         className,
       )}
       style={{
-        zIndex: 9999,
+        zIndex: SHEET_Z_INDEX - 1,
         ...style,
       }}
       {...props}
@@ -75,7 +81,7 @@ const SheetContent = React.forwardRef<
           className,
         )}
         style={{
-          zIndex: 10000,
+          zIndex: SHEET_Z_INDEX,
           ...style,
         }}
         {...props}
