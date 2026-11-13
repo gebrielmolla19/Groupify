@@ -4,11 +4,14 @@
  */
 export const TAB_BAR_HEIGHT = 69;
 
-/** Height of the floating player card. */
-export const PLAYER_CARD_HEIGHT = 96;
+/** Height of the phone mini player (44px controls + 8px padding top and bottom). */
+export const PLAYER_CARD_HEIGHT = 60;
 
 /** Gap between stacked fixed elements at the bottom of the screen. */
 export const STACK_GAP = 8;
 
-/** On phones, the floating player's top edge, measured from above the safe area. */
+/** On phones, the mini player's top edge, measured from above the safe area. */
 export const PHONE_PLAYER_TOP = TAB_BAR_HEIGHT + STACK_GAP + PLAYER_CARD_HEIGHT;
+
+/** Height of the desktop player bar under the panes. */
+export const DESKTOP_PLAYER_HEIGHT = 76;

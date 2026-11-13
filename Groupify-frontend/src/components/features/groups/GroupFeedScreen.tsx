@@ -14,7 +14,6 @@ import { useSpotifySearch } from "../../../hooks/useSpotifySearch";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { useUser } from "../../../contexts/UserContext";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
-import SpotifyPlayerCard from "../music/SpotifyPlayerCard";
 import { formatDistanceToNow } from "date-fns";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -663,11 +662,6 @@ export default function GroupFeedScreen() {
               )}
             </main>
           </div>
-
-      {/* Spotify Player - Floating Glass Bar */}
-      <SpotifyPlayerCard
-        key={`group-feed-player-${groupId || 'no-group'}`}
-      />
 
       {/* Invite Dialog */}
       {groupId && (
