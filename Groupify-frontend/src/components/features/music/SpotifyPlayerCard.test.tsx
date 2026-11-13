@@ -65,15 +65,13 @@ describe('SpotifyPlayerCard', () => {
     expect(screen.getByRole('slider')).toBeInTheDocument();
   });
 
-  it('on phones, is a mini player with play, next and device but no previous or seek', () => {
+  it('on phones, is a mini player with previous, play and next together, and no device picker or seek', () => {
     isMobile = true;
     const bar = renderPlayer();
     expect(bar.tagName).toBe('SECTION');
     expect(bar).toHaveTextContent('Glue');
-    for (const name of ['Pause', 'Next track', 'Select playback device']) {
-      expect(screen.getByRole('button', { name })).toBeInTheDocument();
-    }
-    expect(screen.queryByRole('button', { name: 'Previous track' })).not.toBeInTheDocument();
+    const controls = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'));
+    expect(controls).toEqual(['Previous track', 'Pause', 'Next track']);
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 

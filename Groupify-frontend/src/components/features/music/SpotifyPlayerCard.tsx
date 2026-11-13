@@ -473,8 +473,9 @@ export default function SpotifyPlayerCard() {
     </Popover>
   );
 
-  // Phone: a mini player above the tab bar. Previous and seeking move to the
-  // song sheet in #57 slice 4; a thin line shows progress meanwhile.
+  // Phone: a mini player above the tab bar with the transport controls only.
+  // Seeking and the device picker move to the song sheet in #57 slice 4; a
+  // thin line shows progress meanwhile.
   if (isMobile) {
     const progress = displayDuration > 0 ? Math.min(100, (displayPosition / displayDuration) * 100) : 0;
     return (
@@ -486,7 +487,7 @@ export default function SpotifyPlayerCard() {
       >
         {art('size-10')}
         <span className="min-w-0 flex-1">{text}</span>
-        {devicePicker}
+        {skipButton('previous')}
         {playButton('size-11')}
         {skipButton('next')}
         {displayTrack && (
