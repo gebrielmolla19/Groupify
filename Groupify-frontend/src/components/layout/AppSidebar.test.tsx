@@ -81,4 +81,14 @@ describe('AppSidebar', () => {
     expect(screen.queryByTestId('sheet')).not.toBeInTheDocument();
     expect(await screen.findByRole('dialog', { name: title })).toBeInTheDocument();
   });
+
+  it.each([
+    ['New group', 'Create New Group'],
+    ['Join with a code', 'Join a Group'],
+  ])('on desktop, "%s" shows its dialog', async (item, title) => {
+    renderSidebar(false);
+    await openNewOrJoinMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: item }));
+    expect(await screen.findByRole('dialog', { name: title })).toBeInTheDocument();
+  });
 });
