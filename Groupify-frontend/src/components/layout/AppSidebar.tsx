@@ -20,7 +20,12 @@ export default function AppSidebar({ rail }: AppSidebarProps) {
   if (isMobile) {
     return (
       <Sidebar>
-        <AppRail compact={false} onNavigate={() => setOpenMobile(false)} />
+        {/* The sheet is fixed to the screen edges and the app draws under the
+            status bar (viewport-fit=cover), so reserve the safe areas here;
+            body's padding doesn't reach fixed elements. */}
+        <div className="flex h-full min-h-0 flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+          <AppRail compact={false} onNavigate={() => setOpenMobile(false)} menuSide="top" />
+        </div>
       </Sidebar>
     );
   }

@@ -22,10 +22,15 @@ interface AppRailProps {
   compact: boolean;
   /** Called after any navigation, e.g. to close the phone sheet. */
   onNavigate?: () => void;
+  /**
+   * Where the "New or join group" menu opens. "right" suits the desktop
+   * rail; the phone sheet has no room there, so it opens "top".
+   */
+  menuSide?: "right" | "top";
 }
 
 /** Rail contents: home, the user's groups with their covers, and "You". */
-export default function AppRail({ compact, onNavigate }: AppRailProps) {
+export default function AppRail({ compact, onNavigate, menuSide = "right" }: AppRailProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useUser();
@@ -103,7 +108,7 @@ export default function AppRail({ compact, onNavigate }: AppRailProps) {
             {label("New or join group")}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="end">
+        <DropdownMenuContent side={menuSide} align={menuSide === "top" ? "start" : "end"}>
           <DropdownMenuItem onSelect={() => setDialog("create")}>
             <Plus aria-hidden="true" /> New group
           </DropdownMenuItem>
