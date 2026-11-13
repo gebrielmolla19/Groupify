@@ -29,7 +29,7 @@ export default function PhoneTabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-hair bg-ground px-2 pt-1 pb-[calc(12px+env(safe-area-inset-bottom))]"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-hair bg-linear-to-b from-ground/75 to-ground to-50% px-2 pt-1 pb-[calc(12px+env(safe-area-inset-bottom))]"
     >
       {tabs.map(({ label, icon: Icon, to, active }) => (
         <button
