@@ -12,12 +12,13 @@ import { useLastGroup } from "../../hooks/useLastGroup";
 export default function PhoneTabBar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { groups } = useGroups();
+  const { groups, isLoading } = useGroups();
   const lastGroupId = useLastGroup();
 
   // Back to the group last opened, if the user is still in it; else Home.
-  const groupsTarget =
-    lastGroupId && groups.some((g) => g._id === lastGroupId) ? `/groups/${lastGroupId}` : "/";
+  // Until the groups have loaded, trust the remembered one.
+  const stillMember = isLoading || groups.some((g) => g._id === lastGroupId);
+  const groupsTarget = lastGroupId && stillMember ? `/groups/${lastGroupId}` : "/";
 
   const tabs: { label: string; icon: LucideIcon; to: string; active: boolean }[] = [
     { label: "Home", icon: Home, to: "/", active: pathname === "/" },

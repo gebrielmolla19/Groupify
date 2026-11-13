@@ -6,7 +6,8 @@ import PhoneTabBar from './PhoneTabBar';
 import { groupIdFromPath } from '../../hooks/useLastGroup';
 
 let groups = [{ _id: 'g1' }, { _id: 'g2' }];
-vi.mock('../../hooks/useGroups', () => ({ useGroups: () => ({ groups }) }));
+let isLoading = false;
+vi.mock('../../hooks/useGroups', () => ({ useGroups: () => ({ groups, isLoading }) }));
 
 function Path() {
   return <output data-testid="path">{useLocation().pathname}</output>;
@@ -29,6 +30,7 @@ describe('PhoneTabBar', () => {
   beforeEach(() => {
     localStorage.clear();
     groups = [{ _id: 'g1' }, { _id: 'g2' }];
+    isLoading = false;
   });
 
   it('shows Home, Groups and You and marks the current tab', () => {
@@ -53,6 +55,15 @@ describe('PhoneTabBar', () => {
     renderAt('/profile');
     await userEvent.click(tab('Groups'));
     expect(path()).toBe('/');
+  });
+
+  it('Groups trusts the last group while groups are still loading', async () => {
+    localStorage.setItem('groupify-last-group', 'g2');
+    groups = [];
+    isLoading = true;
+    renderAt('/');
+    await userEvent.click(tab('Groups'));
+    expect(path()).toBe('/groups/g2');
   });
 
   it('Groups goes Home when the last group was left', async () => {

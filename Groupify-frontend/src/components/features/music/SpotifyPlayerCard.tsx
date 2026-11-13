@@ -5,7 +5,7 @@ import { Skeleton } from '../../ui/skeleton';
 import { Card, CardContent } from '../../ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../../ui/tooltip';
 import { useSidebar } from '../../ui/sidebar';
-import { TAB_BAR_HEIGHT } from '../../../lib/layout';
+import { STACK_GAP, TAB_BAR_HEIGHT } from '../../../lib/layout';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useSpotifyPlayer, wasPlaybackErrorNotified } from "../../../hooks/useSpotifyPlayer";
@@ -157,7 +157,7 @@ export default function SpotifyPlayerCard() {
   const playerStyle: React.CSSProperties = {
     position: 'fixed',
     // On phones, sit 8px above the tab bar.
-    bottom: isMobile ? `calc(${TAB_BAR_HEIGHT + 8}px + env(safe-area-inset-bottom, 0px))` : '24px',
+    bottom: isMobile ? `calc(${TAB_BAR_HEIGHT + STACK_GAP}px + env(safe-area-inset-bottom, 0px))` : '24px',
     left: isMobile ? '50%' : `calc(50% + ${railOffset})`,
     transform: 'translateX(-50%)',
     width: isMobile ? 'calc(100% - 2rem)' : `min(600px, ${paneFit})`,

@@ -22,6 +22,8 @@ import {
   User,
 } from 'lucide-react';
 import { useGroups } from '../../../hooks/useGroups';
+import { useIsMobile } from '../../ui/use-mobile';
+import { PHONE_PLAYER_TOP, STACK_GAP } from '../../../lib/layout';
 
 const TOUR_STORAGE_KEY = 'groupify_tour_completed';
 
@@ -246,6 +248,7 @@ export default function OnboardingWalkthrough() {
   const [highlightMissing, setHighlightMissing] = useState(false);
   const navigate = useNavigate();
   const { groups } = useGroups();
+  const isMobile = useIsMobile();
 
   const firstGroupId = groups?.[0]?._id;
 
@@ -366,11 +369,11 @@ export default function OnboardingWalkthrough() {
       `}</style>
 
       {/* Floating card — fixed at bottom center, no overlay.
-          Sits above the Spotify player (which is at bottom 20-24px,
-          ~80px tall, zIndex 9999). Bottom offset 140px clears the player
-          on both mobile and desktop; zIndex 10000 wins the stacking
-          contest if any horizontal overlap remains. */}
-      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 140px)', left: '50%', transform: 'translateX(-50%) translateZ(0)', willChange: 'transform', zIndex: 10000, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
+          Sits above the Spotify player (zIndex 9999): on desktop the player
+          is at bottom 24px, so 140px clears it; on phones the player sits
+          above the tab bar, so the card goes above the player's top edge.
+          zIndex 10000 wins the stacking contest if any overlap remains. */}
+      <div style={{ position: 'fixed', bottom: `calc(env(safe-area-inset-bottom) + ${isMobile ? PHONE_PLAYER_TOP + STACK_GAP : 140}px)`, left: '50%', transform: 'translateX(-50%) translateZ(0)', willChange: 'transform', zIndex: 10000, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
