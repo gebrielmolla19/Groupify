@@ -3,7 +3,6 @@ import { Plus, Users, UserPlus, Copy, Check } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
-import { SidebarTrigger } from "../../ui/sidebar";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
 import NotificationsDropdown from "../notifications/NotificationsDropdown";
@@ -75,7 +74,6 @@ export default function DashboardScreen() {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
         <div className="flex items-center gap-2 md:gap-4 px-4 md:px-6 py-3 md:py-4">
-          <SidebarTrigger />
               <div className="flex-1 min-w-0">
                 <h1 className="text-base md:text-lg truncate">My Groups</h1>
                 <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">

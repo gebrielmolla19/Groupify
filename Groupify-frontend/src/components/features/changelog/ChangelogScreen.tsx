@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Globe, Sparkles, Zap, Wrench, ChevronUp, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
 import { Separator } from "../../ui/separator";
 import { changelog, categoryLabels } from "../../../data/changelog";
@@ -79,7 +78,6 @@ export default function ChangelogScreen() {
       {/* Header */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
-          <SidebarTrigger />
           <Button
             variant="ghost"
             size="icon"

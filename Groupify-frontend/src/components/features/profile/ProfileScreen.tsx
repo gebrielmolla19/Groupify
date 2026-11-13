@@ -8,9 +8,9 @@ import { Switch } from "../../ui/switch";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Separator } from "../../ui/separator";
-import { SidebarTrigger } from "../../ui/sidebar";
 import { Badge } from "../../ui/badge";
 import { ThemeSwitch } from "./ThemeSwitch";
+import MoreLinks from "./MoreLinks";
 import { UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile } from "../../../lib/api";
@@ -155,7 +155,6 @@ export default function ProfileScreen() {
         {/* Header */}
         <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
-            <SidebarTrigger />
               <div className="flex-1 min-w-0">
                 <h1 className="text-base md:text-lg truncate">Profile & Settings</h1>
                 <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
@@ -417,6 +416,9 @@ export default function ProfileScreen() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Phones only; desktop has these in the rail. */}
+            <MoreLinks className="mb-6 md:hidden" />
 
             <Card className="border-destructive/50">
               <CardHeader>

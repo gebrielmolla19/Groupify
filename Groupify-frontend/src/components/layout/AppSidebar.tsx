@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sidebar, useSidebar } from "../ui/sidebar";
+import { useSidebar } from "../ui/sidebar";
 import AppRail from "./AppRail";
+import PhoneTabBar from "./PhoneTabBar";
 import CreateGroupDialog from "../features/groups/CreateGroupDialog";
 import JoinGroupDialog from "../features/groups/JoinGroupDialog";
 import { useGroups } from "../../hooks/useGroups";
@@ -16,22 +17,14 @@ interface AppSidebarProps {
 
 /**
  * Desktop: the rail pane plus the gutter that resizes it.
- * Phone: the same rail contents in a slide-out sheet, until the phone tab
- * bar replaces it (#57 slice 3b).
+ * Phone: the bottom tab bar.
  */
 export default function AppSidebar({ rail }: AppSidebarProps) {
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile } = useSidebar();
   const navigate = useNavigate();
   const { createGroup, joinGroupByCode } = useGroups();
   const [dialog, setDialog] = useState<"create" | "join" | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-
-  // The phone sheet stacks above dialogs, so close it before opening one.
-  // The dialogs render outside the sheet so they survive it closing.
-  const openDialog = (which: "create" | "join") => {
-    setOpenMobile(false);
-    setDialog(which);
-  };
 
   const handleJoin = async (inviteCode: string) => {
     setIsJoining(true);
@@ -49,23 +42,9 @@ export default function AppSidebar({ rail }: AppSidebarProps) {
       <JoinGroupDialog open={dialog === "join"} onOpenChange={(open) => setDialog(open ? "join" : null)} onJoinGroup={handleJoin} isSubmitting={isJoining} />
     </>
   );
-  const railActions = { onNewGroup: () => openDialog("create"), onJoinGroup: () => openDialog("join") };
+  const railActions = { onNewGroup: () => setDialog("create"), onJoinGroup: () => setDialog("join") };
 
-  if (isMobile) {
-    return (
-      <>
-        <Sidebar>
-          {/* The sheet is fixed to the screen edges and the app draws under the
-              status bar (viewport-fit=cover), so reserve the safe areas here;
-              body's padding doesn't reach fixed elements. */}
-          <div className="flex h-full min-h-0 flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-            <AppRail compact={false} onNavigate={() => setOpenMobile(false)} menuSide="top" {...railActions} />
-          </div>
-        </Sidebar>
-        {dialogs}
-      </>
-    );
-  }
+  if (isMobile) return <PhoneTabBar />;
 
   return (
     <>

@@ -5,10 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import AppSidebar from './AppSidebar';
 import * as sidebarModule from '../ui/sidebar';
-import { SHEET_Z_INDEX } from '../ui/sheet';
 
-// A stand-in for the phone sheet that, like the real one, unmounts its
-// contents when it closes.
 vi.mock('../ui/sidebar', async () => {
   const React = await import('react');
   type Ctx = { isMobile: boolean; openMobile: boolean; setOpenMobile: (open: boolean) => void };
@@ -20,8 +17,6 @@ vi.mock('../ui/sidebar', async () => {
       const [openMobile, setOpenMobile] = React.useState(true);
       return <SidebarCtx.Provider value={{ isMobile, openMobile, setOpenMobile }}>{children}</SidebarCtx.Provider>;
     },
-    Sidebar: ({ children }: { children: ReactNode }) =>
-      useSidebar().openMobile ? <div data-testid="sheet">{children}</div> : null,
   };
 });
 vi.mock('../../contexts/UserContext', () => ({
@@ -53,33 +48,17 @@ async function openNewOrJoinMenu() {
 }
 
 describe('AppSidebar', () => {
-  it('keeps the phone sheet clear of the status bar and home indicator', () => {
+  it('shows the tab bar instead of the rail on phones', () => {
     renderSidebar(true);
-    const safeArea = screen.getByTestId('sheet').firstElementChild;
-    expect(safeArea).toHaveClass('pt-[env(safe-area-inset-top)]', 'pb-[env(safe-area-inset-bottom)]');
-  });
-
-  it('opens the new-or-join menu above the button and stacked over the phone sheet', async () => {
-    renderSidebar(true);
-    const menu = await openNewOrJoinMenu();
-    expect(menu).toHaveAttribute('data-side', 'top');
-    expect(Number(menu.style.zIndex)).toBeGreaterThan(SHEET_Z_INDEX);
+    const tabs = screen.getByRole('navigation', { name: 'Main' });
+    expect(tabs).toHaveTextContent('HomeGroupsYou');
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New or join group' })).not.toBeInTheDocument();
   });
 
   it('opens the new-or-join menu beside the desktop rail', async () => {
     renderSidebar(false);
     expect(await openNewOrJoinMenu()).toHaveAttribute('data-side', 'right');
-  });
-
-  it.each([
-    ['New group', 'Create New Group'],
-    ['Join with a code', 'Join a Group'],
-  ])('on phones, "%s" closes the sheet and shows its dialog', async (item, title) => {
-    renderSidebar(true);
-    await openNewOrJoinMenu();
-    await userEvent.click(screen.getByRole('menuitem', { name: item }));
-    expect(screen.queryByTestId('sheet')).not.toBeInTheDocument();
-    expect(await screen.findByRole('dialog', { name: title })).toBeInTheDocument();
   });
 
   it.each([
