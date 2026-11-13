@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, Home, Music, Plus, ScrollText, UserPlus } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -12,9 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { SHEET_Z_INDEX } from "../ui/sheet";
 import GroupCover from "../features/groups/GroupCover";
-import CreateGroupDialog from "../features/groups/CreateGroupDialog";
-import JoinGroupDialog from "../features/groups/JoinGroupDialog";
 import { startTour } from "../features/onboarding/OnboardingWalkthrough";
 
 interface AppRailProps {
@@ -27,31 +25,22 @@ interface AppRailProps {
    * rail; the phone sheet has no room there, so it opens "top".
    */
   menuSide?: "right" | "top";
+  /** Open the dialogs. They live outside the rail so the phone sheet can close first. */
+  onNewGroup: () => void;
+  onJoinGroup: () => void;
 }
 
 /** Rail contents: home, the user's groups with their covers, and "You". */
-export default function AppRail({ compact, onNavigate, menuSide = "right" }: AppRailProps) {
+export default function AppRail({ compact, onNavigate, menuSide = "right", onNewGroup, onJoinGroup }: AppRailProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useUser();
-  const { groups, createGroup, joinGroupByCode } = useGroups();
+  const { groups } = useGroups();
   const { hasUnread } = useChangelogStatus();
-  const [dialog, setDialog] = useState<"create" | "join" | null>(null);
-  const [isJoining, setIsJoining] = useState(false);
 
   const go = (path: string) => {
     navigate(path);
     onNavigate?.();
-  };
-
-  const handleJoin = async (inviteCode: string) => {
-    setIsJoining(true);
-    try {
-      const joined = await joinGroupByCode(inviteCode);
-      go(`/groups/${joined._id}`);
-    } finally {
-      setIsJoining(false);
-    }
   };
 
   const label = (text: string) => <span className={compact ? "sr-only" : "truncate"}>{text}</span>;
@@ -108,11 +97,12 @@ export default function AppRail({ compact, onNavigate, menuSide = "right" }: App
             {label("New or join group")}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side={menuSide} align={menuSide === "top" ? "start" : "end"}>
-          <DropdownMenuItem onSelect={() => setDialog("create")}>
+        {/* On phones the rail lives in a sheet; stack the menu above it. */}
+        <DropdownMenuContent side={menuSide} align={menuSide === "top" ? "start" : "end"} style={{ zIndex: SHEET_Z_INDEX + 1 }}>
+          <DropdownMenuItem onSelect={onNewGroup}>
             <Plus aria-hidden="true" /> New group
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setDialog("join")}>
+          <DropdownMenuItem onSelect={onJoinGroup}>
             <UserPlus aria-hidden="true" /> Join with a code
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -139,9 +129,6 @@ export default function AppRail({ compact, onNavigate, menuSide = "right" }: App
         </Avatar>
         {label("You")}
       </button>
-
-      <CreateGroupDialog open={dialog === "create"} onOpenChange={(open) => setDialog(open ? "create" : null)} onCreateGroup={createGroup} />
-      <JoinGroupDialog open={dialog === "join"} onOpenChange={(open) => setDialog(open ? "join" : null)} onJoinGroup={handleJoin} isSubmitting={isJoining} />
     </div>
   );
 }

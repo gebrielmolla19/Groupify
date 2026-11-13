@@ -19,6 +19,8 @@ vi.mock('../../hooks/useGroups', () => ({
 }));
 vi.mock('../../hooks/useChangelogStatus', () => ({ useChangelogStatus: () => ({ hasUnread: false }) }));
 
+const actions = { onNewGroup: vi.fn(), onJoinGroup: vi.fn() };
+
 function Path() {
   return <output data-testid="path">{useLocation().pathname}</output>;
 }
@@ -27,7 +29,7 @@ function renderRail(compact: boolean, path = '/groups/g1/playlist', onNavigate =
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="*" element={<><AppRail compact={compact} onNavigate={onNavigate} /><Path /></>} />
+        <Route path="*" element={<><AppRail compact={compact} onNavigate={onNavigate} onNewGroup={actions.onNewGroup} onJoinGroup={actions.onJoinGroup} /><Path /></>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -66,6 +68,6 @@ describe('AppRail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'New or join group' }));
     expect(screen.getByRole('menuitem', { name: 'New group' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('menuitem', { name: 'Join with a code' }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(actions.onJoinGroup).toHaveBeenCalled();
   });
 });
