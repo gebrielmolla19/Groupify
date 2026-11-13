@@ -4,7 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Loader2 } from "lucide-react";
-import { UserProvider, useUser } from "./contexts/UserContext";
+import { UserProvider } from "./contexts/UserContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
 import { GroupsProvider } from "./contexts/GroupsContext";
@@ -21,6 +21,7 @@ import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
 import { useAutoPlayNext } from "./hooks/useAutoPlayNext";
 import { usePaneWidth } from "./hooks/usePaneWidth";
+import { PHONE_PLAYER_TOP } from "./lib/layout";
 import OnboardingWalkthrough from "./components/features/onboarding/OnboardingWalkthrough";
 import UpdatePrompt from "./components/features/pwa/UpdatePrompt";
 
@@ -57,7 +58,6 @@ function LoadingFallback() {
  */
 function AuthenticatedLayoutInner() {
   const location = useLocation();
-  const { isLoading } = useUser();
 
   // Global playback tracking - works across all screens
   useGlobalPlaybackTracking();
@@ -67,24 +67,21 @@ function AuthenticatedLayoutInner() {
 
   const rail = usePaneWidth({ storageKey: "groupify-rail-width", initial: 248, min: 72, max: 340 });
 
-  // Determine if we should show the floating player
-  const showPlayer = !isLoading &&
-    !location.pathname.includes('/profile') &&
-    !location.pathname.match(/\/groups\/[^/]+$/) &&
-    !location.pathname.includes('/settings') &&
-    !location.pathname.includes('/analytics') &&
-    !location.pathname.includes('/changelog');
-
   return (
-    <SidebarProvider defaultOpen={false} style={{ "--rail-w": `${rail.width}px` } as CSSProperties}>
+    <SidebarProvider
+      defaultOpen={false}
+      style={{ "--phone-bottom": `${PHONE_PLAYER_TOP + 16}px` } as CSSProperties}
+    >
       {/* Desktop: rail and content are panes on the ground colour with 8px
-          gutters. Phone: one pane; the rail is a sheet. Inside the content
+          gutters, above a full-width player bar. Phone: one pane, with the
+          mini player and tab bar fixed at the bottom. Inside the content
           pane, "background" is the pane and cards are raised. */}
-      <div className="flex w-full bg-ground md:h-dvh md:p-2">
+      <div className="w-full bg-ground md:flex md:h-dvh md:flex-col">
+      <div className="flex w-full md:min-h-0 md:flex-1 md:px-2 md:pt-2">
         <AppSidebar rail={rail} />
         <div className="min-w-0 flex-1 bg-pane [--background:var(--pane)] [--card:var(--raised)] md:overflow-y-auto md:rounded-2xl">
-          {/* Phones: room for the tab bar and the floating player above it. */}
-          <div className="pb-[calc(188px+env(safe-area-inset-bottom))] md:pb-24 w-full p-4 md:p-6">
+          {/* Phones: room for the tab bar and the mini player above it. */}
+          <div className="w-full p-4 pb-[calc(var(--phone-bottom)+env(safe-area-inset-bottom))] md:p-6">
             <RouteErrorBoundary key={location.pathname}>
               <Suspense fallback={<LoadingFallback />}>
                 <Routes>
@@ -102,8 +99,9 @@ function AuthenticatedLayoutInner() {
           </div>
         </div>
       </div>
+      <SpotifyPlayerCard />
+      </div>
 
-      {showPlayer && <SpotifyPlayerCard />}
       <OnboardingWalkthrough />
     </SidebarProvider>
   );

@@ -96,7 +96,7 @@ export default function PlaybackScrubber({
 
   return (
     <div className={cn('flex items-center gap-2 w-full', className)}>
-      <span className="w-9 shrink-0 text-right text-[10px] md:text-[11px] tabular-nums text-white/60">
+      <span className="w-9 shrink-0 text-right font-mono text-[10px] md:text-[11px] tabular-nums text-soft">
         {formatPlaybackTime(shown)}
       </span>
       <SliderPrimitive.Root
@@ -127,20 +127,20 @@ export default function PlaybackScrubber({
         disabled={disabled}
         aria-label="Seek"
       >
-        <SliderPrimitive.Track className="relative h-1 grow overflow-hidden rounded-full bg-white/20 transition-[height] group-hover:h-1.5">
-          <SliderPrimitive.Range className="absolute h-full rounded-full bg-white group-hover:bg-primary" />
+        <SliderPrimitive.Track className="relative h-1 grow overflow-hidden rounded-full bg-hair transition-[height] group-hover:h-1.5">
+          <SliderPrimitive.Range className="absolute h-full rounded-full bg-iris" />
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
           aria-valuetext={`${formatPlaybackTime(shown)} of ${formatPlaybackTime(duration)}`}
           className={cn(
-            'block size-3 rounded-full bg-white shadow transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60',
+            'block size-3 rounded-full bg-foreground shadow transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             // Always visible on touch screens; on desktop show on hover/focus/drag.
             'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100',
             dragValue !== null && 'md:opacity-100',
           )}
         />
       </SliderPrimitive.Root>
-      <span className="w-9 shrink-0 text-[10px] md:text-[11px] tabular-nums text-white/60">
+      <span className="w-9 shrink-0 font-mono text-[10px] md:text-[11px] tabular-nums text-soft">
         {formatPlaybackTime(duration)}
       </span>
     </div>

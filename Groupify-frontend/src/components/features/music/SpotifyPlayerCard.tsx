@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Loader2, Music, MonitorSpeaker, RefreshCw } from 'lucide-react';
 import { Button } from '../../ui/button';
-import { Skeleton } from '../../ui/skeleton';
-import { Card, CardContent } from '../../ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../../ui/tooltip';
 import { useSidebar } from '../../ui/sidebar';
+import { cn } from '../../../lib/utils';
 import { STACK_GAP, TAB_BAR_HEIGHT } from '../../../lib/layout';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -17,11 +15,13 @@ import { toast } from 'sonner';
 import { getSpotifyDevices, transferPlayback, pausePlayback as apiPausePlayback, resumePlayback as apiResumePlayback, skipToNext as apiSkipToNext, skipToPrevious as apiSkipToPrevious, seekPlayback as apiSeekPlayback } from '../../../lib/api';
 import PlaybackScrubber from './PlaybackScrubber';
 import { logger } from '../../../utils/logger';
-import { useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { groupIdFromPath } from '../../../hooks/useLastGroup';
 import { useGroups } from '../../../hooks/useGroups';
 
 export default function SpotifyPlayerCard() {
-  const { groupId } = useParams<{ groupId: string }>();
+  // Rendered by the app layout, outside the routes, so read the group from the path.
+  const groupId = groupIdFromPath(useLocation().pathname);
   const { groups } = useGroups();
   const { player, currentTrack, isPlaying, position, duration, isLoading, error, deviceId, deviceReadyTimestamp, playTrack } = useSpotifyPlayer();
   const { playingGroup, setPlayingGroup, sortBy: contextSortBy } = usePlayingGroup();
@@ -145,24 +145,6 @@ export default function SpotifyPlayerCard() {
     } finally {
       setIsSwitchingDevice(false);
     }
-  };
-
-  // Centre over the content pane: it starts after the rail (--rail-w, set by
-  // the app layout) and its 8px gutter, so shift by half of that.
-  const railOffset = 'calc((var(--rail-w, 0px) + 8px) / 2)';
-  // The content pane is the viewport minus the rail, its gutter and the 8px
-  // outer padding on both sides; keep 1rem clear on each side of it.
-  const paneFit = 'calc(100vw - var(--rail-w, 0px) - 24px - 2rem)';
-
-  const playerStyle: React.CSSProperties = {
-    position: 'fixed',
-    // On phones, sit 8px above the tab bar.
-    bottom: isMobile ? `calc(${TAB_BAR_HEIGHT + STACK_GAP}px + env(safe-area-inset-bottom, 0px))` : '24px',
-    left: isMobile ? '50%' : `calc(50% + ${railOffset})`,
-    transform: 'translateX(-50%)',
-    width: isMobile ? 'calc(100% - 2rem)' : `min(600px, ${paneFit})`,
-    maxWidth: '600px',
-    zIndex: 9999,
   };
 
   // Also load the viewed group's playlist to check if current track belongs to it
@@ -357,409 +339,187 @@ export default function SpotifyPlayerCard() {
   };
 
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <TooltipProvider>
-        <div
-          className="shadow-2xl"
-          style={playerStyle}
-          data-testid="spotify-player-loading"
-        >
-          <Card className="rounded-full border-white/10 shadow-xl backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-            <CardContent className="px-6 py-2">
-              <div className="flex items-center gap-4 h-16 overflow-hidden">
-                <Skeleton className="size-12 rounded-lg shrink-0 bg-white/10" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <Skeleton className="h-4 w-32 bg-white/10" />
-                  <Skeleton className="h-3 w-24 bg-white/10" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Skeleton className="size-10 rounded-full bg-white/10" />
-                  <Skeleton className="size-10 rounded-full bg-white/10" />
-                  <Skeleton className="size-10 rounded-full bg-white/10" />
-                </div>
-                <Skeleton className="w-24 h-1.5 hidden md:block bg-white/10 rounded-full" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </TooltipProvider>
-    );
-  }
+  // What the player can show right now. Without a track, the bar shows a
+  // status line instead of the song.
+  const controlsReady = !isLoading && !error && !!player && !!deviceId;
+  const status = isLoading
+    ? { title: 'Connecting to Spotify…', detail: '' }
+    : error
+      ? { title: 'Player error', detail: error }
+      : !player || !deviceId
+        ? isDeviceRecentlyReady
+          ? { title: 'Player activating…', detail: 'Wait a few seconds before playing' }
+          : { title: 'No player connected', detail: 'Connect to Spotify to start playing' }
+        : !displayTrack
+          ? isDeviceRecentlyReady
+            ? { title: 'Player activating…', detail: 'Wait a few seconds before playing' }
+            : { title: 'Ready to play', detail: activeDeviceName ? `Playing on ${activeDeviceName}` : 'Choose a song to start' }
+          : null;
 
-  // Error state
-  if (error) {
-    return (
-      <TooltipProvider>
-        <div
-          className="shadow-2xl"
-          style={playerStyle}
-          data-testid="spotify-player-error"
-        >
-          <Card className="rounded-full border-destructive/30 shadow-xl backdrop-blur-xl bg-red-950/80" style={{ backgroundColor: 'rgba(127, 29, 29, 0.8)' }}>
-            <CardContent className="px-6 py-2">
-              <div className="flex items-center gap-4 h-16 overflow-hidden">
-                <div className="size-12 rounded-lg bg-destructive/20 flex items-center justify-center shrink-0">
-                  <Music className="size-6 text-destructive" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">Player Error</p>
-                  <p className="text-xs text-white/70 truncate">{error}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </TooltipProvider>
-    );
-  }
-
-  // Empty state - no player or no track
-  if (!player || !deviceId) {
-    return (
-      <TooltipProvider>
-        <div
-          className="shadow-2xl"
-          style={playerStyle}
-          data-testid="spotify-player-global"
-        >
-          <Card className="rounded-full border border-zinc-800 shadow-xl overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-            <CardContent className="px-4 md:px-6 py-2 md:py-3">
-              <div className="flex items-center gap-3 md:gap-4 h-auto md:h-16 overflow-hidden">
-                <div className="size-10 md:size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
-                  <Music className="size-5 md:size-6 text-zinc-500" />
-                </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs md:text-sm font-medium text-white">
-                  {isDeviceRecentlyReady ? 'Player Activating...' : 'No Player Connected'}
-                </p>
-                <p className="text-xs text-zinc-400 truncate hidden sm:block">
-                  {isDeviceRecentlyReady ? 'Wait 10 seconds before playing' : 'Connect to Spotify to start playing'}
-                </p>
-              </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </TooltipProvider>
-    );
-  }
-
-  // No track playing state (neither Web SDK nor remote device)
-  if (!displayTrack) {
-    return (
-      <TooltipProvider>
-        <div
-          className="shadow-2xl"
-          style={playerStyle}
-          data-testid="spotify-player-global"
-        >
-        <Card className="rounded-full border border-zinc-800 shadow-xl overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-          <CardContent className="px-4 md:px-6 py-2 md:py-3">
-            <div className="flex items-center gap-3 md:gap-4 h-auto md:h-16 overflow-hidden">
-              <div className="size-10 md:size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
-                <Music className="size-5 md:size-6 text-zinc-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs md:text-sm font-medium text-white">
-                  {isDeviceRecentlyReady ? 'Player Activating...' : 'Ready to Play'}
-                </p>
-                <p className="text-xs text-zinc-400 truncate hidden sm:block">
-                  {isDeviceRecentlyReady ? 'Please wait 10 seconds...' : activeDeviceName ? `Playing on ${activeDeviceName}` : 'Click a track to start'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handlePreviousTrack}
-                      disabled={isControlling}
-                      className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white min-w-[44px] min-h-[44px]"
-                    >
-                      <SkipBack className="size-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Previous Track</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handlePlayPause}
-                      disabled={isControlling}
-                      className="h-12 w-12 md:h-10 md:w-10 rounded-full !bg-white !text-black hover:!bg-white/90 hover:scale-105 transition-all min-w-[44px] min-h-[44px]"
-                    >
-                      {isControlling ? (
-                        <Loader2 className="size-5 animate-spin" />
-                      ) : (
-                        <Play className="size-5 fill-current" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Play</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleNextTrack}
-                      disabled={isControlling}
-                      className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white min-w-[44px] min-h-[44px]"
-                    >
-                      <SkipForward className="size-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Next Track</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        </div>
-      </TooltipProvider>
-    );
-  }
-
-  // Main player state - track is playing (from Web SDK or remote device)
-  // Safety check: ensure displayTrack exists before accessing properties
-  if (!displayTrack) {
-    // This shouldn't happen due to the check above, but handle it gracefully
-    return (
-      <TooltipProvider>
-        <div className="shadow-2xl" style={playerStyle} data-testid="spotify-player-global">
-          <Card className="rounded-full border border-zinc-800 shadow-xl overflow-hidden backdrop-blur-xl bg-black/80">
-            <CardContent className="px-6 py-2">
-              <div className="flex items-center gap-4 h-16 overflow-hidden">
-                <div className="size-12 rounded-lg bg-zinc-900/50 flex items-center justify-center shrink-0">
-                  <Music className="size-6 text-zinc-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">Ready to Play</p>
-                  <p className="text-xs text-zinc-400 truncate">Click a track to start</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </TooltipProvider>
-    );
-  }
-
-  const albumImage = displayTrack.album.images?.[0]?.url || displayTrack.album.images?.[1]?.url;
-  const artists = displayTrack.artists.map((artist) => artist.name).join(', ');
+  const albumImage = displayTrack?.album.images?.[0]?.url || displayTrack?.album.images?.[1]?.url;
+  const artists = displayTrack?.artists.map((artist) => artist.name).join(', ') ?? '';
   const isRemotePlayback = !currentTrack && !!remotePlayback;
+  const title = displayTrack?.name ?? status?.title ?? '';
+  const subtitle = displayTrack ? artists : status?.detail ?? '';
+  const where = isRemotePlayback && activeDeviceName ? `Playing on ${activeDeviceName}` : 'Playing in this browser';
+  const busy = isControlling || !controlsReady;
 
-  // Main player
-  return (
-    <TooltipProvider>
-      <div
-        className="shadow-2xl"
-        style={playerStyle}
-        data-testid="spotify-player-global"
-      >
-      {/* Rounded rectangle rather than a full pill: the scrubber row makes the
-          card taller, and a pill's curved ends would clip the row's edges. */}
-      <Card className="rounded-[1.75rem] border border-zinc-800 shadow-2xl transition-colors overflow-hidden backdrop-blur-xl bg-black/80" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
-        <CardContent className="px-4 md:px-6 pt-2 md:pt-3 pb-1.5 md:pb-2">
-          <div className="flex items-center gap-3 md:gap-4 h-auto md:h-14">
-            {/* Album Artwork */}
-            <div className="h-10 w-10 md:h-10 md:w-10 shrink-0 rounded overflow-hidden relative bg-neutral-800/50">
-              {albumImage ? (
-                <img
-                  src={albumImage}
-                  alt={displayTrack.album.name || 'Album artwork'}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center">
-                  <Music className="size-5 text-white/50" />
-                </div>
-              )}
+  const art = (size: string) => (
+    <span className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-selected', size)}>
+      {albumImage ? (
+        <img src={albumImage} alt="" className="size-full object-cover" />
+      ) : isLoading ? (
+        <Loader2 className="size-5 animate-spin text-quiet" aria-hidden="true" />
+      ) : (
+        <Music className={cn('size-5', error ? 'text-danger' : 'text-quiet')} aria-hidden="true" />
+      )}
+    </span>
+  );
+  const text = (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      <span className={cn('truncate text-sm font-semibold', error && !displayTrack && 'text-danger')}>{title}</span>
+      {subtitle && <span className="truncate text-xs text-soft">{subtitle}</span>}
+    </span>
+  );
+  const playButton = (size: string) => (
+    <button
+      type="button"
+      onClick={handlePlayPause}
+      disabled={busy}
+      aria-label={displayIsPlaying ? 'Pause' : 'Play'}
+      className={cn('flex shrink-0 items-center justify-center rounded-full bg-foreground text-pane transition-opacity hover:opacity-90 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', size)}
+    >
+      {isControlling ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+      ) : displayIsPlaying ? (
+        <Pause className="size-4 fill-current" aria-hidden="true" />
+      ) : (
+        <Play className="size-4 translate-x-px fill-current" aria-hidden="true" />
+      )}
+    </button>
+  );
+  const skipButton = (direction: 'previous' | 'next', className = '') => (
+    <button
+      type="button"
+      onClick={direction === 'next' ? handleNextTrack : handlePreviousTrack}
+      disabled={busy}
+      aria-label={direction === 'next' ? 'Next track' : 'Previous track'}
+      className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-foreground hover:bg-selected disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
+    >
+      {direction === 'next' ? <SkipForward className="size-[18px] fill-current" aria-hidden="true" /> : <SkipBack className="size-[18px] fill-current" aria-hidden="true" />}
+    </button>
+  );
+
+  const devicePicker = (
+    <Popover open={isDevicePopoverOpen} onOpenChange={setIsDevicePopoverOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={!controlsReady}
+          aria-label={activeDevice ? `Playback device: ${activeDevice.name}` : 'Select playback device'}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-soft hover:bg-selected hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <MonitorSpeaker className="size-5" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" side="top" className="w-[calc(100vw-2rem)] sm:w-80">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Playback device</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {activeDevice ? `Active: ${activeDevice.name}` : 'Choose where Spotify plays'}
+              </p>
             </div>
-
-            {/* Track Info */}
-            <div className="flex-1 min-w-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <h3 className="text-xs md:text-sm font-semibold text-white truncate cursor-default">
-                    {displayTrack.name}
-                  </h3>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{displayTrack.name}</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <p className="text-xs text-white/70 truncate cursor-default hover:text-white transition-colors hidden sm:block">
-                    {artists}
-                    {isRemotePlayback && activeDeviceName && (
-                      <span className="text-white/50"> • {activeDeviceName}</span>
-                    )}
-                  </p>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{artists}{isRemotePlayback && activeDeviceName ? ` • Playing on ${activeDeviceName}` : ''}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* Playback Controls */}
-            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handlePreviousTrack}
-                    disabled={isControlling}
-                    className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50 min-w-[44px] min-h-[44px]"
-                    aria-label="Previous track"
-                  >
-                    <SkipBack className="size-5 fill-current opacity-90" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Previous Track</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handlePlayPause}
-                    disabled={isControlling}
-                    className="h-12 w-12 md:h-12 md:w-12 rounded-full !bg-white !text-black hover:!bg-white/90 shadow-lg hover:scale-105 transition-all disabled:opacity-50 min-w-[48px] min-h-[48px]"
-                    aria-label={displayIsPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isControlling ? (
-                      <Loader2 className="size-5 md:size-6 animate-spin" />
-                    ) : displayIsPlaying ? (
-                      <Pause className="size-5 md:size-6 fill-current" />
-                    ) : (
-                      <Play className="size-5 md:size-6 fill-current pl-0.5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{displayIsPlaying ? 'Pause' : 'Play'}</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleNextTrack}
-                    disabled={isControlling}
-                    className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white disabled:opacity-50 min-w-[44px] min-h-[44px]"
-                    aria-label="Next track"
-                  >
-                    <SkipForward className="size-5 fill-current opacity-90" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Next Track</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Device Picker */}
-              <Popover open={isDevicePopoverOpen} onOpenChange={setIsDevicePopoverOpen}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11 md:h-10 md:w-10 rounded-full hover:bg-white/10 text-white min-w-[44px] min-h-[44px]"
-                        aria-label="Select playback device"
-                      >
-                        <MonitorSpeaker className="size-5 opacity-90" />
-                      </Button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{activeDevice ? `Device: ${activeDevice.name}` : 'Select playback device'}</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-80">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">Playback device</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {activeDevice ? `Active: ${activeDevice.name}` : 'Choose where Spotify plays'}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => void loadDevices()}
-                        disabled={isDevicesLoading || isSwitchingDevice}
-                        aria-label="Refresh devices"
-                      >
-                        {isDevicesLoading ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="size-4" />
-                        )}
-                      </Button>
-                    </div>
-
-                    <Select
-                      value={selectedOutputDeviceId}
-                      onValueChange={(val) => void handleSelectDevice(val)}
-                      disabled={isDevicesLoading || isSwitchingDevice}
-                    >
-                      <SelectTrigger aria-label="Select Spotify playback device">
-                        <SelectValue placeholder={isDevicesLoading ? 'Loading devices…' : 'Select a device'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mergedDevices
-                          .filter(d => !!d.id)
-                          .map((d) => (
-                            <SelectItem key={d.id as string} value={d.id as string}>
-                              {d.name}{d.is_active ? ' (active)' : ''}
-                            </SelectItem>
-                          ))}
-                        {mergedDevices.filter(d => !!d.id).length === 0 && (
-                          <SelectItem value="__none" disabled>
-                            No devices found
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    <p className="text-xs text-muted-foreground">
-                      Tip: if your device isn’t listed, open Spotify on that device and play any song once.
-                    </p>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={() => void loadDevices()}
+              disabled={isDevicesLoading || isSwitchingDevice}
+              aria-label="Refresh devices"
+            >
+              {isDevicesLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            </Button>
           </div>
+          <Select
+            value={selectedOutputDeviceId}
+            onValueChange={(val) => void handleSelectDevice(val)}
+            disabled={isDevicesLoading || isSwitchingDevice}
+          >
+            <SelectTrigger aria-label="Select Spotify playback device">
+              <SelectValue placeholder={isDevicesLoading ? 'Loading devices…' : 'Select a device'} />
+            </SelectTrigger>
+            <SelectContent>
+              {mergedDevices
+                .filter((d) => !!d.id)
+                .map((d) => (
+                  <SelectItem key={d.id as string} value={d.id as string}>
+                    {d.name}{d.is_active ? ' (active)' : ''}
+                  </SelectItem>
+                ))}
+              {mergedDevices.filter((d) => !!d.id).length === 0 && (
+                <SelectItem value="__none" disabled>
+                  No devices found
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Tip: if your device isn’t listed, open Spotify on that device and play any song once.
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 
+  // Phone: a mini player above the tab bar with the transport controls only.
+  // Seeking and the device picker move to the song sheet in #57 slice 4; a
+  // thin line shows progress meanwhile.
+  if (isMobile) {
+    const progress = displayDuration > 0 ? Math.min(100, (displayPosition / displayDuration) * 100) : 0;
+    return (
+      <section
+        aria-label="Player"
+        data-testid="spotify-player"
+        className="fixed inset-x-2 z-30 flex items-center gap-2.5 overflow-hidden rounded-[14px] bg-selected py-2 pl-2 pr-1.5"
+        style={{ bottom: `calc(${TAB_BAR_HEIGHT + STACK_GAP}px + env(safe-area-inset-bottom, 0px))` }}
+      >
+        {art('size-10')}
+        <span className="min-w-0 flex-1">{text}</span>
+        {skipButton('previous')}
+        {playButton('size-11')}
+        {skipButton('next')}
+        {displayTrack && (
+          <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-0.5 overflow-hidden rounded-full bg-hair">
+            <span className="block h-full bg-iris" style={{ width: `${progress}%` }} />
+          </span>
+        )}
+      </section>
+    );
+  }
+
+  // Desktop: a full-width bar under the panes.
+  return (
+    <footer
+      aria-label="Player"
+      data-testid="spotify-player"
+      className="grid h-[76px] shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] items-center gap-6 px-5"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        {art('size-12')}
+        {text}
+      </div>
+      <div className="flex min-w-0 flex-col items-center gap-1">
+        <div className="flex items-center gap-2">
+          {/* Compact for a mouse; 44px on touch screens (CONTRIBUTING §2.4). */}
+          {skipButton('previous', 'h-9 pointer-coarse:h-11')}
+          {playButton('size-10 pointer-coarse:size-11')}
+          {skipButton('next', 'h-9 pointer-coarse:h-11')}
+        </div>
+        {displayTrack && (
           <PlaybackScrubber
-            className="mt-1"
+            className="max-w-[560px]"
             position={displayPosition}
             duration={displayDuration}
             isPlaying={displayIsPlaying}
@@ -767,9 +527,17 @@ export default function SpotifyPlayerCard() {
             onSeek={handleSeek}
             disabled={isControlling}
           />
-        </CardContent>
-      </Card>
+        )}
       </div>
-    </TooltipProvider>
+      <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-soft">
+        {displayTrack && (
+          <>
+            <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-iris" />
+            <span className="truncate">{where}</span>
+          </>
+        )}
+        {devicePicker}
+      </div>
+    </footer>
   );
 }
