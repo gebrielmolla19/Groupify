@@ -26,6 +26,10 @@ Two separate npm projects, no root `package.json`:
   running and the manual playback checklist in §4).
 - **Playback, devices, Spotify auth or scopes**: the `groupify-playback`
   skill, before reading or changing that code.
+- **Spotify platform facts**: `research/spotify.md` has what Spotify's
+  docs say about the SDK, player endpoints, quotas, playlists and
+  tokens, with sources. Its header says which parts were verified
+  first-hand; re-check the rest on the live page.
 - **API surface**: `Groupify-backend/src/routes/` and the typed client in
   `Groupify-frontend/src/lib/api.ts`.
 - **Data model**: `Groupify-backend/src/models/`.
