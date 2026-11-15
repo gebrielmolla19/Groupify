@@ -2,8 +2,8 @@
 
 A web app where friends share Spotify tracks into a **group**, play them
 in the browser, and compare listening habits. Users sign in with Spotify;
-each group has a feed of shares, a playlist, and analytics about who
-shares and who listens.
+each group has a feed of shares, a playlist, and Group Dynamics: measures
+of who shares and who listens.
 
 Two separate npm projects, no root `package.json`:
 
@@ -40,7 +40,9 @@ sections describe an early version of the app; trust the code above.
 - **A "listen" is recorded by the frontend.** It watches the user's
   Spotify playback and calls the shares API when a shared track has been
   played. The backend cron in `src/utils/scheduler.js` that polls
-  "recently played" is switched off in `app.js`.
+  "recently played" is switched off in `app.js`. The feed also still
+  has a manual "Mark as listened" button, which contradicts the
+  glossary's definition of a listen and is due for removal (#79).
 - **One Spotify app allows only 5 users in development mode**, so the
   backend supports several Spotify apps side by side
   (`SPOTIFY_CLIENT_ID_1`, `/login?app=1`, `User.spotifyAppIndex`). A

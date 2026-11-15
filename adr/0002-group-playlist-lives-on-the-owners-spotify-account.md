@@ -14,5 +14,7 @@ owner could be locked out of updating it.
   the same person. Transferring ownership of a group has to decide what
   happens to the playlist, since Spotify can't move it to another
   account.
-- If the owner deletes the playlist in Spotify or loses access to it,
-  the export starts over with a new playlist.
+- If the playlist no longer exists on Spotify, the owner's next export
+  creates a new one.
+- If the owner loses access to it, the export fails with an error and
+  the group stays tied to the old playlist.
