@@ -215,6 +215,8 @@ Current development-mode rules (all [S])
   working. ([quota], [Feb 2026 post][blog-feb26])
 - Client IDs per developer account: 1 from Feb 2026, raised to **25** in
   July 2026. ([Feb 2026 post][blog-feb26], [July 2026 changelog][chg-jul26])
+  Apps that already had more Client IDs or users keep them (section 4,
+  policy timeline).
 - Development mode is for learning and personal, non-commercial
   projects; not to be used as the foundation for a business.
   ([Feb 2026 post][blog-feb26])
@@ -251,6 +253,10 @@ Timeline of policy changes (all [S])
   integrations**; Premium requirement, five-user cap and Client ID limit
   still applied on schedule. Revised timeline "to be shared later".
   ([Feb 2026 post][blog-feb26])
+- Existing apps are grandfathered on the limits: "If you already have
+  multiple Client IDs or more than 5 users, you will retain them. These
+  limits only restrict what you can create or add going forward."
+  ([migration guide][mig-feb26])
 - 2026-06-18: refresh tokens expire after six months (section 7).
 - 2026-07-23: Client ID limit 1 to 25; quota per developer account;
   `QUOTA_EXCEEDED` body. ([July 2026 post][blog-jul26])
@@ -358,7 +364,8 @@ All [S].
 Not fixed. Items 1 to 6 depend on whether the February 2026 endpoint
 changes apply to Groupify's Client IDs (they apply to development-mode
 apps created on or after 2026-02-11; postponed for older ones, revised
-date unknown).
+date unknown). The exception is `GET /audio-features` in item 5,
+which has been closed to new apps since November 2024 regardless.
 
 1. `Groupify-backend/src/services/spotifyService.js:404` creates
    playlists with `POST /users/{userId}/playlists`. Removed for
@@ -394,10 +401,12 @@ date unknown).
    six months after authorisation. No authorisation date is stored.
 9. Recently played as proof of listening:
    `Groupify-backend/src/utils/scheduler.js:34-70` marks a share as
-   listened for any item in recently-played. The response has no
+   listened for any item in recently-played. (The scheduler is switched
+   off in `app.js`, so this is not live behaviour.) The response has no
    played-duration field and the docs retrieved do not define what
    counts as a play.
-10. `adr/0001-several-spotify-apps-side-by-side.md` and `CLAUDE.md:46`:
+10. `adr/0001-several-spotify-apps-side-by-side.md` and the five-user
+    bullet in `CLAUDE.md`:
     the five-user cap matches. Not covered by the ADR: development-mode
     quota is now shared across all Client IDs of one developer account;
     the app owner needs Premium; and Spotify describes development mode
@@ -417,9 +426,11 @@ date unknown).
     only says EME is the likely cause; in-app browsers are not
     mentioned in anything retrieved.
 14. `Groupify-frontend/src/hooks/useCurrentPlayback.ts:48` defaults to
-    8000 ms while the skill and `CONTRIBUTING.md` §2.5 say 3-5 s (the
-    one caller, `SpotifyPlayerCard.tsx:36`, passes 3000). Spotify
-    documents no polling interval; these numbers are the project's own.
+    8000 ms while the skill and `CONTRIBUTING.md` §2.5 say 3-5 s. It
+    has two callers: `SpotifyPlayerCard.tsx:36` passes 3000, and
+    `useGlobalPlaybackTracking.ts:16`, the hook that records listens,
+    passes 10000, outside the project's own range. Spotify documents no
+    polling interval; these numbers are the project's own.
 
 Consistent with the docs: SDK scopes requested (`streaming`,
 `user-read-email`, `user-read-private`), player scopes, all eight SDK
@@ -430,12 +441,9 @@ the old refresh token when none is returned.
 
 ## Unverified / could not confirm
 
-Could not reach
-- Every developer.spotify.com page (blocked). All [S] facts need a
+Could not confirm
+- The [S] facts not listed as verified in the header: they still need a
   re-read on the live page, especially quoted wording.
-- A second post titled "Web API quota updates for Development Mode"
-  listed on the community page with date 2026-08-13; contents unknown.
-  It may change section 3 or 4 numbers.
 - The revised date on which the February 2026 endpoint changes hit
   existing development-mode apps.
 
