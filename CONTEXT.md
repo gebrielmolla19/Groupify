@@ -51,3 +51,23 @@ _Avoid_: Play, view
 
 **Like**:
 A member marking a share as one they enjoyed.
+
+### Group Dynamics
+
+**Group Dynamics**:
+The part of a group that shows how its members share and listen: the
+measures below.
+_Avoid_: Analytics, stats
+
+**Listener Reflex**:
+A member's listening habits in the group, chiefly how soon after a
+track is shared they listen to it.
+
+**Taste Gravity**:
+How closely two members' music tastes relate, judged from what each has
+listened to and liked in the group.
+
+**Hall of Fame**:
+The group's four awards: Trendsetter (most likes received), Hype Man
+(most likes given), The DJ (most shares), Diehard (most listens).
+_Avoid_: Superlatives
