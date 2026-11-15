@@ -16,6 +16,7 @@ A user who belongs to a group.
 **Owner**:
 The member who created the group. A group has exactly one, and only the
 owner can remove members, remove other members' shares, or delete the
+group. Ownership never transfers: an owner who wants out deletes the
 group.
 _Avoid_: Creator, admin
 
