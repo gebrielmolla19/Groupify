@@ -34,6 +34,9 @@ apply, say so in one line.
 - In a git worktree session, only edit files inside your own worktree.
 
 ## 3. Understand before editing
+- Use the vocabulary in `CONTEXT.md` (repo root) for names in code,
+  issues and PRs. If the change introduces or redefines a domain term,
+  update `CONTEXT.md` in the same PR.
 - Read the code you'll touch and its callers (`grep` for usages).
 - Follow the layering in CONTRIBUTING §2.1. Business logic goes in
   backend services; frontend components call hooks, which call
