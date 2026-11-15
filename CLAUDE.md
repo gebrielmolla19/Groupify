@@ -17,6 +17,10 @@ Two separate npm projects, no root `package.json`:
 - **What the words mean**: `CONTEXT.md` is the glossary. Use its terms
   in code, issues and PRs, and read it before discussing any domain
   concept (share, listen, owner, playlist, invite).
+- **Why it is built this way**: `adr/` holds the decisions that are hard
+  to reverse and surprising without their reason. Read the relevant one
+  before changing Spotify sign-in or the group's Spotify playlist, and
+  add one when you make a decision of that kind (`adr/README.md`).
 - **How to make a change**: the `groupify-change` skill, backed by
   `CONTRIBUTING.md` (lifecycle in §1, engineering rules in §2, local
   running and the manual playback checklist in §4).
