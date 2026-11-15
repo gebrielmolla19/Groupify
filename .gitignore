@@ -59,7 +59,6 @@ Groupify-frontend/public/sw.js
 # Dev tools
 Groupify-backend/check-server.js
 .mcp.json
-CLAUDE.md
 /package.json
 /package-lock.json
 
