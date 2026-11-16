@@ -365,7 +365,8 @@ Not fixed. Items 1 to 6 depend on whether the February 2026 endpoint
 changes apply to Groupify's Client IDs (they apply to development-mode
 apps created on or after 2026-02-11; postponed for older ones, revised
 date unknown). The exception is `GET /audio-features` in item 5,
-which has been closed to new apps since November 2024 regardless.
+which has been closed since November 2024 to new apps and to
+development-mode apps without a pending extension request, regardless.
 
 1. `Groupify-backend/src/services/spotifyService.js:404` creates
    playlists with `POST /users/{userId}/playlists`. Removed for
