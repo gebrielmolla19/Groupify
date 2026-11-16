@@ -11,11 +11,17 @@ section when a step points to it. This skill is the order of operations.
 Track progress with a checklist and don't skip steps. If a step doesn't
 apply, say so in one line.
 
+Skills named below without the `groupify-` prefix (`grilling`, `tdd`,
+`prototype`, `codebase-design`, `domain-modeling`) come from the
+optional mattpocock-skills plugin. If one isn't installed, do the step
+as written here.
+
 ## 1. Issue
 - Find the GitHub issue, or create one with `.github/ISSUE_TEMPLATE/`.
   It must have a **"Done when"** line. Typo-level changes are exempt.
 - If the request is ambiguous, settle the scope with the user now, not
-  after building.
+  after building. For a large or fuzzy feature, run the `grilling`
+  skill on the plan until the "Done when" line is checkable.
 - Anything new you find later (a bug, a gap, a review suggestion about
   existing behavior, related or not) becomes **a new issue** by default,
   not part of this branch. Fold it in only for the exceptions in
@@ -36,14 +42,22 @@ apply, say so in one line.
 ## 3. Understand before editing
 - Use the vocabulary in `CONTEXT.md` (repo root) for names in code,
   issues and PRs. If the change introduces or redefines a domain term,
-  update `CONTEXT.md` in the same PR.
+  update `CONTEXT.md` in the same PR (`domain-modeling` skill).
+- Check `adr/` for a decision that covers the area. Making a decision
+  that is hard to reverse, surprising and a real trade-off? Record it
+  (`adr/README.md`).
+- **Designing a new module or changing an interface?** The
+  `codebase-design` skill has the vocabulary for where the boundary
+  goes.
+- **Unsure what the UI or the state model should be?** Answer it with a
+  throwaway (`prototype` skill) before building the real thing.
 - Read the code you'll touch and its callers (`grep` for usages).
 - Follow the layering in CONTRIBUTING §2.1. Business logic goes in
   backend services; frontend components call hooks, which call
   `src/lib/api.ts`.
 - **Touching Spotify playback or auth?** Read the official Spotify docs
   for the APIs involved first (CONTRIBUTING §2.5). Use the
-  `groupify-playback` skill.
+  `groupify-playback` skill, which starts from `research/spotify.md`.
 - **Fixing a bug?** Use the `groupify-bugfix` skill. It requires a root
   cause and a regression test.
 
@@ -53,7 +67,10 @@ apply, say so in one line.
 - Check your code against CONTRIBUTING §2: no empty catches, no backend
   `console.*`, no silent fallbacks, auth on routes, no `any`, theme
   tokens instead of hex, accessible controls, stable `key`s.
-- Add or update tests alongside the code: services, hooks and utilities.
+- Write new logic (services, hooks, utilities) test-first: one failing
+  test through the public interface, just enough code to pass it, then
+  the next test. The `tdd` skill has the rules. UI-only tweaks can rely
+  on manual checks.
 - Reuse existing helpers before writing new ones. Search `src/lib`,
   `src/utils` and `src/hooks` first.
 

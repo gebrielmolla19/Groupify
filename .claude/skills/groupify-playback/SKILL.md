@@ -20,11 +20,21 @@ description: Guardrails and test checklist for any change touching Spotify playb
   seek).
 
 ## Read the docs first
+Start with `research/spotify.md` (repo root): what Spotify's docs say
+about the SDK, the player endpoints, quotas and tokens, with sources,
+and a list of places where this repo disagrees with them. Its header
+says which parts were read on the live pages.
+
 Before changing playback behavior, or concluding "this can't work on X",
-check:
+confirm on the live docs:
 - SDK reference: https://developer.spotify.com/documentation/web-playback-sdk/reference
 - SDK overview, supported platforms: https://developer.spotify.com/documentation/web-playback-sdk
 - Web API player endpoints: https://developer.spotify.com/documentation/web-api (Player section)
+
+When you confirm a new fact on the live docs, add it to
+`research/spotify.md` with the URL and the date. For a larger question,
+the `research` skill (mattpocock-skills plugin, optional) does the
+reading in the background.
 
 Facts this project learned the hard way:
 - **Mobile (iOS and Android) is supported.** iOS needs a user gesture.
