@@ -14,9 +14,11 @@ for the real fix.
   or phone, in-browser player or Spotify app, Premium?) and expected vs
   actual behavior.
 - Aim for a **red** check: one command (a test, a `curl`, a Playwright
-  script) that fails on this bug and will pass once it's fixed. It
-  becomes the regression test in step 4. If nothing can be automated
-  (real Spotify audio, a phone), write the manual steps down instead.
+  script) that fails on this bug and will pass once it's fixed. If
+  it's a test, it becomes the regression test in step 4; a `curl` or
+  script is a stand-in until that test exists. If nothing can be
+  automated (real Spotify audio, a phone), write the manual steps down
+  instead.
 - If you can't reproduce it, gather evidence (step 2) before guessing.
 - **If the bug has a visible symptom, capture the "before" now**, while
   it still happens: a screenshot or recording of the broken UI, or the
@@ -48,11 +50,13 @@ for the real fix.
   duplicate toasts, missing event handlers, races between polling and
   events.
 - **Cause still unclear after tracing the path once?** Stop reading
-  code and switch to the `diagnosing-bugs` skill (mattpocock-skills
-  plugin). Without it: list three to five hypotheses, each with the
-  result it predicts, and test them one variable at a time against the
-  red check. Tag temporary logging `[DEBUG-xxxx]` so one `grep` finds
-  it all.
+  code and use the `diagnosing-bugs` skill (mattpocock-skills plugin)
+  to find the cause, through its "Instrument" phase. Then come back
+  here: the steps below still apply before anything is fixed. Without
+  the plugin: list three to five hypotheses, each with the result it
+  predicts, and test them one variable at a time against the red
+  check. Tag temporary logging `[DEBUG-xxxx]` so one `grep` finds it
+  all.
 - **Tell the user the root cause in plain language** before fixing it.
   If the fix changes product behavior (not only code), confirm it with
   them first.

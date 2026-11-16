@@ -45,7 +45,11 @@ as written here.
   update `CONTEXT.md` in the same PR (`domain-modeling` skill).
 - Check `adr/` for a decision that covers the area. Making a decision
   that is hard to reverse, surprising and a real trade-off? Record it
-  (`adr/README.md`).
+  in `adr/`, following `adr/README.md`. Decision records live in
+  `adr/` here, wherever a skill says to put them (`docs/` is
+  gitignored).
+- **Relying on how Spotify behaves** (playlists, quotas, tokens,
+  recently played, search)? Check `research/spotify.md` first.
 - **Designing a new module or changing an interface?** The
   `codebase-design` skill has the vocabulary for where the boundary
   goes.

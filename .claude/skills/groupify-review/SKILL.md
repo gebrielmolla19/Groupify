@@ -23,7 +23,9 @@ gh pr diff <n>
   `.claude/skills/groupify-playback/SKILL.md`.
 - Read the linked issue (`Fixes #N` or `Refs #N` in the PR body) with
   `mcp__github__issue_read`. Its **"Done when"** line is what the change
-  was asked to do.
+  was asked to do. No linked issue? That's fine for a typo-level fix
+  (`CONTRIBUTING.md` §1.1): judge it against the PR description. For
+  anything larger, a missing issue is a blocking finding.
 - Read enough of the surrounding code to judge the change: callers,
   types, tests. Read files from the PR's head commit
   (`git fetch origin <headRefName>` and
