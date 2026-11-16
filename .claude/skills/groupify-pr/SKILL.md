@@ -75,7 +75,7 @@ the comment in the description's Evidence section.
   or the regression test failing on the old code and passing on the new.
 
 **How to capture**
-- Run the app (`run` skill, or the dev servers in CLAUDE.md) and open it
+- Run the app (`run` skill, or the dev servers in CONTRIBUTING.md §4) and open it
   in a browser you can save files from. The `chrome-devtools` MCP works.
 - **Save to `.evidence/`** at the root of the checkout you're working in
   (`take_screenshot` with `filePath: "<checkout>/.evidence/before-desktop.png"`).
