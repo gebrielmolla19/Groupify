@@ -7,7 +7,8 @@ const friend = { _id: 'u2', displayName: 'Test Friend', profileImage: null };
 const other = { _id: 'u4', displayName: 'Other Member', profileImage: null };
 const group = { _id: 'g1', name: 'Sample Group', description: '', createdBy: me, members: [me, friend, other], inviteCode: 'ABC123', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
 const at = '2026-01-01T00:00:00.000Z';
-const heard = (...users: object[]) => users.map((user) => ({ user, listenedAt: at }));
+// Each listener heard it 4 minutes after the one before (timeToListen, ms).
+const heard = (...users: object[]) => users.map((user, i) => ({ user, listenedAt: at, timeToListen: (i + 1) * 240_000 }));
 // 1: shared by me, heard by one of two. 2: shared by a friend, unheard by me.
 // 3: shared by me, heard by everyone, liked by me.
 const variants = [

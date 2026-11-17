@@ -66,3 +66,24 @@ export const formatAge = (ms: number): string => {
   if (days < 365) return `${Math.floor(days / 30)}mo`;
   return `${Math.floor(days / 365)}y`;
 };
+
+const DAY_MS = 86_400_000;
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+/**
+ * When a share was made, for the song detail panel: "Today at 9:05am",
+ * "Yesterday at 11:42pm", "Thursday at 11:42pm" within the week, then
+ * "Jan 1 at 12:30am" (with the year if it isn't this one).
+ */
+export const formatSharedAt = (date: Date, now: Date = new Date()): string => {
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s/g, '').toLowerCase();
+  const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+  let day: string;
+  if (daysAgo === 0) day = 'Today';
+  else if (daysAgo === 1) day = 'Yesterday';
+  else if (daysAgo > 1 && daysAgo < 7) day = date.toLocaleDateString('en-US', { weekday: 'long' });
+  else day = date.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', ...(date.getFullYear() !== now.getFullYear() && { year: 'numeric' }),
+  });
+  return `${day} at ${time}`;
+};

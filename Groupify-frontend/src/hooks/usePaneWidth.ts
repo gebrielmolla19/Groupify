@@ -10,6 +10,8 @@ interface PaneWidthOptions {
   max: number;
   /** Pixels per arrow-key press. */
   step?: number;
+  /** Which edge of the pane the gutter is on. Default: right. */
+  edge?: 'left' | 'right';
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -26,11 +28,13 @@ function readWidth({ storageKey, initial, min, max }: PaneWidthOptions): number 
 
 /**
  * Width of a pane the user resizes by dragging (or arrow-keying) the gutter
- * on its right edge. Returns props for that gutter: an ARIA window splitter.
+ * on its right edge, or its left edge with `edge: 'left'`. Returns props for that gutter: an ARIA window splitter.
  * The width is clamped and saved per browser.
  */
 export function usePaneWidth(options: PaneWidthOptions) {
-  const { storageKey, min, max, step = 16 } = options;
+  const { storageKey, min, max, step = 16, edge = 'right' } = options;
+  // Moving the gutter right grows a pane to its left and shrinks one to its right.
+  const sign = edge === 'left' ? -1 : 1;
   const [width, setWidthState] = useState(() => readWidth(options));
   const drag = useRef<{ x: number; width: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -53,14 +57,14 @@ export function usePaneWidth(options: PaneWidthOptions) {
     setDragging(true);
   };
   const onPointerMove = (e: PointerEvent<HTMLElement>) => {
-    if (drag.current) setWidth(drag.current.width + e.clientX - drag.current.x);
+    if (drag.current) setWidth(drag.current.width + sign * (e.clientX - drag.current.x));
   };
   const endDrag = () => {
     drag.current = null;
     setDragging(false);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    const next = { ArrowLeft: width - step, ArrowRight: width + step, Home: min, End: max }[e.key];
+    const next = { ArrowLeft: width - sign * step, ArrowRight: width + sign * step, Home: min, End: max }[e.key];
     if (next === undefined) return;
     e.preventDefault();
     setWidth(next);

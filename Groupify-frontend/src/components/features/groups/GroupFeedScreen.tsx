@@ -19,6 +19,10 @@ import { useGroupInvites } from "../../../hooks/useGroupInvites";
 import InviteFriendDialog from "./InviteFriendDialog";
 import InvitesList from "./InvitesList";
 import ShareRow from "./ShareRow";
+import ShareDetail from "./ShareDetail";
+import DetailPane from "../../layout/DetailPane";
+import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
+import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import { isUser } from "../../../lib/heardStack";
 import { logger } from "../../../utils/logger";
 
@@ -45,6 +49,17 @@ export default function GroupFeedScreen() {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // The share open in the song detail: a pane beside the feed on wide
+  // screens, a bottom sheet otherwise. The last one stays shown while the
+  // sheet slides away, and focus goes back to its row.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const lastSelectedId = useRef<string | null>(null);
+  const isWide = useMediaQuery('(min-width: 1024px)');
+  const selectedShare = shares.find(s => s._id === selectedId);
+  const shownShare = selectedShare ?? shares.find(s => s._id === lastSelectedId.current);
+  const focusRow = (shareId: string | null) =>
+    document.querySelector<HTMLElement>(`[data-share-details="${shareId}"]`)?.focus();
 
   // Track which share is currently playing (map track URI to share ID)
   const playingShareRef = useRef<Map<string, string>>(new Map());
@@ -129,6 +144,20 @@ export default function GroupFeedScreen() {
       setIsRemoving(null);
     }
   };
+
+  // What the row and the song detail both need for a share.
+  const shareProps = (share: Share) => ({
+    share,
+    viewer: user,
+    members: group?.members ?? [],
+    canRemove: isUser(share.sharedBy, user) || (!!group && isUser(group.createdBy, user)),
+    isStarting: isPlaying === share._id,
+    playDisabled: !deviceId || isPlayerLoading,
+    isRemoving: isRemoving === share._id,
+    onPlay: () => handlePlayTrack(share),
+    onToggleLike: () => handleToggleLike(share._id),
+    onRemove: () => handleRemoveShare(share._id),
+  });
 
   const handlePlayTrack = async (share: Share) => {
     // Check if player is available
@@ -421,16 +450,12 @@ export default function GroupFeedScreen() {
                   {shares.map((share) => (
                     <ShareRow
                       key={share._id}
-                      share={share}
-                      viewer={user}
-                      members={group?.members ?? []}
-                      canRemove={isUser(share.sharedBy, user) || (!!group && isUser(group.createdBy, user))}
-                      isStarting={isPlaying === share._id}
-                      playDisabled={!deviceId || isPlayerLoading}
-                      isRemoving={isRemoving === share._id}
-                      onPlay={() => handlePlayTrack(share)}
-                      onToggleLike={() => handleToggleLike(share._id)}
-                      onRemove={() => handleRemoveShare(share._id)}
+                      {...shareProps(share)}
+                      selected={share._id === selectedId}
+                      onSelect={() => {
+                        lastSelectedId.current = share._id;
+                        setSelectedId(share._id);
+                      }}
                     />
                   ))}
                 </ul>
@@ -452,6 +477,32 @@ export default function GroupFeedScreen() {
               )}
             </main>
           </div>
+
+      {/* Song detail */}
+      {isWide && selectedShare && (
+        <DetailPane label="Song details">
+          <ShareDetail
+            {...shareProps(selectedShare)}
+            onClose={() => {
+              setSelectedId(null);
+              focusRow(selectedShare._id);
+            }}
+          />
+        </DetailPane>
+      )}
+      <Sheet open={!isWide && !!selectedShare} onOpenChange={(open) => !open && setSelectedId(null)}>
+        <SheetContent
+          side="bottom"
+          aria-describedby={undefined}
+          className="max-h-[90dvh] gap-0 overflow-y-auto rounded-t-2xl border-line pb-[env(safe-area-inset-bottom)]"
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            focusRow(lastSelectedId.current);
+          }}
+        >
+          {shownShare && <ShareDetail {...shareProps(shownShare)} compact TitleTag={SheetTitle} />}
+        </SheetContent>
+      </Sheet>
 
       {/* Invite Dialog */}
       {groupId && (

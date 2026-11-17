@@ -68,4 +68,16 @@ describe('usePaneWidth', () => {
     localStorage.setItem('test-pane', 'junk');
     expect(renderHook(() => usePaneWidth(options)).result.current.width).toBe(248);
   });
+
+  it('grows leftwards for a pane whose gutter is on its left edge', () => {
+    const { result } = renderHook(() => usePaneWidth({ ...options, edge: 'left' }));
+    act(() => result.current.separatorProps.onPointerDown(pointer(300)));
+    act(() => result.current.separatorProps.onPointerMove(pointer(260)));
+    expect(result.current.width).toBe(288);
+    act(() => result.current.separatorProps.onPointerUp());
+    act(() => result.current.separatorProps.onKeyDown(key('ArrowLeft')));
+    expect(result.current.width).toBe(304);
+    act(() => result.current.separatorProps.onKeyDown(key('ArrowRight')));
+    expect(result.current.width).toBe(288);
+  });
 });

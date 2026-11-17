@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatAge, formatTime, formatTrackTime } from './formatTime';
+import { formatAge, formatSharedAt, formatTime, formatTrackTime } from './formatTime';
 
 describe('formatTrackTime', () => {
   it('formats as m:ss', () => {
@@ -62,5 +62,17 @@ describe('formatAge', () => {
 
   it('treats future times as now', () => {
     expect(formatAge(-60_000)).toBe('now');
+  });
+});
+
+describe('formatSharedAt', () => {
+  // Local times, so the test holds in any time zone. 2026-01-08 is a Thursday.
+  const now = new Date(2026, 0, 8, 12, 0);
+  it('says today, a weekday this week, or a date', () => {
+    expect(formatSharedAt(new Date(2026, 0, 8, 9, 5), now)).toBe('Today at 9:05am');
+    expect(formatSharedAt(new Date(2026, 0, 7, 23, 42), now)).toBe('Yesterday at 11:42pm');
+    expect(formatSharedAt(new Date(2026, 0, 3, 12, 0), now)).toBe('Saturday at 12:00pm');
+    expect(formatSharedAt(new Date(2026, 0, 1, 0, 30), now)).toBe('Jan 1 at 12:30am');
+    expect(formatSharedAt(new Date(2025, 11, 31, 18, 0), now)).toBe('Dec 31, 2025 at 6:00pm');
   });
 });
