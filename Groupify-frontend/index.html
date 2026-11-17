@@ -2,6 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Set the theme class before first paint (#60). next-themes only does
+         this itself with server rendering; in this client-only app the light
+         tokens would paint until React mounts. Mirrors the ThemeProvider in
+         App.tsx: key "groupify-theme", default "dark", "system" follows the
+         device. Keep the two in sync. -->
+    <script>
+      (function () {
+        var theme = "dark";
+        try {
+          theme = localStorage.getItem("groupify-theme") || "dark";
+        } catch (e) {
+          // Storage blocked (private mode, site data off): use the default.
+        }
+        if (theme === "system") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        if (theme !== "light") theme = "dark";
+        var root = document.documentElement;
+        root.classList.add(theme);
+        root.style.colorScheme = theme;
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- Favicon -->
