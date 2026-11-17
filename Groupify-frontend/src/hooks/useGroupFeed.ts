@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Share } from '../types';
+import { Like, Share } from '../types';
 import {
   getGroupFeed as apiGetGroupFeed,
   shareSong as apiShareSong,
@@ -135,7 +135,7 @@ export const useGroupFeed = (groupId: string) => {
       logger.debug('Socket songShared received:', incomingShare._id);
     };
 
-    const onSongLiked = (payload: { shareId: string; userId: string; likeCount: number; likes: string[] }) => {
+    const onSongLiked = (payload: { shareId: string; userId: string; likeCount: number; likes: Like[] }) => {
       setShares(prev =>
         prev.map(s =>
           s._id === payload.shareId
