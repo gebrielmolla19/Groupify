@@ -27,18 +27,20 @@ const unheard = [
   genres: [], listeners: [], listenCount: 0, likes: [], likeCount: 0, createdAt: ago(days), updatedAt: ago(days),
 }));
 
-export async function openSampleHome(page: Page, opts: { theme: 'light' | 'dark'; caughtUp?: boolean; noGroups?: boolean; unheardFails?: boolean }) {
+export async function openSampleHome(page: Page, opts: { theme: 'light' | 'dark'; caughtUp?: boolean; noGroups?: boolean; unheardFails?: number }) {
   const token = 'x.' + Buffer.from(JSON.stringify({ id: 'u1', exp: 4102444800 })).toString('base64url') + '.y';
   await page.addInitScript(([t, theme]) => {
     localStorage.setItem('groupify_token', t);
     localStorage.setItem('groupify-theme', theme);
     localStorage.setItem('groupify_tour_completed', 'true');
   }, [token, opts.theme]);
+  let failuresLeft = opts.unheardFails ?? 0;
   const shares = opts.caughtUp || opts.noGroups ? [] : unheard;
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname;
     let json: unknown = { success: true, groups: [], invites: [], notifications: [], devices: [] };
-    if (path.endsWith('/shares/unheard') && opts.unheardFails) {
+    if (path.endsWith('/shares/unheard') && failuresLeft > 0) {
+      failuresLeft -= 1;
       return route.fulfill({ status: 500, json: { success: false, message: 'Server error' } });
     } else if (path.endsWith('/shares/unheard')) {
       json = {

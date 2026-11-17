@@ -50,11 +50,17 @@ test('without groups it asks you to start one', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Create your first group' })).toBeVisible();
 });
 
-test('a failed load says so and can retry', async ({ page }) => {
-  await openSampleHome(page, { theme: 'dark', unheardFails: true });
-  await expect(page.getByRole('alert').filter({ hasText: "Couldn't load the tracks waiting for you." })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+test('a failed load says so, claims nothing, and can retry', async ({ page }) => {
+  await openSampleHome(page, { theme: 'dark', unheardFails: 1 });
+  const alert = page.getByRole('alert').filter({ hasText: "Couldn't load the tracks waiting for you." });
+  await expect(alert).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Welcome back');
   await expect(page.getByRole('heading', { name: 'Your groups' })).toBeVisible();
+
+  await alert.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('3 tracks are waiting for you');
+  await expect(alert).toHaveCount(0);
+  await expect(waiting(page).getByRole('listitem')).toHaveCount(3);
 });
 
 test('at 375px Home fits, with 44px controls', async ({ page }) => {

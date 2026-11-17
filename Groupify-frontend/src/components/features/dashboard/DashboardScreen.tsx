@@ -41,7 +41,8 @@ export default function DashboardScreen() {
   const waiting = unheard.data;
   const headlineLoading = isLoading || (unheard.isLoading && !waiting);
   // Say it, then show it: the headline is about what's waiting, unless there's nowhere for it to wait.
-  const headline = noGroups ? "Start a group" : waitingHeadline(waiting?.total ?? 0);
+  // Without the unheard data there's no count to claim, so stay neutral rather than say "caught up".
+  const headline = noGroups ? "Start a group" : waiting ? waitingHeadline(waiting.total) : "Welcome back";
   const summary = noGroups
     ? "Groups are where friends share tracks. Create one, or join with a code."
     : waiting
@@ -83,7 +84,6 @@ export default function DashboardScreen() {
           ) : (
             <>
               <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">{headline}</h1>
-              {/* An unheard-shares error leaves the headline at zero; the section below says what went wrong. */}
               {!unheard.error && <p className="mt-2 text-soft md:text-lg">{summary}</p>}
             </>
           )}
