@@ -19,6 +19,12 @@ can run any of them as a slash command:
 | `/groupify-review` | Independent review of a PR, posted as inline comments; run it in a fresh context |
 | `/groupify-playback` | Anything touching Spotify playback: doc links, invariants, checklist |
 
+The skills also name skills from the optional
+[mattpocock-skills](https://github.com/mattpocock/skills) plugin
+(`tdd`, `diagnosing-bugs`, `grilling`, `prototype`, `codebase-design`,
+`domain-modeling`, `research`) at the steps where they help. Each step
+still works without the plugin.
+
 Without Claude, you can run the checks directly:
 `bash .claude/skills/groupify-verify/scripts/verify.sh` (add `--all`, or
 a base ref for stacked branches).

@@ -13,6 +13,12 @@ for the real fix.
 - Write down the exact steps, the environment (device, browser, desktop
   or phone, in-browser player or Spotify app, Premium?) and expected vs
   actual behavior.
+- Aim for a **red** check: one command (a test, a `curl`, a Playwright
+  script) that fails on this bug and will pass once it's fixed. If
+  it's a test, it becomes the regression test in step 4; a `curl` or
+  script is a stand-in until that test exists. If nothing can be
+  automated (real Spotify audio, a phone), write the manual steps down
+  instead.
 - If you can't reproduce it, gather evidence (step 2) before guessing.
 - **If the bug has a visible symptom, capture the "before" now**, while
   it still happens: a screenshot or recording of the broken UI, or the
@@ -35,14 +41,22 @@ for the real fix.
 ## 3. Find the root cause
 - Trace the failing path through the code: route → controller → service
   → external API, or component → hook → `api.ts`.
-- **External API involved (Spotify)?** Check the official docs before
-  concluding anything about platform limits. See the `groupify-playback`
-  skill. A wrong assumption about the docs nearly sent this project down
-  a days-long detour.
+- **External API involved (Spotify)?** Check `research/spotify.md`,
+  then the official docs, before concluding anything about platform
+  limits. See the `groupify-playback` skill. A wrong assumption about
+  the docs nearly sent this project down a days-long detour.
 - Look for the usual suspects in this codebase: silent fallbacks to a
   different target, swallowed errors, state that isn't reset on failure,
   duplicate toasts, missing event handlers, races between polling and
   events.
+- **Cause still unclear after tracing the path once?** Stop reading
+  code and use the `diagnosing-bugs` skill (mattpocock-skills plugin)
+  to find the cause, through its "Instrument" phase. Then come back
+  here: the steps below still apply before anything is fixed. Without
+  the plugin: list three to five hypotheses, each with the result it
+  predicts, and test them one variable at a time against the red
+  check. Tag temporary logging `[DEBUG-xxxx]` so one `grep` finds it
+  all.
 - **Tell the user the root cause in plain language** before fixing it.
   If the fix changes product behavior (not only code), confirm it with
   them first.
@@ -54,6 +68,8 @@ for the real fix.
   (`*.test.ts(x)`).
 - The test must fail on the current code for the right reason. Run it
   and see it fail.
+- Test where the bug really happens: the service method or hook the
+  user's action goes through, not a helper underneath it.
 - If a test really isn't feasible (for example it needs real Spotify
   audio), write down the manual reproduction steps in the PR instead,
   and say why there's no test.
@@ -65,7 +81,9 @@ for the real fix.
   clear message and leave the UI in a correct state.
 
 ## 6. Verify and ship
-- The regression test passes. Run the `groupify-verify` skill.
+- The regression test passes and the step 1 check no longer fails. All
+  `[DEBUG-` logging and throwaway scripts are gone. Run the
+  `groupify-verify` skill.
 - Then the `groupify-pr` skill. The PR explains **root cause → fix →
   evidence it's fixed** (the regression test, plus a before/after in
   its Evidence section when the symptom was visible), and lists anything that needs the user (for

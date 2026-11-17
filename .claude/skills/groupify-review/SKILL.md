@@ -18,8 +18,14 @@ one, ask for it.
 gh pr view <n> --json title,body,baseRefName,headRefName,headRefOid,files
 gh pr diff <n>
 ```
-- Read `CONTRIBUTING.md` (§2 has the engineering rules). For anything
-  touching playback, also read `.claude/skills/groupify-playback/SKILL.md`.
+- Read `CONTRIBUTING.md` (§2 has the engineering rules) and
+  `CONTEXT.md` (the glossary). For anything touching playback, also read
+  `.claude/skills/groupify-playback/SKILL.md`.
+- Read the linked issue (`Fixes #N` or `Refs #N` in the PR body) with
+  `mcp__github__issue_read`. Its **"Done when"** line is what the change
+  was asked to do. No linked issue? That's fine for a typo-level fix
+  (`CONTRIBUTING.md` §1.1): judge it against the PR description. For
+  anything larger, a missing issue is a blocking finding.
 - Read enough of the surrounding code to judge the change: callers,
   types, tests. Read files from the PR's head commit
   (`git fetch origin <headRefName>` and
@@ -36,8 +42,14 @@ gh pr diff <n>
    fallback to another target, one toast per failure, no `any`, theme
    tokens, accessibility, layering) and the playback invariants.
 3. **Tests:** does a bug fix have a regression test? Is new logic
-   covered? Do the tests actually check the behavior?
-4. **The PR's own claims:** do the description and checklist match the
+   covered? Do the tests check behavior through the public interface,
+   with expected values that don't just repeat the code's own
+   calculation?
+4. **The issue:** does the diff do what the issue's "Done when" says?
+   Look for parts that are missing or only half done, and for changes
+   nobody asked for. New names in code and UI text use the terms in
+   `CONTEXT.md`.
+5. **The PR's own claims:** do the description and checklist match the
    diff? If the change is visible (UI, a flow, a bug a user hit), does
    the Evidence section show it: the right screen, before and after,
    phone width for UI? Missing evidence there, with no reason given, is
@@ -55,7 +67,11 @@ volume: three real findings are better than ten maybes.
 
 ## 3. Classify
 - `🔴 Blocking`: a bug, security problem, broken `CONTRIBUTING.md` rule,
-  missing regression test, or the PR claiming something it doesn't do
+  missing regression test, a part of the issue's "Done when" that isn't
+  met while the PR says `Fixes`, or the PR claiming something it
+  doesn't do
+- Unrequested changes are a `🟡 Suggestion` to split them into their own
+  issue, unless they add risk. Then they're blocking.
 - `🟡 Suggestion`: worth doing, but not a reason to hold the merge
 - If a finding is about behavior that **predates the PR**, say so
   ("existing behavior"). It belongs in its own issue, not this PR,
