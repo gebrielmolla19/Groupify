@@ -118,41 +118,6 @@ class ShareController {
   }
 
   /**
-   * Unmark a share as listened
-   */
-  static async unmarkAsListened(req, res, next) {
-    try {
-      const { shareId } = req.params;
-      const share = await ShareService.unmarkAsListened(shareId, req.userId);
-
-      // Emit socket event for real-time updates
-      if (req.app.get('io') && share.group) {
-        req.app.get('io').to(share.group._id.toString()).emit('songUnlistened', {
-          shareId: share._id,
-          userId: req.userId,
-          listenCount: share.listenCount
-        });
-      }
-
-      logger.info('[Share] Share unmarked as listened', {
-        userId: req.userId,
-        shareId,
-        trackName: share.trackName,
-        groupName: share.group?.name,
-        listenCount: share.listenCount
-      });
-
-      res.json({
-        success: true,
-        message: 'Unmarked as listened',
-        share
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
    * Toggle like on a share
    */
   static async toggleLike(req, res, next) {

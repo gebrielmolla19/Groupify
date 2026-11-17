@@ -666,26 +666,6 @@ export const markAsListened = async (shareId: string): Promise<Share> => {
 };
 
 /**
- * Unmark share as listened
- */
-export const unmarkAsListened = async (shareId: string): Promise<Share> => {
-  const response = await fetchWithAuth(`/shares/${shareId}/listen`, {
-    method: 'DELETE',
-  });
-
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.message || 'Failed to unmark as listened');
-  }
-
-  return {
-    ...data.share,
-    id: data.share._id
-  };
-};
-
-/**
  * Toggle like on a share
  */
 export const toggleLike = async (shareId: string): Promise<Share> => {

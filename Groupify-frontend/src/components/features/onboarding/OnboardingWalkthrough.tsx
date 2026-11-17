@@ -72,15 +72,15 @@ const STEPS: OnboardingStep[] = [
     highlight: '[data-tour="share-input"]',
   },
 
-  // ── Step 4: Mark as Listened ────────────────────────────────────────────────
+  // ── Step 4: Listens ─────────────────────────────────────────────────────────
   {
     icon: <ListMusic style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Songs Get Marked as Listened',
+    title: 'Listens Are Tracked Automatically',
     description:
-      "Listening is tracked automatically — just play a track and it's logged. Small avatar circles appear below each song card showing everyone who has listened.",
+      "Play most of a track and your listen is logged — there's nothing to tap. The headphones count on each song, and the avatar circles below it, show everyone who has listened.",
     hint: 'The faster you listen, the better your Listener Reflex score in analytics!',
     route: (groupId) => (groupId ? `/groups/${groupId}` : '/'),
-    highlight: '[data-tour="mark-listened"]',
+    highlight: '[data-tour="listeners"]',
   },
 
   // ── Step 5: Like ────────────────────────────────────────────────────────────
