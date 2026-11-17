@@ -50,6 +50,20 @@ describe('GET /api/v1/shares/unheard', () => {
     expect(res.body.byGroup).toEqual({ [a._id.toString()]: 1, [b._id.toString()]: 1 });
   });
 
+  it('populates listens and likes like the group feed', async () => {
+    const { user: me, token } = await createUserAndToken();
+    const { user: friend } = await createUserAndToken({ displayName: 'Friend' });
+    const { user: other } = await createUserAndToken({ displayName: 'Other' });
+    const group = await createGroup(me._id, { members: [me._id, friend._id, other._id] });
+    const s = await share(group._id, friend._id, { listeners: [other._id] });
+    await Share.updateOne({ _id: s._id }, { $push: { likes: { user: me._id, likedAt: new Date() } } });
+
+    const [unheard] = (await get(token)).body.shares;
+
+    expect(unheard.listeners[0].user).toMatchObject({ _id: other._id.toString(), displayName: 'Other' });
+    expect(unheard.likes[0].user).toMatchObject({ _id: me._id.toString() });
+  });
+
   it('reports the oldest unheard share date', async () => {
     const { user: me, token } = await createUserAndToken();
     const { user: friend } = await createUserAndToken();

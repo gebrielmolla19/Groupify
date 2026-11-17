@@ -147,6 +147,8 @@ class ShareService {
       Share.find(match)
         .populate('group', 'name')
         .populate('sharedBy', 'displayName profileImage spotifyId')
+        .populate('listeners.user', 'displayName profileImage spotifyId')
+        .populate('likes.user', 'displayName profileImage spotifyId')
         .sort({ createdAt: -1 })
         .limit(parseInt(limit, 10)),
       Share.aggregate([
