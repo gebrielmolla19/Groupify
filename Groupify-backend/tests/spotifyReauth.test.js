@@ -88,6 +88,22 @@ describe('Expired Spotify refresh token', () => {
     expect(res.body.code).toBe(SPOTIFY_REAUTH_REQUIRED);
   });
 
+  it('keeps new tokens from a sign-in that finished while Spotify was rejecting the old one', async () => {
+    SpotifyService.refreshAccessToken.mockImplementationOnce(async () => {
+      await User.updateOne({ _id: user._id }, { spotifyRefreshToken: 'new-refresh', spotifyAccessToken: 'new-access' });
+      throw createSpotifyReauthError();
+    });
+
+    const res = await request(app)
+      .get('/api/v1/player/devices')
+      .set('Authorization', `Bearer ${token}`);
+
+    expectReauthResponse(res);
+    const stored = await User.findById(user._id).lean();
+    expect(stored.spotifyRefreshToken).toBe('new-refresh');
+    expect(stored.spotifyAccessToken).toBe('new-access');
+  });
+
   it('keeps the stored tokens when the refresh fails for another reason', async () => {
     SpotifyService.refreshAccessToken.mockRejectedValueOnce(new Error('Failed to refresh access token: socket hang up'));
 

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks } from '../lib/api';
 import { toast } from 'sonner';
+import { isSpotifyReauthError } from '../lib/apiError';
 import { logger } from '../utils/logger';
 
 export const useSpotifySearch = () => {
@@ -23,7 +24,8 @@ export const useSpotifySearch = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to search tracks';
       setError(errorMessage);
-      toast.error(errorMessage);
+      // UserContext already told the user to sign in with Spotify again.
+      if (!isSpotifyReauthError(err)) toast.error(errorMessage);
       logger.error('Failed to search tracks:', err);
     } finally {
       setIsSearching(false);

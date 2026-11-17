@@ -62,7 +62,8 @@ const INITIAL_SNAPSHOT: PlayerSnapshot = {
 const notifiedErrors = new WeakSet<object>();
 
 export const wasPlaybackErrorNotified = (err: unknown): boolean =>
-  typeof err === 'object' && err !== null && notifiedErrors.has(err);
+  // An expired Spotify sign-in is shown once by UserContext, which signs the user out.
+  isSpotifyReauthError(err) || (typeof err === 'object' && err !== null && notifiedErrors.has(err));
 
 const isDeviceGoneError = (msg: string) =>
   msg.includes('404') || msg.includes('not found') || msg.includes('not ready');

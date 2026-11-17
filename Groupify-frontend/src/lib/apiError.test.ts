@@ -279,6 +279,7 @@ describe('fetchWithAuth when Spotify sign-in is required', () => {
     const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
 
     expect(isApiError(err) && err.status).toBe(401);
+    expect(isSpotifyReauthError(err)).toBe(true);
     expect(listener).toHaveBeenCalledTimes(1);
   });
 

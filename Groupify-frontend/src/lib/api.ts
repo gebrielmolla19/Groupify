@@ -77,7 +77,14 @@ const refreshJwtToken = async (): Promise<string | null> => {
 
   if (REFRESH_REFUSED_STATUSES.includes(response.status)) {
     const refusal: ErrorBody = await response.json().catch(() => ({}));
-    announceIfSpotifyReauth(refusal);
+    if (announceIfSpotifyReauth(refusal) === SPOTIFY_REAUTH_REQUIRED) {
+      // Surface the real reason, not the original "Token expired", so callers
+      // can tell the user has already been told.
+      throw new ApiError(refusal.message || 'Spotify sign-in required', {
+        status: response.status,
+        code: SPOTIFY_REAUTH_REQUIRED,
+      });
+    }
     return null;
   }
 
