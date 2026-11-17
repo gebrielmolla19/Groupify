@@ -15,5 +15,9 @@ owner could be locked out of updating it.
   transfers: Spotify can't move a playlist to another account.
 - If the playlist no longer exists on Spotify, the owner's next export
   creates a new one.
-- If the owner loses access to it, the export fails with an error and
-  the group stays tied to the old playlist.
+- If Spotify refuses the owner's changes to it (403), the owner's export
+  also creates a new one and the group points at that instead. The old
+  playlist is left as it is on Spotify; members who followed it need to
+  follow the new one. The group keeps the old playlist only if creating
+  the new one fails too. A member who isn't the playlist's owner never
+  triggers this.

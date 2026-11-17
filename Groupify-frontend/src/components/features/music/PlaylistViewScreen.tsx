@@ -136,6 +136,10 @@ export default function PlaylistViewScreen() {
         toast.info('Playlist opened in Spotify', {
           description: 'Only the playlist creator can update tracks via Groupify. You can add tracks directly in Spotify.'
         });
+      } else if (result.replacedPlaylist) {
+        toast.success('Created a new playlist', {
+          description: "Spotify wouldn't let Groupify update the old one. Members who followed it need to follow the new one.",
+        });
       } else if (result.isNewPlaylist) {
         // If we had a playlist before but got isNewPlaylist = true, it was recreated
         if (hadPlaylistBefore) {
