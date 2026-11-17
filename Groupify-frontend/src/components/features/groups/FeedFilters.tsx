@@ -6,8 +6,8 @@ const LABELS: Record<FeedFilter, string> = { all: "All", unheard: "Unheard", you
 /** What an empty filter says instead of showing a blank list. */
 export const EMPTY_FILTER_TEXT: Record<Exclude<FeedFilter, "all">, string> = {
   unheard: "You've heard everything. Nice.",
-  yours: "You haven't shared a song here yet.",
-  liked: "You haven't liked a song here yet.",
+  yours: "You haven't shared a track here yet.",
+  liked: "You haven't liked a track here yet.",
 };
 
 interface FeedFiltersProps {

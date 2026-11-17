@@ -48,8 +48,8 @@ export default function GroupFeedScreen() {
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   // Filters work on the shares already loaded, not the group's full history.
+  // The route remounts this screen per group, so each group starts on All.
   const [filter, setFilter] = useState<FeedFilter>('all');
-  useEffect(() => setFilter('all'), [groupId]);
   const filterCounts = useMemo(() => countShares(shares, user), [shares, user]);
   const visibleShares = useMemo(() => filterShares(shares, filter, user), [shares, filter, user]);
 

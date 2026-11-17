@@ -46,7 +46,7 @@ test('an empty filter says so instead of showing a blank list', async ({ page })
   await expect.poll(() => shown(page)).toEqual(['Sample Track 3']);
 
   await page.getByRole('button', { name: /^Unlike Sample Track 3/ }).click();
-  await expect(page.getByText("You haven't liked a song here yet.")).toBeVisible();
+  await expect(page.getByText("You haven't liked a track here yet.")).toBeVisible();
   await expect(page.getByRole('list', { name: 'Shares' })).toHaveCount(0);
   await expect(chip(page, 'Liked')).toHaveAccessibleName('Liked 0');
 });
@@ -62,4 +62,18 @@ test('at 375px the chips fit without page scroll, with 44px targets', async ({ p
     expect(box.height, name).toBeGreaterThanOrEqual(44);
     expect(box.width, name).toBeGreaterThanOrEqual(44);
   }
+});
+
+// Each group starts on All (the route remounts the feed per path, App.tsx).
+test('switching groups goes back to All', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openSampleFeed(page, { theme: 'dark', secondGroup: true });
+  await chip(page, 'Liked').click();
+  await expect(chip(page, 'Liked')).toHaveAttribute('aria-checked', 'true');
+
+  await page.getByText('Second Group').first().click();
+  await expect(page).toHaveURL(/\/groups\/g2$/);
+  await page.getByText('Sample Group').first().click();
+  await expect(page).toHaveURL(/\/groups\/g1$/);
+  await expect(chip(page, 'All')).toHaveAttribute('aria-checked', 'true');
 });

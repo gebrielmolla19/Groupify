@@ -6,6 +6,7 @@ const me = { _id: 'u1', spotifyId: 's1', displayName: 'Sample User', email: null
 const friend = { _id: 'u2', displayName: 'Test Friend', profileImage: null };
 const other = { _id: 'u4', displayName: 'Other Member', profileImage: null };
 const group = { _id: 'g1', name: 'Sample Group', description: '', createdBy: me, members: [me, friend, other], inviteCode: 'ABC123', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+const second = { ...group, _id: 'g2', name: 'Second Group', inviteCode: 'DEF456' };
 const at = '2026-01-01T00:00:00.000Z';
 const heard = (...users: object[]) => users.map((user) => ({ user, listenedAt: at }));
 // 1: shared by me, heard by one of two. 2: shared by a friend, unheard by me.
@@ -26,7 +27,7 @@ const share = (i: number) => {
   };
 };
 
-export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'; pendingInvite?: boolean }) {
+export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'; pendingInvite?: boolean; secondGroup?: boolean }) {
   const invites = opts.pendingInvite
     ? [{ _id: 'i1', group: 'g1', invitedBy: me, invitedUser: { _id: 'u3', displayName: 'Invited Person', profileImage: null }, status: 'pending', createdAt: '2026-01-01T00:00:00.000Z' }]
     : [];
@@ -50,7 +51,9 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       json = { success: true, share: s };
     } else if (path.includes('/shares/groups/g1')) json = { success: true, shares, total: shares.length, limit: 50, offset: 0 };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
-    else if (path.endsWith('/groups')) json = { success: true, groups: [group] };
+    else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
+    else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };
+    else if (path.endsWith('/groups/g2')) json = { success: true, group: second };
     else if (path.endsWith('/groups/g1')) json = { success: true, group };
     else if (path.endsWith('/groups/g1/invites')) json = { success: true, invites };
     return route.fulfill({ json });
