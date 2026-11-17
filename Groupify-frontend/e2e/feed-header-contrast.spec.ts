@@ -1,20 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openSampleFeed } from './support/sampleFeed';
+import { contrast } from './support/contrast';
 
 // #77: the feed header's icon buttons hard-coded white text, so their icons
 // vanished on the light theme. WCAG 1.4.11 asks for 3:1 for icons.
-function luminance([r, g, b]: number[]) {
-  const c = [r, g, b].map((v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-}
-function contrast(a: number[], b: number[]) {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-}
-
 for (const theme of ['light', 'dark'] as const) {
   test(`header icons reach 3:1 contrast on the ${theme} theme`, async ({ page }) => {
     await openSampleFeed(page, { theme });
