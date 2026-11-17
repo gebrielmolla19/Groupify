@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema({
   tokenExpiresAt: {
     type: Date
   },
+  // Space-separated scopes Spotify granted at the last sign-in. Missing for
+  // users who signed in before Groupify started storing it; TokenManager
+  // asks anyone without every scope in config/spotifyScopes to sign in again.
+  spotifyScopes: {
+    type: String
+  },
   groups: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'

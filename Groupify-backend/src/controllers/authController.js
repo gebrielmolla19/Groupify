@@ -6,6 +6,7 @@ const config = require('../config/env');
 const logger = require('../utils/logger');
 const TokenManager = require('../utils/tokenManager');
 const { createSpotifyReauthError } = require('../utils/spotifyReauth');
+const { SPOTIFY_SCOPES } = require('../config/spotifyScopes');
 
 // In-memory store for one-time auth codes (single-server dev use)
 const authCodes = new Map();
@@ -47,17 +48,7 @@ class AuthController {
         ip: req.ip
       });
 
-      const scopes = [
-        'user-read-email',
-        'user-read-private',
-        'user-read-recently-played',
-        'user-read-playback-state',
-        'user-read-currently-playing',
-        'user-modify-playback-state',
-        'playlist-modify-private',
-        'playlist-read-private',
-        'streaming'
-      ].join(' ');
+      const scopes = SPOTIFY_SCOPES.join(' ');
 
       // Pass app index in state so callback knows which credentials to use
       const state = `app:${appIndex}`;
@@ -162,6 +153,11 @@ class AuthController {
       const expiresAt = new Date();
       expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expiresIn);
 
+      // What Spotify granted. Spotify's token response lists the scopes; if it
+      // ever doesn't, assume the ones we asked for (sign-in grants all or
+      // none) rather than send the user round the sign-in loop forever.
+      const spotifyScopes = tokenData.scope || SPOTIFY_SCOPES.join(' ');
+
       // Create or update user
       let user = await User.findOne({ spotifyId: spotifyProfile.id });
       const isNewUser = !user;
@@ -170,6 +166,7 @@ class AuthController {
         user.spotifyAccessToken = tokenData.accessToken;
         user.spotifyRefreshToken = tokenData.refreshToken;
         user.tokenExpiresAt = expiresAt;
+        user.spotifyScopes = spotifyScopes;
         user.displayName = spotifyProfile.display_name || spotifyProfile.id;
         user.email = spotifyProfile.email || user.email;
         user.profileImage = spotifyProfile.images?.[0]?.url || user.profileImage;
@@ -185,6 +182,7 @@ class AuthController {
           spotifyAccessToken: tokenData.accessToken,
           spotifyRefreshToken: tokenData.refreshToken,
           tokenExpiresAt: expiresAt,
+          spotifyScopes,
           spotifyAppIndex: appIndex
         });
         await user.save();
@@ -235,6 +233,14 @@ class AuthController {
         });
         await user.save();
         logger.info('[Auth] E2E test user created', { userId: user._id?.toString() });
+      }
+
+      // The test user never goes through Spotify, so give it the full grant
+      // (also for test users created before scopes were stored).
+      const allScopes = SPOTIFY_SCOPES.join(' ');
+      if (user.spotifyScopes !== allScopes) {
+        user.spotifyScopes = allScopes;
+        await user.save();
       }
 
       const authCode = crypto.randomBytes(16).toString('hex');

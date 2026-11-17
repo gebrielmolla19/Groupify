@@ -2,7 +2,8 @@ const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const config = require('../config/env');
 const logger = require('./logger');
-const { createSpotifyReauthError, isSpotifyReauthError } = require('./spotifyReauth');
+const { createSpotifyReauthError, isSpotifyReauthError, SPOTIFY_NEW_SCOPES_MESSAGE } = require('./spotifyReauth');
+const { hasRequiredScopes } = require('../config/spotifyScopes');
 
 /**
  * Token Manager Utility
@@ -27,6 +28,13 @@ class TokenManager {
       // Spotify again until the user signs in again.
       if (!user.spotifyRefreshToken) {
         throw createSpotifyReauthError();
+      }
+
+      // Refreshing can't add scopes, so a user whose grant predates a scope
+      // Groupify now asks for has to sign in again to get it.
+      if (!hasRequiredScopes(user.spotifyScopes)) {
+        logger.info('[TokenManager] Stored Spotify grant is missing scopes; asking the user to sign in again', { userId });
+        throw createSpotifyReauthError(SPOTIFY_NEW_SCOPES_MESSAGE);
       }
 
       // Check if token is expired (with 5 minute buffer)
@@ -89,6 +97,9 @@ class TokenManager {
       user.spotifyAccessToken = tokenData.accessToken;
       if (tokenData.refreshToken) {
         user.spotifyRefreshToken = tokenData.refreshToken;
+      }
+      if (tokenData.scope) {
+        user.spotifyScopes = tokenData.scope;
       }
       user.tokenExpiresAt = expiresAt;
       await user.save();
