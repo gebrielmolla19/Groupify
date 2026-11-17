@@ -183,6 +183,30 @@ describe('Share Routes', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.share.listenCount).toBeGreaterThanOrEqual(1);
     });
+
+    // A listen comes from playback only and can't be undone by hand (#79).
+    it('has no way to unmark a listen', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id);
+      const share = await Share.create({
+        group: group._id,
+        sharedBy: user._id,
+        spotifyTrackId: 'track12345678901234567890',
+        trackName: 'Track',
+        artistName: 'Artist'
+      });
+      await request(app)
+        .post(`/api/v1/shares/${share._id}/listen`)
+        .set('Authorization', `Bearer ${token}`);
+
+      const res = await request(app)
+        .delete(`/api/v1/shares/${share._id}/listen`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.statusCode).toBe(404);
+      const stored = await Share.findById(share._id).lean();
+      expect(stored.listeners.map(l => String(l.user))).toContain(String(user._id));
+    });
   });
 
   describe('PUT /api/v1/shares/:shareId/like', () => {

@@ -44,9 +44,9 @@ sections describe an early version of the app; trust the code above.
 - **A "listen" is recorded by the frontend.** It watches the user's
   Spotify playback and calls the shares API when a shared track has been
   played. The backend cron in `src/utils/scheduler.js` that polls
-  "recently played" is switched off in `app.js`. The feed also still
-  has a manual "Mark as listened" button, which contradicts the
-  glossary's definition of a listen and is due for removal (#79).
+  "recently played" is switched off in `app.js`. The backend trusts the
+  frontend here: `POST /shares/:shareId/listen` doesn't check that the
+  track was played (#96).
 - **One Spotify app allows only 5 users in development mode**, so the
   backend supports several Spotify apps side by side
   (`SPOTIFY_CLIENT_ID_1`, `/login?app=1`, `User.spotifyAppIndex`). A

@@ -1,4 +1,4 @@
-import { ArrowLeft, Search, UserPlus, List, Play, Clock, CheckCircle2, Headphones, Music2, Plus, Loader2, Settings, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, List, Play, Headphones, Music2, Plus, Loader2, Settings, TrendingUp, Trash2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
@@ -35,7 +35,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, total, isLoading, error, markListened, unmarkListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -112,20 +112,6 @@ export default function GroupFeedScreen() {
     }
   };
 
-  const handleToggleListened = async (shareId: string) => {
-    try {
-      if (hasListened[shareId]) {
-        // Currently listened, so unmark it
-        await unmarkListened(shareId);
-      } else {
-        // Not listened, so mark it
-        await markListened(shareId);
-      }
-    } catch (err) {
-      // Error already handled in hook with toast
-      logger.error('Failed to toggle listened status:', err);
-    }
-  };
 
   const handleToggleLike = async (shareId: string) => {
     try {
@@ -480,26 +466,11 @@ export default function GroupFeedScreen() {
 
                           {/* Stats */}
                           <div className="flex items-center gap-2 md:gap-4 text-sm text-muted-foreground shrink-0">
-                            <div className="flex items-center gap-1" aria-label={`${share.listenCount} listeners`}>
+                            {/* Listens are recorded from playback only (CONTEXT.md, "Listen"); there is no manual control. */}
+                            <div className="flex items-center gap-1" aria-label={`${share.listenCount} listeners`} data-tour="listeners">
                               <Headphones className="w-4 h-4 text-white" aria-hidden="true" />
                               <span className="hidden sm:inline">{share.listenCount}</span>
                             </div>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className={`w-10 h-10 sm:w-8 sm:h-8 hover:bg-white/5 min-w-[44px] min-h-[44px] ${
-                                hasListened[share._id] ? 'text-primary' : 'text-white'
-                              }`}
-                              onClick={() => handleToggleListened(share._id)}
-                              aria-label={hasListened[share._id] ? 'Unmark as listened' : 'Mark as listened'}
-                              data-tour="mark-listened"
-                            >
-                              {hasListened[share._id] ? (
-                                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
-                              ) : (
-                                <Clock className="w-4 h-4" aria-hidden="true" />
-                              )}
-                            </Button>
                           </div>
 
                           {/* Like Button */}
