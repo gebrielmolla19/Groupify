@@ -29,6 +29,11 @@ test.describe('desktop', () => {
     await expect(pane.getByRole('button', { name: 'Like, 1 like' })).toHaveAttribute('aria-pressed', 'true');
     await expect(pane.getByRole('button', { name: /mark/i })).toHaveCount(0);
 
+    // The group name keeps its room: the header's button labels give way.
+    const name = page.getByRole('heading', { level: 1, name: 'Sample Group' });
+    expect(await name.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(page.getByRole('button', { name: 'View group playlist' }).getByText('View Playlist')).toBeHidden();
+
     // The pane sits beside the feed, not over it.
     const paneBox = (await pane.boundingBox())!;
     const feedBox = (await page.getByRole('list', { name: 'Shares' }).boundingBox())!;
@@ -101,9 +106,15 @@ test.describe('phone', () => {
   test('remove from the sheet asks first, above the sheet, then returns focus to the feed', async ({ page }) => {
     await details(page, 1).click();
     const sheet = page.getByRole('dialog', { name: 'Sample Track 1' });
+    await expect(sheet).toBeVisible();
+    // Measured now: the sheet leaves the accessibility tree under the confirm.
+    const sheetBox = (await sheet.boundingBox())!;
     await sheet.getByRole('button', { name: 'Remove from group' }).click();
     const confirm = page.getByRole('alertdialog', { name: 'Remove song from group?' });
     await expect(confirm).toBeVisible();
+    // Its scrim dims the sheet too.
+    const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.getAttribute('data-slot'), [sheetBox.x + 8, sheetBox.y + sheetBox.height - 8]);
+    expect(hit).toBe('alert-dialog-overlay');
     await confirm.getByRole('button', { name: 'Cancel' }).click();
     await expect(confirm).toHaveCount(0);
     await expect(sheet).toBeVisible();

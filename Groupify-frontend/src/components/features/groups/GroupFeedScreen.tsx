@@ -273,7 +273,9 @@ export default function GroupFeedScreen() {
     <>
       {/* Header - Full Width */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-4 md:px-6 py-3 md:py-4">
+        {/* The button labels follow the feed's width, not the window's, so
+            the group name keeps room when the detail pane is open. */}
+        <div className="@container px-4 md:px-6 py-3 md:py-4">
               <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4">
                 <Button
                   variant="ghost"
@@ -298,7 +300,7 @@ export default function GroupFeedScreen() {
                   data-tour="playlist-btn"
                 >
                   <List className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">View Playlist</span>
+                  <span className="hidden @3xl:block ml-2">View Playlist</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -308,7 +310,7 @@ export default function GroupFeedScreen() {
                   data-tour="analytics-btn"
                 >
                   <TrendingUp className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Analytics</span>
+                  <span className="hidden @3xl:block ml-2">Analytics</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -318,7 +320,7 @@ export default function GroupFeedScreen() {
                   data-tour="settings-btn"
                 >
                   <Settings className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Settings</span>
+                  <span className="hidden @3xl:block ml-2">Settings</span>
                 </Button>
                 <Button
                   className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 rounded-full min-h-[44px] px-2 sm:px-4"
@@ -327,7 +329,7 @@ export default function GroupFeedScreen() {
                   data-tour="invite-btn"
                 >
                   <UserPlus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Invite</span>
+                  <span className="hidden @3xl:block ml-2">Invite</span>
                 </Button>
               </div>
 

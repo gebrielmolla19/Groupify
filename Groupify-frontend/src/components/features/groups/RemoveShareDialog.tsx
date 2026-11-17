@@ -12,8 +12,8 @@ interface RemoveShareDialogProps {
 export default function RemoveShareDialog({ open, onOpenChange, trackName, onRemove }: RemoveShareDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      {/* Above the song sheet on phones, which it can open from. */}
-      <AlertDialogContent style={{ zIndex: SHEET_Z_INDEX + 1 }}>
+      {/* Above the song sheet on phones, which it can open from, scrim included. */}
+      <AlertDialogContent style={{ zIndex: SHEET_Z_INDEX + 1 }} overlayStyle={{ zIndex: SHEET_Z_INDEX + 1 }}>
         <AlertDialogHeader>
           <AlertDialogTitle>Remove song from group?</AlertDialogTitle>
           <AlertDialogDescription>
