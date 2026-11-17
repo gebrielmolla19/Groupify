@@ -194,7 +194,7 @@ class GroupService {
    * @param {string} groupId - Group ID to leave
    * @param {string} userId - User ID leaving the group
    * @returns {Promise<Object>} Success message
-   * @throws {Error} If user is not a member or is the creator
+   * @throws {Error} If user is not a member or is the owner
    */
   static async leaveGroup(groupId, userId) {
     const group = await Group.findOne({
