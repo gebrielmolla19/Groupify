@@ -215,9 +215,10 @@ class GroupService {
       throw error;
     }
 
-    // Prevent group creator from leaving
+    // The owner can't leave. Ownership never transfers (CONTEXT.md, "Owner"),
+    // so the owner's way out is deleting the group, which stays its own action.
     if (group.createdBy.toString() === userId.toString()) {
-      const error = new Error('Group creator cannot leave the group. Please transfer ownership or delete the group.');
+      const error = new Error("The group's owner can't leave it. To leave, delete the group instead.");
       error.statusCode = 403;
       throw error;
     }

@@ -167,6 +167,13 @@ describe('Group Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.statusCode).toBe(403);
+      // Ownership never transfers (CONTEXT.md, "Owner"); the owner's way out is deleting the group.
+      expect(res.body.message).toMatch(/delete the group/i);
+      expect(res.body.message).not.toMatch(/transfer|creator/i);
+      // A refused leave must not delete the group or remove the owner.
+      const stillThere = await Group.findById(group._id).lean();
+      expect(stillThere).not.toBeNull();
+      expect(stillThere.members.map(String)).toContain(String(user._id));
     });
 
     it('should return 401 when not authenticated', async () => {
