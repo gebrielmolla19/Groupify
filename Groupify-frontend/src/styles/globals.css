@@ -381,10 +381,13 @@ select:focus {
 /* Performance optimizations for mobile */
 @media (max-width: 768px) {
   /* Reduce animations on mobile for better performance.
-     Exempt the sign-in rings, whose 35s cycle is the whole effect. */
+     Exempt the sign-in rings, whose 35s cycle is the whole effect.
+     Only animation-duration is shortened: it has no effect on elements
+     without an animation. Overriding transition-duration here would turn
+     on a transition for every property of every element (transition-property
+     defaults to all), so Radix popovers would slide in from off-screen (#67). */
   *:not(.login-ring) {
     animation-duration: 0.3s !important;
-    transition-duration: 0.2s !important;
   }
 
   /* Optimize will-change for better scrolling */
