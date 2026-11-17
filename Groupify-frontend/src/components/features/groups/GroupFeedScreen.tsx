@@ -19,6 +19,10 @@ import { useGroupInvites } from "../../../hooks/useGroupInvites";
 import InviteFriendDialog from "./InviteFriendDialog";
 import InvitesList from "./InvitesList";
 import ShareRow from "./ShareRow";
+import ShareDetail from "./ShareDetail";
+import DetailPane from "../../layout/DetailPane";
+import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
+import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import FeedFilters, { EMPTY_FILTER_TEXT } from "./FeedFilters";
 import { countShares, filterShares, type FeedFilter } from "../../../lib/feedFilter";
 import { isUser } from "../../../lib/heardStack";
@@ -52,6 +56,21 @@ export default function GroupFeedScreen() {
   const [filter, setFilter] = useState<FeedFilter>('all');
   const filterCounts = useMemo(() => countShares(shares, user), [shares, user]);
   const visibleShares = useMemo(() => filterShares(shares, filter, user), [shares, filter, user]);
+
+  // The share open in the song detail: a pane beside the feed on wide
+  // screens, a bottom sheet otherwise. The last one stays shown while the
+  // sheet slides away, and focus goes back to its row (or, if it was
+  // removed, the first row). The pane needs 1280px so the feed keeps room
+  // with the rail and the pane both at their widest.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const lastShown = useRef<Share | null>(null);
+  const isWide = useMediaQuery('(min-width: 1280px)');
+  const selectedShare = shares.find(s => s._id === selectedId);
+  if (selectedShare) lastShown.current = selectedShare;
+  const shownShare = selectedShare ?? lastShown.current;
+  const focusRow = (shareId: string | undefined) =>
+    (document.querySelector<HTMLElement>(`[data-share-details="${shareId}"]`)
+      ?? document.querySelector<HTMLElement>('[data-share-details]'))?.focus();
 
   // Track which share is currently playing (map track URI to share ID)
   const playingShareRef = useRef<Map<string, string>>(new Map());
@@ -136,6 +155,20 @@ export default function GroupFeedScreen() {
       setIsRemoving(null);
     }
   };
+
+  // What the row and the song detail both need for a share.
+  const shareProps = (share: Share) => ({
+    share,
+    viewer: user,
+    members: group?.members ?? [],
+    canRemove: isUser(share.sharedBy, user) || (!!group && isUser(group.createdBy, user)),
+    isStarting: isPlaying === share._id,
+    playDisabled: !deviceId || isPlayerLoading,
+    isRemoving: isRemoving === share._id,
+    onPlay: () => handlePlayTrack(share),
+    onToggleLike: () => handleToggleLike(share._id),
+    onRemove: () => handleRemoveShare(share._id),
+  });
 
   const handlePlayTrack = async (share: Share) => {
     // Check if player is available
@@ -240,7 +273,9 @@ export default function GroupFeedScreen() {
     <>
       {/* Header - Full Width */}
       <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-4 md:px-6 py-3 md:py-4">
+        {/* The button labels follow the feed's width, not the window's, so
+            the group name keeps room when the detail pane is open. */}
+        <div className="@container px-4 md:px-6 py-3 md:py-4">
               <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4">
                 <Button
                   variant="ghost"
@@ -265,7 +300,7 @@ export default function GroupFeedScreen() {
                   data-tour="playlist-btn"
                 >
                   <List className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">View Playlist</span>
+                  <span className="hidden @3xl:block ml-2">View Playlist</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -275,7 +310,7 @@ export default function GroupFeedScreen() {
                   data-tour="analytics-btn"
                 >
                   <TrendingUp className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Analytics</span>
+                  <span className="hidden @3xl:block ml-2">Analytics</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -285,7 +320,7 @@ export default function GroupFeedScreen() {
                   data-tour="settings-btn"
                 >
                   <Settings className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Settings</span>
+                  <span className="hidden @3xl:block ml-2">Settings</span>
                 </Button>
                 <Button
                   className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 rounded-full min-h-[44px] px-2 sm:px-4"
@@ -294,7 +329,7 @@ export default function GroupFeedScreen() {
                   data-tour="invite-btn"
                 >
                   <UserPlus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Invite</span>
+                  <span className="hidden @3xl:block ml-2">Invite</span>
                 </Button>
               </div>
 
@@ -434,16 +469,9 @@ export default function GroupFeedScreen() {
                   {visibleShares.map((share) => (
                     <ShareRow
                       key={share._id}
-                      share={share}
-                      viewer={user}
-                      members={group?.members ?? []}
-                      canRemove={isUser(share.sharedBy, user) || (!!group && isUser(group.createdBy, user))}
-                      isStarting={isPlaying === share._id}
-                      playDisabled={!deviceId || isPlayerLoading}
-                      isRemoving={isRemoving === share._id}
-                      onPlay={() => handlePlayTrack(share)}
-                      onToggleLike={() => handleToggleLike(share._id)}
-                      onRemove={() => handleRemoveShare(share._id)}
+                      {...shareProps(share)}
+                      selected={share._id === selectedId}
+                      onSelect={() => setSelectedId(share._id)}
                     />
                   ))}
                 </ul>
@@ -465,6 +493,32 @@ export default function GroupFeedScreen() {
               )}
             </main>
           </div>
+
+      {/* Song detail */}
+      {isWide && selectedShare && (
+        <DetailPane key={selectedShare._id} label="Song details">
+          <ShareDetail
+            {...shareProps(selectedShare)}
+            onClose={() => {
+              setSelectedId(null);
+              focusRow(selectedShare._id);
+            }}
+          />
+        </DetailPane>
+      )}
+      <Sheet open={!isWide && !!selectedShare} onOpenChange={(open) => !open && setSelectedId(null)}>
+        <SheetContent
+          side="bottom"
+          aria-describedby={undefined}
+          className="max-h-[90dvh] gap-0 overflow-y-auto rounded-t-2xl border-line pb-[env(safe-area-inset-bottom)]"
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            focusRow(lastShown.current?._id);
+          }}
+        >
+          {shownShare && <ShareDetail {...shareProps(shownShare)} compact TitleTag={SheetTitle} />}
+        </SheetContent>
+      </Sheet>
 
       {/* Invite Dialog */}
       {groupId && (

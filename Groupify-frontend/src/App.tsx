@@ -1,4 +1,4 @@
-import { lazy, Suspense, type CSSProperties } from "react";
+import { lazy, Suspense, useState, type CSSProperties } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/react";
@@ -18,6 +18,7 @@ import SpotifyPlayerCard from "./components/features/music/SpotifyPlayerCard";
 import AppSidebar from "./components/layout/AppSidebar";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
+import { DetailPaneSlot } from "./components/layout/DetailPane";
 import { useGlobalPlaybackTracking } from "./hooks/useGlobalPlaybackTracking";
 import { useAutoPlayNext } from "./hooks/useAutoPlayNext";
 import { usePaneWidth } from "./hooks/usePaneWidth";
@@ -66,6 +67,7 @@ function AuthenticatedLayoutInner() {
   useAutoPlayNext();
 
   const rail = usePaneWidth({ storageKey: "groupify-rail-width", initial: 248, min: 72, max: 340 });
+  const [detailSlot, setDetailSlot] = useState<HTMLDivElement | null>(null);
 
   return (
     <SidebarProvider
@@ -82,6 +84,7 @@ function AuthenticatedLayoutInner() {
         <div className="min-w-0 flex-1 bg-pane [--background:var(--pane)] [--card:var(--raised)] md:overflow-y-auto md:rounded-2xl">
           {/* Phones: room for the tab bar and the mini player above it. */}
           <div className="w-full p-4 pb-[calc(var(--phone-bottom)+env(safe-area-inset-bottom))] md:p-6">
+            <DetailPaneSlot.Provider value={detailSlot}>
             <RouteErrorBoundary key={location.pathname}>
               <Suspense fallback={<LoadingFallback />}>
                 <Routes>
@@ -96,8 +99,11 @@ function AuthenticatedLayoutInner() {
                 </Routes>
               </Suspense>
             </RouteErrorBoundary>
+            </DetailPaneSlot.Provider>
           </div>
         </div>
+        {/* A screen's detail pane, when it has one, renders here (DetailPane). */}
+        <div ref={setDetailSlot} className="contents" />
       </div>
       <SpotifyPlayerCard />
       </div>

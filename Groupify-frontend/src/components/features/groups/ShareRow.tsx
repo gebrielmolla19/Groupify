@@ -4,11 +4,11 @@ import { Button } from "../../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../ui/alert-dialog";
 import { cn } from "../../../lib/utils";
 import { formatAge } from "../../../lib/formatTime";
 import { heardStack, isUser } from "../../../lib/heardStack";
 import type { Share, User } from "../../../types";
+import RemoveShareDialog from "./RemoveShareDialog";
 
 interface ShareRowProps {
   share: Share;
@@ -19,6 +19,9 @@ interface ShareRowProps {
   isStarting: boolean;
   playDisabled: boolean;
   isRemoving: boolean;
+  /** Whether this share is open in the song detail. */
+  selected: boolean;
+  onSelect: () => void;
   onPlay: () => void;
   onToggleLike: () => void;
   onRemove: () => void;
@@ -32,8 +35,9 @@ const initial = (user: User) => user.displayName?.charAt(0).toUpperCase() || "?"
  * shared it and when, the heard stack and a like. A dot and bold title mean
  * the viewer hasn't heard it yet. Other actions live in the three-dot menu.
  * Lays out by the feed's width (container query), so it follows the panes.
+ * Clicking the row body opens the share in the song detail.
  */
-export default function ShareRow({ share, viewer, members, canRemove, isStarting, playDisabled, isRemoving, onPlay, onToggleLike, onRemove }: ShareRowProps) {
+export default function ShareRow({ share, viewer, members, canRemove, isStarting, playDisabled, isRemoving, selected, onSelect, onPlay, onToggleLike, onRemove }: ShareRowProps) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const isMine = isUser(share.sharedBy, viewer);
   const unheard = !isMine && !share.listeners.some((l) => isUser(l.user, viewer));
@@ -48,7 +52,7 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
   const sharerName = <span className="min-w-[3ch] truncate">{isMine ? "You" : share.sharedBy.displayName}</span>;
 
   return (
-    <li className="group/row relative flex items-center gap-2 @2xl:gap-3 rounded-xl py-2 pl-4 pr-0 @2xl:pl-5 @2xl:pr-2 hover:bg-selected/60 transition-colors">
+    <li className={cn("group/row relative flex items-center gap-2 @2xl:gap-3 rounded-xl py-2 pl-4 pr-0 @2xl:pl-5 @2xl:pr-2 hover:bg-selected/60 transition-colors", selected && "bg-selected hover:bg-selected")}>
       {/* The dot sits in the row's left padding, keeping width for the title on phones. */}
       {unheard && <span aria-hidden="true" className="absolute left-1 @2xl:left-1.5 top-1/2 size-2 -translate-y-1/2 rounded-full bg-iris" data-testid="unheard-dot" />}
 
@@ -57,7 +61,7 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
         onClick={onPlay}
         disabled={playDisabled || isStarting}
         aria-label={`Play ${share.trackName}`}
-        className="group/play relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-selected outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
+        className="group/play relative z-10 grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-selected outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
       >
         {share.trackImage ? (
           <img src={share.trackImage} alt="" className="size-full object-cover" />
@@ -74,6 +78,17 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
           {isStarting ? <Loader2 className="size-5 animate-spin" /> : <Play className="size-5 fill-current" />}
         </span>
       </button>
+
+      {/* The row body opens the detail. It covers the row, under the play,
+          like and menu buttons, so they keep their own clicks. */}
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={`Show details for ${share.trackName}`}
+        aria-current={selected ? "true" : undefined}
+        data-share-details={share._id}
+        className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
 
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-foreground", unheard ? "font-bold" : "font-medium")}>
@@ -111,7 +126,7 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
 
       {/* Like and menu share one group with no gap, and the like count sits
           inside its button, so the row keeps room for the title at 375px. */}
-      <div className="flex shrink-0 items-center">
+      <div className="relative z-10 flex shrink-0 items-center">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -157,22 +172,7 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
         </DropdownMenu>
       </div>
 
-      <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove song from group?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove "{share.trackName}" from the group feed. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onRemove} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RemoveShareDialog open={confirmRemove} onOpenChange={setConfirmRemove} trackName={share.trackName} onRemove={onRemove} />
     </li>
   );
 }

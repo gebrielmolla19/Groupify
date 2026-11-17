@@ -48,12 +48,15 @@ AlertDialogOverlay.displayName = "AlertDialogOverlay";
 
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & {
+    /** For lifting the scrim too, e.g. above a sheet the dialog opens from. */
+    overlayStyle?: React.CSSProperties;
+  }
+>(({ className, overlayStyle, ...props }, ref) => {
   // Same surface and width rule as DialogContent: centred, at most 440px.
   return (
     <AlertDialogPortal>
-      <AlertDialogOverlay />
+      <AlertDialogOverlay style={overlayStyle} />
       <AlertDialogPrimitive.Content
         ref={ref}
         data-slot="alert-dialog-content"
