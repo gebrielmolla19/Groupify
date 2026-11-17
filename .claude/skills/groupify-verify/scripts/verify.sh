@@ -38,13 +38,25 @@ has_changes Groupify-frontend && RUN_FRONTEND=1
 
 echo "Base: $BASE"
 echo "Changed files: $(printf '%s\n' "$CHANGED" | grep -c . || true)"
-if [ "$RUN_BACKEND" = 0 ] && [ "$RUN_FRONTEND" = 0 ]; then
-  echo "No app code changed (use --all to check anyway)."
-  exit 0
-fi
 
 RESULTS=()
 FAILED=0
+
+# Secrets: every change, docs and config included (the repo is public).
+printf '▶ %-32s' "no secrets in added lines"
+SECRETS_OUT="$(bash "$(dirname "$0")/check-secrets.sh" "$BASE")"
+if [ $? -eq 0 ]; then
+  echo "pass"; RESULTS+=("PASS  no secrets in added lines")
+else
+  echo "FAIL"; FAILED=1; RESULTS+=("FAIL  no secrets in added lines")
+  printf '%s\n' "$SECRETS_OUT"
+fi
+
+if [ "$RUN_BACKEND" = 0 ] && [ "$RUN_FRONTEND" = 0 ]; then
+  echo "No app code changed (use --all to check anyway)."
+  [ "$FAILED" = 0 ] || exit 1
+  exit 0
+fi
 LOG_DIR="$(mktemp -d)"
 
 run_step() { # name dir command...

@@ -105,7 +105,9 @@ PR. A red CI blocks the merge.
   dependencies and backend internals the tests already cover. If it
   applies but you can't capture it, say why and list it under "Not
   verified". The repo is public, so nothing personal or secret goes in a
-  screenshot.
+  screenshot: no real names, avatars, emails, groups or shares, the
+  signed-in account's own included. Use sample data (see the
+  `groupify-pr` skill).
 - **List anything you could not verify** (for example "needs a Premium
   account on a phone") as an unchecked box. Never claim a test you didn't run.
 - Review your own diff before asking anyone else.
@@ -181,7 +183,10 @@ and `deletion`. An empty list (`[]`) means nothing is enforced.
 - Validate and normalize input at the controller (types, ranges,
   `parseInt(x, 10)`).
 - **Secrets never go in git.** Add every new env var to `.env.example`
-  with a comment, and to `src/config/env.js` validation.
+  with a placeholder value and a comment, and to `src/config/env.js`
+  validation. The verify script fails if an added line looks like a real
+  secret (`check-secrets.sh`). A secret that reached GitHub must be
+  rotated, even if the commit is removed: the repo is public.
 - Request the minimum Spotify OAuth scopes a feature needs.
 
 ### 2.4 Frontend

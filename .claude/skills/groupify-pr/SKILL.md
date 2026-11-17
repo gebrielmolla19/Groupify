@@ -120,9 +120,26 @@ the comment in the description's Evidence section.
   Change the method and path to the request you're testing. For an HTTP
   error instead of a network one, resolve with
   `new Response(JSON.stringify({ message: '…' }), { status: 500 })`.
-- **The repo is public.** Use test data only. No real emails, tokens,
-  Spotify account names or other personal data in a screenshot. Crop or
-  retake if any show up.
+- **The repo is public, and so is `pr-evidence`.** No real emails,
+  tokens, Spotify account names, avatars, group names, shares or other
+  personal data in a screenshot, and that includes the account you are
+  signed in with. The local app talks to the real (Atlas) database, so
+  don't screenshot it as it is:
+  - Answer the data requests the screen makes with **sample data** in the
+    page (override `window.fetch` with `javascript_tool`, or an
+    `initScript`), for example `GET /api/v1/shares/groups/:id` returning
+    shares by "Alex Sample". Say in the Evidence section that the list
+    is sample data.
+  - **Crop out the sidebar** (real group names) and the account avatar,
+    or stub `/groups` and `/auth/me` too.
+  - Don't write test data into the real database to get a screenshot.
+  - Look at every image before pushing it. If a real detail shows, crop
+    or retake. If one was already pushed, rewrite `pr-evidence` without
+    it (it is never merged, so a force-push there is fine), and fix the
+    PR description that linked it.
+- **A hidden browser pane doesn't run animations.** Toasts stay at
+  opacity 0 and never show in a screenshot. Ask the user to show the
+  pane before capturing anything animated.
 
 **How to attach**
 GitHub's API can't upload images to a PR body, so images go on the

@@ -55,6 +55,10 @@ gh pr diff <n>
    phone width for UI? Missing evidence there, with no reason given, is
    a blocking finding. Don't ask for evidence on docs, refactors, tests
    or internal changes.
+6. **Secrets and personal data:** the repo is public. A real secret in
+   any added line (env files, docs, tests, logs) is blocking. So is a
+   real person's name, avatar, email, group or share in a screenshot,
+   the author's own included; look at each image, not just its caption.
 
 If the `code-review` skill is available, you can also run it on the PR
 for a second pass, report-only (no `--comment` option). Its findings get

@@ -63,3 +63,22 @@ sections describe an early version of the app; trust the code above.
 - `Groupify-frontend/{dev-dist,playwright-report,test-results}` are
   generated output that happens to be committed. Leave them out of
   commits.
+
+## Secrets and personal data (the repo is public)
+
+Everything pushed is public, including old commits and the
+`pr-evidence` branch. A real Spotify secret and Atlas password were once
+committed in `.env.example` and had to be rotated.
+
+- **No real secrets in any file.** `.env.example` and docs hold
+  placeholders only (`your_...`). Real values live in the untracked
+  `.env`. The `groupify-verify` script checks added lines for secrets on
+  every change and fails if it finds one. If a real secret is ever
+  pushed, rotate it: deleting it from git doesn't help.
+- **No real people in screenshots.** That includes the signed-in
+  account's own name, avatar and email, other members, their groups and
+  shares. Answer the feed or other requests with sample data in the
+  browser and crop out the sidebar, as `groupify-pr` describes, and look
+  at every image before it is pushed.
+- **Never paste a secret into chat, a PR, an issue or a log.** Compare
+  values by hash when you need to check one.
