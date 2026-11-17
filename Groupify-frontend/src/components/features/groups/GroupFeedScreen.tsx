@@ -23,6 +23,8 @@ import ShareDetail from "./ShareDetail";
 import DetailPane from "../../layout/DetailPane";
 import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
+import FeedFilters, { EMPTY_FILTER_TEXT } from "./FeedFilters";
+import { countShares, filterShares, type FeedFilter } from "../../../lib/feedFilter";
 import { isUser } from "../../../lib/heardStack";
 import { logger } from "../../../utils/logger";
 
@@ -49,6 +51,11 @@ export default function GroupFeedScreen() {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  // Filters work on the shares already loaded, not the group's full history.
+  // The route remounts this screen per group, so each group starts on All.
+  const [filter, setFilter] = useState<FeedFilter>('all');
+  const filterCounts = useMemo(() => countShares(shares, user), [shares, user]);
+  const visibleShares = useMemo(() => filterShares(shares, filter, user), [shares, filter, user]);
 
   // The share open in the song detail: a pane beside the feed on wide
   // screens, a bottom sheet otherwise. The last one stays shown while the
@@ -450,8 +457,14 @@ export default function GroupFeedScreen() {
 
               {/* Feed Content */}
               {!isLoading && shares.length > 0 && (
+                <FeedFilters value={filter} counts={filterCounts} onChange={setFilter} />
+              )}
+              {!isLoading && filter !== 'all' && shares.length > 0 && visibleShares.length === 0 && (
+                <p className="max-w-4xl py-8 text-center text-sm md:text-base text-soft">{EMPTY_FILTER_TEXT[filter]}</p>
+              )}
+              {!isLoading && visibleShares.length > 0 && (
                 <ul aria-label="Shares" className="@container max-w-4xl space-y-1">
-                  {shares.map((share) => (
+                  {visibleShares.map((share) => (
                     <ShareRow
                       key={share._id}
                       {...shareProps(share)}
