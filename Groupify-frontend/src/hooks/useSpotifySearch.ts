@@ -10,7 +10,7 @@ export const useSpotifySearch = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = useCallback(async (query: string, limit: number = 20) => {
+  const search = useCallback(async (query: string, limit: number = 10) => {
     if (!query.trim()) {
       setResults([]);
       return;

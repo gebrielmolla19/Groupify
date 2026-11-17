@@ -148,3 +148,49 @@ describe('Playlist export after Spotify refuses an update (403)', () => {
     expect(stored.spotifyPlaylistId).toBe('old-playlist');
   });
 });
+
+// Since February 2026 Spotify's playlist object has `items.total` instead of
+// `tracks.total` (#87). Groupify's responses keep `tracks.total`.
+describe('Playlist item count from Spotify', () => {
+  let owner;
+  let member;
+  let memberToken;
+  let group;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    ({ user: owner } = await createUserAndToken({ spotifyId: 'owner-spotify' }));
+    ({ user: member, token: memberToken } = await createUserAndToken({ spotifyId: 'member-spotify' }));
+    group = await createGroup(owner._id, {
+      members: [owner._id, member._id],
+      spotifyPlaylistId: 'p1',
+      spotifyPlaylistOwnerId: owner._id,
+    });
+    await Share.create({ group: group._id, sharedBy: owner._id, spotifyTrackId: 't1', trackName: 'Song 1', artistName: 'Artist A' });
+  });
+
+  const playlistFromSpotify = { id: 'p1', name: 'Sample Group', external_urls: {}, items: { total: 7 } };
+
+  it('reads items.total when a member follows the playlist', async () => {
+    SpotifyService.followPlaylist.mockResolvedValueOnce();
+    axios.get.mockResolvedValueOnce({ data: playlistFromSpotify });
+
+    const res = await request(app)
+      .post(`/api/v1/spotify/groups/${group._id}/follow-playlist`)
+      .set('Authorization', `Bearer ${memberToken}`);
+
+    expect(res.statusCode).toBe(200);
+    expect(SpotifyService.followPlaylist).toHaveBeenCalledWith(expect.any(String), 'p1');
+    expect(res.body.playlist.tracks.total).toBe(7);
+  });
+
+  it('reads items.total when a member who does not own the playlist exports it', async () => {
+    axios.get.mockResolvedValueOnce({ data: playlistFromSpotify });
+
+    const res = await exportPlaylist(group._id, memberToken);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.canModify).toBe(false);
+    expect(res.body.playlist.tracks.total).toBe(7);
+  });
+});
