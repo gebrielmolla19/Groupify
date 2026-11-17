@@ -52,14 +52,18 @@ export default function GroupFeedScreen() {
 
   // The share open in the song detail: a pane beside the feed on wide
   // screens, a bottom sheet otherwise. The last one stays shown while the
-  // sheet slides away, and focus goes back to its row.
+  // sheet slides away, and focus goes back to its row (or, if it was
+  // removed, the first row). The pane needs 1280px so the feed keeps room
+  // with the rail and the pane both at their widest.
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const lastSelectedId = useRef<string | null>(null);
-  const isWide = useMediaQuery('(min-width: 1024px)');
+  const lastShown = useRef<Share | null>(null);
+  const isWide = useMediaQuery('(min-width: 1280px)');
   const selectedShare = shares.find(s => s._id === selectedId);
-  const shownShare = selectedShare ?? shares.find(s => s._id === lastSelectedId.current);
-  const focusRow = (shareId: string | null) =>
-    document.querySelector<HTMLElement>(`[data-share-details="${shareId}"]`)?.focus();
+  if (selectedShare) lastShown.current = selectedShare;
+  const shownShare = selectedShare ?? lastShown.current;
+  const focusRow = (shareId: string | undefined) =>
+    (document.querySelector<HTMLElement>(`[data-share-details="${shareId}"]`)
+      ?? document.querySelector<HTMLElement>('[data-share-details]'))?.focus();
 
   // Track which share is currently playing (map track URI to share ID)
   const playingShareRef = useRef<Map<string, string>>(new Map());
@@ -452,10 +456,7 @@ export default function GroupFeedScreen() {
                       key={share._id}
                       {...shareProps(share)}
                       selected={share._id === selectedId}
-                      onSelect={() => {
-                        lastSelectedId.current = share._id;
-                        setSelectedId(share._id);
-                      }}
+                      onSelect={() => setSelectedId(share._id)}
                     />
                   ))}
                 </ul>
@@ -480,7 +481,7 @@ export default function GroupFeedScreen() {
 
       {/* Song detail */}
       {isWide && selectedShare && (
-        <DetailPane label="Song details">
+        <DetailPane key={selectedShare._id} label="Song details">
           <ShareDetail
             {...shareProps(selectedShare)}
             onClose={() => {
@@ -497,7 +498,7 @@ export default function GroupFeedScreen() {
           className="max-h-[90dvh] gap-0 overflow-y-auto rounded-t-2xl border-line pb-[env(safe-area-inset-bottom)]"
           onCloseAutoFocus={(e) => {
             e.preventDefault();
-            focusRow(lastSelectedId.current);
+            focusRow(lastShown.current?._id);
           }}
         >
           {shownShare && <ShareDetail {...shareProps(shownShare)} compact TitleTag={SheetTitle} />}

@@ -44,6 +44,7 @@ test.describe('desktop', () => {
     await page.keyboard.press('Enter');
     const pane = page.getByRole('complementary', { name: 'Song details' });
     await expect(pane.getByRole('heading', { name: 'Sample Track 2' })).toBeVisible();
+    await expect(pane).toBeFocused();
     await expect(pane).toContainText('Shared by Test Friend');
     await expect(pane.getByRole('heading', { name: '1 of 2 have heard it' })).toBeVisible();
     await expect(pane.getByRole('listitem').filter({ hasText: 'You' })).toContainText('Not yet');
@@ -97,7 +98,7 @@ test.describe('phone', () => {
     await expect(details(page, 1)).toBeFocused();
   });
 
-  test('remove from the sheet asks first, above the sheet', async ({ page }) => {
+  test('remove from the sheet asks first, above the sheet, then returns focus to the feed', async ({ page }) => {
     await details(page, 1).click();
     const sheet = page.getByRole('dialog', { name: 'Sample Track 1' });
     await sheet.getByRole('button', { name: 'Remove from group' }).click();
@@ -106,5 +107,19 @@ test.describe('phone', () => {
     await confirm.getByRole('button', { name: 'Cancel' }).click();
     await expect(confirm).toHaveCount(0);
     await expect(sheet).toBeVisible();
+
+    // Removing it closes the sheet, and focus lands on a row that's left.
+    await sheet.getByRole('button', { name: 'Remove from group' }).click();
+    await confirm.getByRole('button', { name: 'Remove' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(row(page, 1)).toHaveCount(0);
+    await expect(details(page, 2)).toBeFocused();
+  });
+
+  test('between phone and 1280px the detail is a sheet too', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await details(page, 3).click();
+    await expect(page.getByRole('dialog', { name: 'Sample Track 3' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Song details' })).toHaveCount(0);
   });
 });
