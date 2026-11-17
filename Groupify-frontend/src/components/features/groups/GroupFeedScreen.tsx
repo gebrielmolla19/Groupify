@@ -10,7 +10,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Share, SpotifyTrack } from "../../../types";
 import { toast } from "sonner";
 import { useGroupFeed } from "../../../hooks/useGroupFeed";
-import { DESKTOP_PLAYER_HEIGHT } from "../../../lib/layout";
 import { useSpotifySearch } from "../../../hooks/useSpotifySearch";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { useUser } from "../../../contexts/UserContext";
@@ -373,6 +372,22 @@ export default function GroupFeedScreen() {
           <div className="relative min-h-screen overflow-visible">
             {/* Feed Content */}
             <main className="flex-1 min-w-0 p-4 md:p-6">
+              {/* Pending invites sit in the feed, above the songs, so they
+                  follow the pane layout instead of covering the header (#75).
+                  Only shown when there is something pending. */}
+              {groupId && invites.some(invite => invite.status === 'pending') && (
+                <section aria-labelledby="group-invites-heading" className="mb-4 md:mb-6">
+                  <h2 id="group-invites-heading" className="text-lg font-semibold mb-3">Group Invites</h2>
+                  <InvitesList
+                    groupId={groupId}
+                    invites={invites}
+                    onAcceptInvite={acceptInvite}
+                    onDeclineInvite={declineInvite}
+                    isLoading={isLoadingInvites}
+                  />
+                </section>
+              )}
+
               {/* Error State */}
               {error && (
                 <Card className="border-destructive mb-4 md:mb-6">
@@ -644,24 +659,6 @@ export default function GroupFeedScreen() {
           onSendInvite={sendInvite}
           isSubmitting={isLoadingInvites}
         />
-      )}
-
-      {/* Pending-invites side panel — only render when there's actually
-          something to show. Otherwise it permanently occupies 320px of
-          right-side screen real estate just to display "No pending invites". */}
-      {groupId && invites.some(invite => invite.status === 'pending') && (
-        <div className="hidden lg:block fixed right-0 top-0 w-80 border-l border-border bg-card overflow-y-auto z-20" style={{ marginTop: '73px', bottom: DESKTOP_PLAYER_HEIGHT }}>
-          <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">Group Invites</h2>
-            <InvitesList
-              groupId={groupId}
-              invites={invites}
-              onAcceptInvite={acceptInvite}
-              onDeclineInvite={declineInvite}
-              isLoading={isLoadingInvites}
-            />
-          </div>
-        </div>
       )}
     </>
   );
