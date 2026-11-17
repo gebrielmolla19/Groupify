@@ -376,7 +376,7 @@ export default function GroupFeedScreen() {
                   follow the pane layout instead of covering the header (#75).
                   Only shown when there is something pending. */}
               {groupId && invites.some(invite => invite.status === 'pending') && (
-                <section aria-labelledby="group-invites-heading" className="mb-4 md:mb-6">
+                <section aria-labelledby="group-invites-heading" className="max-w-4xl mb-4 md:mb-6">
                   <h2 id="group-invites-heading" className="text-lg font-semibold mb-3">Group Invites</h2>
                   <InvitesList
                     groupId={groupId}
