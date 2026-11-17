@@ -194,7 +194,7 @@ class GroupService {
    * @param {string} groupId - Group ID to leave
    * @param {string} userId - User ID leaving the group
    * @returns {Promise<Object>} Success message
-   * @throws {Error} If user is not a member or is the creator
+   * @throws {Error} If user is not a member or is the owner
    */
   static async leaveGroup(groupId, userId) {
     const group = await Group.findOne({
@@ -215,9 +215,10 @@ class GroupService {
       throw error;
     }
 
-    // Prevent group creator from leaving
+    // The owner can't leave. Ownership never transfers (CONTEXT.md, "Owner"),
+    // so the owner's way out is deleting the group, which stays its own action.
     if (group.createdBy.toString() === userId.toString()) {
-      const error = new Error('Group creator cannot leave the group. Please transfer ownership or delete the group.');
+      const error = new Error("The group's owner can't leave it. To leave, delete the group instead.");
       error.statusCode = 403;
       throw error;
     }
