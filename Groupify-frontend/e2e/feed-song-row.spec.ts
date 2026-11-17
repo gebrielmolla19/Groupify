@@ -55,6 +55,10 @@ test('at 375px the row fits, with 44px controls', async ({ page }) => {
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   for (const n of [1, 2, 3]) {
+    // The heard count is never cut off; the sharer's name gives way instead.
+    const count = row(page, n).locator('p [data-tour="listeners"]');
+    const fits = await count.evaluate((el) => el.getBoundingClientRect().right <= el.closest('p')!.getBoundingClientRect().right + 0.5);
+    expect(fits, `heard count on row ${n}`).toBe(true);
     for (const name of [/^(Like|Unlike) Sample Track/, /More actions/, /^Play /]) {
       const box = (await row(page, n).getByRole('button', { name }).boundingBox())!;
       expect(box.width, `${name} on row ${n}`).toBeGreaterThanOrEqual(44);

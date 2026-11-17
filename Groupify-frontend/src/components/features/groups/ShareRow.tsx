@@ -44,8 +44,8 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
     ? `${stack.heard} heard`
     : `${stack.heard} of ${stack.total} members heard it`;
   const age = formatAge(Date.now() - new Date(share.createdAt).getTime());
-  // The name keeps up to half the line, so "You" or a short name always shows.
-  const sharerName = <span className="max-w-[50%] shrink-0 truncate">{isMine ? "You" : share.sharedBy.displayName}</span>;
+  // The name gives way first, so the heard count always shows.
+  const sharerName = <span className="min-w-[3ch] truncate">{isMine ? "You" : share.sharedBy.displayName}</span>;
 
   return (
     <li className="group/row relative flex items-center gap-2 @2xl:gap-3 rounded-xl py-2 pl-4 pr-0 @2xl:pl-5 @2xl:pr-2 hover:bg-selected/60 transition-colors">
@@ -81,9 +81,10 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
           {unheard && <span className="sr-only"> (not heard yet)</span>}
         </p>
         <p className="truncate text-sm text-soft">{share.artistName}</p>
-        <p className={cn("@2xl:hidden flex gap-1 whitespace-nowrap font-mono text-xs", isMine ? "text-iris" : "text-quiet")}>
+        <p className={cn("@2xl:hidden flex gap-1 whitespace-nowrap font-mono text-[11px]", isMine ? "text-iris" : "text-quiet")}>
           {sharerName}
-          <span className="min-w-0 truncate">· {age} · <span data-tour="listeners">{heardText} heard</span></span>
+          {/* At phone width there's room for the name or the age, not both; the age waits for a wider feed. */}
+          <span className="shrink-0"><span className="hidden @md:inline">· {age} </span>· <span data-tour="listeners">{heardText} heard</span></span>
         </p>
       </div>
 

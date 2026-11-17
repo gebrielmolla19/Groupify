@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { heardStack, isUser } from './heardStack';
+import { heardStack, isUser, withListen } from './heardStack';
 import type { Share, User } from '../types';
 
 const u = (id: string) => ({ _id: id, id, displayName: id.toUpperCase() }) as User;
@@ -33,5 +33,18 @@ describe('heardStack', () => {
     expect(stack.total).toBeNull();
     expect(stack.heard).toBe(2);
     expect(stack.members.every((m) => m.heard)).toBe(true);
+  });
+});
+
+describe('withListen', () => {
+  it('adds the listener so the heard stack updates live', () => {
+    const next = withListen(share(me, [a]), 'b', 2, '2026-01-02T00:00:00.000Z');
+    expect(next.listenCount).toBe(2);
+    expect(heardStack(next, [me, a, b]).heard).toBe(2);
+  });
+
+  it('does not add the same listener twice', () => {
+    const next = withListen(share(me, [a]), 'a', 1, '2026-01-02T00:00:00.000Z');
+    expect(next.listeners).toHaveLength(1);
   });
 });
