@@ -36,9 +36,15 @@ export default function AppSidebar({ rail }: AppSidebarProps) {
     }
   };
 
+  const handleCreate = async (data: { name: string; description?: string }) => {
+    const created = await createGroup(data);
+    navigate(`/groups/${created._id}`);
+    return created;
+  };
+
   const dialogs = (
     <>
-      <CreateGroupDialog open={dialog === "create"} onOpenChange={(open) => setDialog(open ? "create" : null)} onCreateGroup={createGroup} />
+      <CreateGroupDialog open={dialog === "create"} onOpenChange={(open) => setDialog(open ? "create" : null)} onCreateGroup={handleCreate} />
       <JoinGroupDialog open={dialog === "join"} onOpenChange={(open) => setDialog(open ? "join" : null)} onJoinGroup={handleJoin} isSubmitting={isJoining} />
     </>
   );
