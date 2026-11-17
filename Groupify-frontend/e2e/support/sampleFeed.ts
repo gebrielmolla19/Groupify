@@ -1,10 +1,10 @@
 // Signed-in group feed with sample data and no backend: every /api/v1 call
 // is answered here. Shared by the feed e2e specs.
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 const me = { _id: 'u1', spotifyId: 's1', displayName: 'Sample User', email: null, profileImage: null, groups: ['g1'], isActive: true };
 const friend = { _id: 'u2', displayName: 'Test Friend', profileImage: null };
-const group = { _id: 'g1', name: 'Sample Group', description: '', createdBy: me, members: [me, friend], inviteCode: 'ABC123', createdAt: '2026-01-01T00:00:00.000Z' };
+const group = { _id: 'g1', name: 'Sample Group', description: '', createdBy: me, members: [me, friend], inviteCode: 'ABC123', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
 const share = (i: number) => ({
   _id: `sh${i}`, group: 'g1', sharedBy: i % 2 ? me : friend, spotifyTrackId: `t${i}`,
   trackName: `Sample Track ${i}`, artistName: 'Sample Artist', albumName: 'Sample Album',
@@ -21,6 +21,8 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
   await page.addInitScript(([t, theme]) => {
     localStorage.setItem('groupify_token', t);
     localStorage.setItem('groupify-theme', theme);
+    // The first-run tour navigates to the dashboard; skip it.
+    localStorage.setItem('groupify_tour_completed', 'true');
   }, [token, opts.theme]);
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -32,6 +34,10 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
     else if (path.endsWith('/groups/g1/invites')) json = { success: true, invites };
     return route.fulfill({ json });
   });
-  await page.goto('/groups/g1');
-  await page.getByRole('heading', { name: 'Sample Group' }).waitFor();
+  // Sign-in can settle on the dashboard first; go to the feed until it sticks.
+  const search = page.getByPlaceholder(/Search and add a track/);
+  await expect(async () => {
+    if (new URL(page.url()).pathname !== '/groups/g1') await page.goto('/groups/g1');
+    await expect(search).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 20000 });
 }
