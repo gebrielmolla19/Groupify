@@ -5,7 +5,7 @@
 
 import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
-import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences } from '../types';
+import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
 import { TasteGravityResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
 
@@ -640,6 +640,25 @@ export const getGroupFeed = async (
     total: data.total,
     limit: data.limit,
     offset: data.offset
+  };
+};
+
+/**
+ * Unheard shares across the signed-in user's groups, newest first
+ */
+export const getUnheardShares = async (limit: number = 20): Promise<UnheardShares> => {
+  const response = await fetchWithAuth(`/shares/unheard?limit=${limit}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch unheard shares');
+  }
+
+  return {
+    shares: data.shares.map((share: UnheardShares['shares'][number]) => ({ ...share, id: share._id })),
+    total: data.total,
+    byGroup: data.byGroup,
+    oldestAt: data.oldestAt,
   };
 };
 

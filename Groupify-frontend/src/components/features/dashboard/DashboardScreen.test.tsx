@@ -8,6 +8,9 @@ const createGroup = vi.fn();
 vi.mock('../../../hooks/useGroups', () => ({
   useGroups: () => ({ groups: [], isLoading: false, error: null, createGroup, joinGroupByCode: vi.fn() }),
 }));
+vi.mock('../../../hooks/useUnheardShares', () => ({
+  useUnheardShares: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
+}));
 // The notifications menu fetches on mount; it isn't part of this flow.
 vi.mock('../notifications/NotificationsDropdown', () => ({ default: () => null }));
 

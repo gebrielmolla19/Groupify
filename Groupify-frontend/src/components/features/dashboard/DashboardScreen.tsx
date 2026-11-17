@@ -1,39 +1,25 @@
 import { useState } from "react";
-import { Plus, Users, UserPlus, Copy, Check } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
 import NotificationsDropdown from "../notifications/NotificationsDropdown";
-import GroupCover from "../groups/GroupCover";
-import { Group } from "../../../types";
+import WaitingList from "./WaitingList";
+import HomeGroupCard from "./HomeGroupCard";
 import { useGroups } from "../../../hooks/useGroups";
-import { formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
+import { useUnheardShares } from "../../../hooks/useUnheardShares";
+import { waitingHeadline, waitingSummary } from "../../../lib/waiting";
 import { useNavigate } from "react-router-dom";
-import { logger } from "../../../utils/logger";
 
 export default function DashboardScreen() {
   const navigate = useNavigate();
   const { groups, isLoading, error, createGroup, joinGroupByCode } = useGroups();
+  const unheard = useUnheardShares();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [revealedCodes, setRevealedCodes] = useState<Set<string>>(new Set());
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  const handleNavigateToGroup = (group: Group) => {
-    navigate(`/groups/${group._id}`);
-  };
-
-  const handleOpenCreateDialog = () => {
-    setIsCreateDialogOpen(true);
-  };
-
-  const handleOpenJoinDialog = () => {
-    setIsJoinDialogOpen(true);
-  };
 
   const handleCreateGroup = async (data: { name: string; description?: string }) => {
     const created = await createGroup(data);
@@ -45,224 +31,159 @@ export default function DashboardScreen() {
     try {
       setIsJoining(true);
       const joinedGroup = await joinGroupByCode(inviteCode);
-      // Navigate to group feed with the joined group
       navigate(`/groups/${joinedGroup._id}`);
     } finally {
       setIsJoining(false);
     }
   };
 
-  const handleRevealAndCopyInviteCode = async (inviteCode: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click from firing
-
-    // Reveal the code
-    setRevealedCodes(prev => new Set(prev).add(inviteCode));
-
-    // Copy to clipboard
-    try {
-      await navigator.clipboard.writeText(inviteCode);
-      setCopiedCode(inviteCode);
-      logger.info('Invite code copied:', { inviteCode });
-      toast.success('Invite code copied to clipboard!');
-
-      // Reset copied state after 2 seconds
-      setTimeout(() => {
-        setCopiedCode(null);
-      }, 2000);
-    } catch (err) {
-      logger.error('Failed to copy invite code:', err);
-      toast.error('Failed to copy invite code');
-    }
-  };
+  const noGroups = !isLoading && groups.length === 0 && !error;
+  const waiting = unheard.data;
+  const headlineLoading = isLoading || (unheard.isLoading && !waiting);
+  // Say it, then show it: the headline is about what's waiting, unless there's nowhere for it to wait.
+  const headline = noGroups ? "Start a group" : waitingHeadline(waiting?.total ?? 0);
+  const summary = noGroups
+    ? "Groups are where friends share tracks. Create one, or join with a code."
+    : waiting
+      ? waitingSummary({ total: waiting.total, groupCount: Object.keys(waiting.byGroup).length, oldestAt: waiting.oldestAt })
+      : "";
 
   return (
     <>
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
-        <div className="flex items-center gap-2 md:gap-4 px-4 md:px-6 py-3 md:py-4">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-base md:text-lg truncate">My Groups</h1>
-                <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
-                  Manage and explore your music sharing groups
-                </p>
+      <main className="mx-auto w-full max-w-5xl space-y-8 px-4 py-6 md:space-y-10 md:px-8 md:py-10">
+        <header>
+          <div className="flex items-center gap-3">
+            <p className="flex-1 font-mono text-xs uppercase tracking-[0.2em] text-quiet">Home</p>
+            <NotificationsDropdown />
+            <Button
+              variant="outline"
+              className="min-h-11 shrink-0 px-2 sm:px-4"
+              aria-label="Join a group"
+              onClick={() => setIsJoinDialogOpen(true)}
+              data-tour="join-group"
+            >
+              <UserPlus className="size-4" aria-hidden="true" />
+              <span className="ml-2 hidden lg:block">Join Group</span>
+            </Button>
+            <Button
+              className="min-h-11 shrink-0 px-2 sm:px-4"
+              aria-label="Create new group"
+              onClick={() => setIsCreateDialogOpen(true)}
+              data-tour="create-group"
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              <span className="ml-2 hidden lg:block">Create New Group</span>
+            </Button>
+          </div>
+          {headlineLoading ? (
+            <>
+              <Skeleton className="mt-3 h-9 w-3/4 md:h-12" />
+              <Skeleton className="mt-3 h-4 w-1/2" />
+            </>
+          ) : (
+            <>
+              <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">{headline}</h1>
+              {/* An unheard-shares error leaves the headline at zero; the section below says what went wrong. */}
+              {!unheard.error && <p className="mt-2 text-soft md:text-lg">{summary}</p>}
+            </>
+          )}
+        </header>
+
+        {/* Waiting for you */}
+        {unheard.error && !noGroups && (
+          <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm text-soft">
+            <span className="flex-1">Couldn't load the tracks waiting for you.</span>
+            <Button variant="outline" size="sm" className="min-h-11" onClick={unheard.refetch}>Try again</Button>
+          </div>
+        )}
+        {unheard.isLoading && !waiting && !noGroups && (
+          <div className="space-y-3" aria-hidden="true">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 pl-5">
+                <Skeleton className="size-12 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <NotificationsDropdown />
-                <Button
-                  variant="outline"
-                  className="border-primary/30 hover:bg-primary hover:text-black hover:border-primary shrink-0 min-h-[44px] px-2 sm:px-4"
-                  aria-label="Join a group"
-                  onClick={handleOpenJoinDialog}
-                  data-tour="join-group"
-                >
-                  <UserPlus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Join Group</span>
-                </Button>
-                <Button
-                  className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px] px-2 sm:px-4"
-                  aria-label="Create new group"
-                  onClick={handleOpenCreateDialog}
-                  data-tour="create-group"
-                >
-                  <Plus className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden lg:block ml-2">Create New Group</span>
-                </Button>
+            ))}
+          </div>
+        )}
+        {waiting && waiting.shares.length > 0 && <WaitingList shares={waiting.shares} total={waiting.total} />}
+
+        {/* Your groups */}
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="p-6">
+              <p className="text-destructive">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {isLoading && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="aspect-[4/5] rounded-2xl" />
+            ))}
+          </div>
+        )}
+
+        {!isLoading && groups.length > 0 && (
+          <section aria-labelledby="your-groups-heading">
+            <h2 id="your-groups-heading" className="mb-4 text-xl font-bold md:text-2xl">Your groups</h2>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+              {groups.map((group) => (
+                <HomeGroupCard key={group._id} group={group} unheard={waiting?.byGroup[group._id] ?? 0} />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {noGroups && (
+          <Card
+            className="cursor-pointer border-2 border-dashed border-border transition-colors hover:border-primary/50"
+            onClick={() => setIsCreateDialogOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setIsCreateDialogOpen(true);
+              }
+            }}
+            aria-label="Create your first group"
+          >
+            <CardContent className="flex flex-col items-center justify-center px-4 py-8 text-center md:py-12">
+              <div className="mb-3 rounded-full border border-primary/30 bg-primary/10 p-3 md:mb-4 md:p-4" aria-hidden="true">
+                <Plus className="size-6 text-primary md:size-8" />
               </div>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <main className="p-4 md:p-6 relative z-0 space-y-4 md:space-y-6">
-            {/* Error State */}
-            {error && (
-              <Card className="border-destructive mb-6">
-                <CardContent className="p-6">
-                  <p className="text-destructive">{error}</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Loading State */}
-            {isLoading && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="overflow-hidden">
-                    <Skeleton className="h-48 w-full" />
-                    <CardContent className="p-4">
-                      <Skeleton className="h-4 w-3/4 mb-2" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* Groups Grid */}
-            {!isLoading && groups.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {groups.map((group) => (
-                  <Card
-                    key={group._id}
-                    className="group cursor-pointer overflow-hidden border-border hover:border-primary/50 transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,136,0.1)] hover:-translate-y-1"
-                    onClick={() => handleNavigateToGroup(group)}
-                  >
-                    <div className="relative h-48 overflow-hidden">
-                      <GroupCover groupId={group._id} />
-                      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent pt-12">
-                        <h3 className="text-white text-xl font-semibold mb-1 truncate drop-shadow-md">{group.name}</h3>
-                        <p className="text-sm text-zinc-200 line-clamp-1 drop-shadow-sm font-normal">
-                          {group.description || "No description"}
-                        </p>
-                      </div>
-                    </div>
-                    <CardContent className="p-3 md:p-4">
-                      <div className="space-y-2">
-                        {/* Member count and timestamp */}
-                        <div className="flex items-center justify-between text-xs md:text-sm gap-2">
-                          <div className="flex items-center gap-2 md:gap-3 text-muted-foreground min-w-0">
-                            <div
-                              className="flex items-center gap-1 shrink-0"
-                              aria-label={`${group.members.length} members`}
-                            >
-                              <Users className="w-4 h-4" aria-hidden="true" />
-                              <span>{group.members.length}</span>
-                            </div>
-                          </div>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                            {formatDistanceToNow(new Date(group.updatedAt), { addSuffix: true })}
-                          </span>
-                        </div>
-
-                        {/* Invite Code - Click to reveal and copy */}
-                        <div className="flex justify-start">
-                          <div
-                            className="inline-flex items-center gap-1.5 px-2 py-1.5 md:py-1 bg-muted/50 rounded border border-border cursor-pointer hover:bg-muted/70 transition-colors min-h-[44px] touch-manipulation"
-                            onClick={(e) => handleRevealAndCopyInviteCode(group.inviteCode, e)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleRevealAndCopyInviteCode(group.inviteCode, e as any);
-                              }
-                            }}
-                            aria-label="Click to reveal and copy invite code"
-                          >
-                            {revealedCodes.has(group.inviteCode) ? (
-                              <>
-                                <span className="text-xs text-muted-foreground shrink-0">Code:</span>
-                                <p className="text-xs font-mono text-foreground">
-                                  {group.inviteCode}
-                                </p>
-                                {copiedCode === group.inviteCode ? (
-                                  <Check className="w-3 h-3 text-primary shrink-0" aria-hidden="true" />
-                                ) : (
-                                  <Copy className="w-3 h-3 shrink-0" aria-hidden="true" />
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-xs text-muted-foreground">Invite Code</span>
-                                <Copy className="w-3 h-3 text-muted-foreground shrink-0" aria-hidden="true" />
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* Empty State Card */}
-            {!isLoading && groups.length === 0 && !error && (
-              <Card
-                className="border-dashed border-2 border-border hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={handleOpenCreateDialog}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleOpenCreateDialog();
-                  }
+              <h3 className="mb-2 text-base md:text-lg">Create Your First Group</h3>
+              <p className="mb-4 max-w-md text-sm text-muted-foreground md:text-base">
+                Start sharing music with friends, discover new tracks together,
+                and compete on the leaderboard
+              </p>
+              <Button
+                variant="outline"
+                className="min-h-11"
+                aria-label="Get started creating a group"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCreateDialogOpen(true);
                 }}
-                aria-label="Create your first group"
               >
-                <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 text-center px-4">
-                  <div className="bg-primary/10 border border-primary/30 p-3 md:p-4 rounded-full mb-3 md:mb-4" aria-hidden="true">
-                    <Plus className="w-6 h-6 md:w-8 md:h-8 text-primary" />
-                  </div>
-                  <h3 className="text-base md:text-lg mb-2">Create Your First Group</h3>
-                  <p className="text-sm md:text-base text-muted-foreground mb-4 max-w-md">
-                    Start sharing music with friends, discover new tracks together,
-                    and compete on the leaderboard
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="border-primary/30 hover:bg-primary/10 min-h-[44px]"
-                    aria-label="Get started creating a group"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent card click from firing
-                      handleOpenCreateDialog();
-                    }}
-                  >
-                    Get Started
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </main>
+                Get Started
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </main>
 
-      {/* Create Group Dialog */}
       <CreateGroupDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onCreateGroup={handleCreateGroup}
       />
 
-      {/* Join Group Dialog */}
       <JoinGroupDialog
         open={isJoinDialogOpen}
         onOpenChange={setIsJoinDialogOpen}
