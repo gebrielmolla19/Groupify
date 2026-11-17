@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ApiError, isApiError } from './apiError';
+import { describe, it, expect, vi, afterEach, beforeEach, type Mock } from 'vitest';
+import { ApiError, isApiError, isSpotifyReauthError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { fetchWithAuth } from './api';
 
 describe('ApiError', () => {
@@ -231,5 +231,66 @@ describe('fetchWithAuth errors', () => {
     const err = await fetchWithAuth('/groups').catch((e: unknown) => e);
     expect(err).toBe(abort);
     expect(isApiError(err)).toBe(false);
+  });
+});
+
+describe('fetchWithAuth when Spotify sign-in is required', () => {
+  const reauthBody = {
+    success: false,
+    message: 'Your Spotify sign-in has expired. Please sign in with Spotify again.',
+    code: SPOTIFY_REAUTH_REQUIRED,
+  };
+  let listener: Mock<(event: Event) => void>;
+
+  beforeEach(() => {
+    listener = vi.fn<(event: Event) => void>();
+    window.addEventListener(SPOTIFY_REAUTH_EVENT, listener);
+  });
+
+  afterEach(() => {
+    window.removeEventListener(SPOTIFY_REAUTH_EVENT, listener);
+    vi.unstubAllGlobals();
+    localStorage.removeItem('groupify_token');
+  });
+
+  it('throws an ApiError carrying the code and announces it once', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(reauthBody), { status: 401 }))
+    );
+
+    const err = await fetchWithAuth('/player/devices').catch((e: unknown) => e);
+
+    expect(isSpotifyReauthError(err)).toBe(true);
+    expect(isApiError(err) && err.message).toBe(reauthBody.message);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces it when the JWT renewal is refused for the same reason', async () => {
+    localStorage.setItem('groupify_token', 'expired-jwt');
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Token expired' }), { status: 401 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify(reauthBody), { status: 401 }))
+    );
+
+    const err = await fetchWithAuth('/auth/me').catch((e: unknown) => e);
+
+    expect(isApiError(err) && err.status).toBe(401);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not announce it for an ordinary 401', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Invalid token' }), { status: 401 }))
+    );
+
+    const err = await fetchWithAuth('/users/me').catch((e: unknown) => e);
+
+    expect(isSpotifyReauthError(err)).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
   });
 });

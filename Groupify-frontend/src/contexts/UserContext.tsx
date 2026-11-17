@@ -3,10 +3,11 @@
  * Provides authentication state and user data throughout the app
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { toast } from 'sonner';
 import { User } from '../types';
 import { getToken, setToken, getCurrentUser, logout as apiLogout, removeToken } from '../lib/api';
-import { isApiError } from '../lib/apiError';
+import { isApiError, SPOTIFY_REAUTH_EVENT } from '../lib/apiError';
 import { registerServiceWorker, requestPermissionAndSubscribe } from '../lib/pushNotifications';
 import { logger } from '../utils/logger';
 
@@ -26,6 +27,8 @@ interface UserContextType {
   fetchUser: () => Promise<void>;
 }
 
+const SPOTIFY_REAUTH_MESSAGE = 'Your Spotify sign-in has expired. Please sign in with Spotify again.';
+
 const SESSION_CHECK_FAILED = "Couldn't load your account. Try again in a moment.";
 
 /** The server looked at the token and refused it. Anything else says nothing about the token. */
@@ -43,6 +46,8 @@ export function UserProvider({ children }: UserProviderProps) {
   const [token, setTokenState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  // Several requests can fail at once; sign out and show the message once.
+  const spotifyReauthHandled = useRef(false);
 
   // Check the stored token with the server. Only a 401/403 means the token
   // is bad. A network error or server failure leaves it in place, so a
@@ -84,6 +89,21 @@ export function UserProvider({ children }: UserProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
+  // The server says Spotify rejected this user's refresh token (expired six
+  // months after sign-in, or revoked). Only a new Spotify sign-in fixes it.
+  useEffect(() => {
+    const onSpotifyReauthRequired = () => {
+      if (spotifyReauthHandled.current) return;
+      spotifyReauthHandled.current = true;
+      logger.warn('Spotify sign-in expired; signing out');
+      toast.error(SPOTIFY_REAUTH_MESSAGE, { id: 'spotify-reauth' });
+      handleLogout().catch((error: unknown) => logger.error('Sign-out after Spotify expiry failed:', error));
+    };
+    window.addEventListener(SPOTIFY_REAUTH_EVENT, onSpotifyReauthRequired);
+    return () => window.removeEventListener(SPOTIFY_REAUTH_EVENT, onSpotifyReauthRequired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleLogout only uses state setters
+  }, []);
+
   const retryAuth = async () => {
     setIsLoading(true);
     await loadStoredSession();
@@ -111,6 +131,7 @@ export function UserProvider({ children }: UserProviderProps) {
   };
 
   const handleLogin = async (newToken: string) => {
+    spotifyReauthHandled.current = false;
     setToken(newToken);
     setTokenState(newToken);
     const userData = await fetchUserData(newToken);

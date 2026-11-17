@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { createSpotifyReauthError } = require('../utils/spotifyReauth');
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 
@@ -373,6 +374,14 @@ class SpotifyService {
         refreshToken: response.data.refresh_token || refreshToken // May not always return new refresh token
       };
     } catch (error) {
+      // Expired (six months after authorisation) or revoked refresh token.
+      // Retrying can't help; the user must sign in with Spotify again.
+      if (error.response?.status === 400 && error.response?.data?.error === 'invalid_grant') {
+        logger.warn('[SpotifyService] Refresh token rejected with invalid_grant', {
+          description: error.response.data.error_description
+        });
+        throw createSpotifyReauthError();
+      }
       throw new Error(`Failed to refresh access token: ${error.message}`);
     }
   }

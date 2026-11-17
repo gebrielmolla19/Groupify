@@ -63,7 +63,9 @@ const errorHandler = (err, req, res, next) => {
   // Prepare error response
   const errorResponse = {
     success: false,
-    message: err.message || 'Internal server error'
+    message: err.message || 'Internal server error',
+    // Machine-readable reason the client can act on, e.g. SPOTIFY_REAUTH_REQUIRED
+    ...(err.errorCode && { code: err.errorCode })
   };
 
   // Include additional error details in development mode

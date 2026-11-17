@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { UserProvider, useUser } from './UserContext';
-import { ApiError } from '../lib/apiError';
+import { ApiError, SPOTIFY_REAUTH_EVENT } from '../lib/apiError';
 import type { User } from '../types';
 
 vi.mock('../lib/api', () => ({
@@ -18,11 +18,14 @@ vi.mock('../lib/pushNotifications', () => ({
   requestPermissionAndSubscribe: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+
 vi.mock('../utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const { getToken, getCurrentUser, removeToken } = await import('../lib/api');
+const { getToken, getCurrentUser, removeToken, logout: apiLogout } = await import('../lib/api');
+const { toast } = await import('sonner');
 const { logger } = await import('../utils/logger');
 
 const user = { _id: 'u1', id: 'u1', displayName: 'Test User' } as unknown as User;
@@ -109,5 +112,34 @@ describe('UserContext startup with a stored token', () => {
     expect(result.current.isAuthenticated).toBe(true);
     expect(result.current.authError).toBeNull();
     expect(removeToken).not.toHaveBeenCalled();
+  });
+});
+
+describe('UserContext when Spotify sign-in has expired', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getToken).mockReturnValue('jwt');
+    vi.mocked(getCurrentUser).mockResolvedValue(user);
+    vi.mocked(apiLogout).mockResolvedValue();
+  });
+
+  it('signs the user out with one message, however many requests report it', async () => {
+    const { result } = await renderLoaded();
+    expect(result.current.isAuthenticated).toBe(true);
+    const logoutEvents = vi.fn();
+    window.addEventListener('groupify:logout', logoutEvents);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(SPOTIFY_REAUTH_EVENT));
+      window.dispatchEvent(new CustomEvent(SPOTIFY_REAUTH_EVENT));
+    });
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(false));
+    window.removeEventListener('groupify:logout', logoutEvents);
+    expect(result.current.token).toBeNull();
+    expect(apiLogout).toHaveBeenCalledTimes(1);
+    expect(logoutEvents).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/sign in with Spotify again/);
   });
 });

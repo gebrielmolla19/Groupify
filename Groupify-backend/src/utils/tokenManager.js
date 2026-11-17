@@ -2,6 +2,7 @@ const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const config = require('../config/env');
 const logger = require('./logger');
+const { createSpotifyReauthError, isSpotifyReauthError } = require('./spotifyReauth');
 
 /**
  * Token Manager Utility
@@ -20,6 +21,12 @@ class TokenManager {
 
       if (!user) {
         throw new Error('User not found');
+      }
+
+      // Tokens are cleared when Spotify rejects the refresh token; don't ask
+      // Spotify again until the user signs in again.
+      if (!user.spotifyRefreshToken) {
+        throw createSpotifyReauthError();
       }
 
       // Check if token is expired (with 5 minute buffer)
@@ -43,6 +50,9 @@ class TokenManager {
 
       return user.spotifyAccessToken;
     } catch (error) {
+      if (isSpotifyReauthError(error)) {
+        throw error;
+      }
       logger.error('[TokenManager] Failed to get valid access token', {
         userId,
         error: error.message
@@ -89,6 +99,10 @@ class TokenManager {
 
       return tokenData.accessToken;
     } catch (error) {
+      if (isSpotifyReauthError(error)) {
+        await this.clearSpotifyTokens(userId);
+        throw error;
+      }
       logger.error('[TokenManager] Failed to refresh Spotify token', {
         userId,
         error: error.message,
@@ -96,6 +110,20 @@ class TokenManager {
       });
       throw new Error(`Failed to refresh user token: ${error.message}`);
     }
+  }
+
+  /**
+   * Forget a user's Spotify tokens after Spotify rejected the refresh token,
+   * so later requests answer "sign in again" without calling Spotify.
+   * Signing in with Spotify stores new ones.
+   * @param {string} userId - User MongoDB ID
+   */
+  static async clearSpotifyTokens(userId) {
+    await User.updateOne(
+      { _id: userId },
+      { $unset: { spotifyAccessToken: '', spotifyRefreshToken: '', tokenExpiresAt: '' } }
+    );
+    logger.warn('[TokenManager] Spotify refresh token rejected; cleared stored Spotify tokens', { userId });
   }
 
   /**
