@@ -241,7 +241,7 @@ export default function GroupFeedScreen() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hover:bg-white/5 text-white shrink-0 min-w-[44px] min-h-[44px]"
+                  className="hover:bg-accent text-foreground shrink-0 min-w-[44px] min-h-[44px]"
                   onClick={() => navigate("/")}
                   aria-label="Back to dashboard"
                 >
@@ -255,7 +255,7 @@ export default function GroupFeedScreen() {
                 </div>
                 <Button
                   variant="outline"
-                  className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
+                  className="border-border hover:bg-accent hover:border-ring/40 text-foreground shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/playlist`)}
                   aria-label="View group playlist"
                   data-tour="playlist-btn"
@@ -265,7 +265,7 @@ export default function GroupFeedScreen() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
+                  className="border-border hover:bg-accent hover:border-ring/40 text-foreground shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/analytics`)}
                   aria-label="View group analytics"
                   data-tour="analytics-btn"
@@ -275,7 +275,7 @@ export default function GroupFeedScreen() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-border hover:bg-white/5 hover:border-white/20 text-white shrink-0 min-h-[44px] px-2 sm:px-4"
+                  className="border-border hover:bg-accent hover:border-ring/40 text-foreground shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/settings`)}
                   aria-label="Group settings"
                   data-tour="settings-btn"
@@ -284,7 +284,7 @@ export default function GroupFeedScreen() {
                   <span className="hidden lg:block ml-2">Settings</span>
                 </Button>
                 <Button
-                  className="bg-primary hover:bg-primary/90 text-black shrink-0 rounded-full min-h-[44px] px-2 sm:px-4"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 rounded-full min-h-[44px] px-2 sm:px-4"
                   aria-label="Invite a friend to group"
                   onClick={() => setIsInviteDialogOpen(true)}
                   data-tour="invite-btn"
@@ -427,7 +427,7 @@ export default function GroupFeedScreen() {
                             )}
                             <Button
                               size="icon"
-                              className="absolute inset-0 m-auto w-10 h-10 sm:w-8 sm:h-8 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-black rounded-full disabled:opacity-50 min-w-[44px] min-h-[44px]"
+                              className="absolute inset-0 m-auto w-10 h-10 sm:w-8 sm:h-8 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-primary-foreground rounded-full disabled:opacity-50 min-w-[44px] min-h-[44px]"
                               aria-label={`Play ${share.trackName}`}
                               onClick={() => handlePlayTrack(share)}
                               disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
@@ -468,7 +468,7 @@ export default function GroupFeedScreen() {
                           <div className="flex items-center gap-2 md:gap-4 text-sm text-muted-foreground shrink-0">
                             {/* Listens are recorded from playback only (CONTEXT.md, "Listen"); there is no manual control. */}
                             <div className="flex items-center gap-1" aria-label={`${share.listenCount} listeners`} data-tour="listeners">
-                              <Headphones className="w-4 h-4 text-white" aria-hidden="true" />
+                              <Headphones className="w-4 h-4 text-foreground" aria-hidden="true" />
                               <span className="hidden sm:inline">{share.listenCount}</span>
                             </div>
                           </div>
@@ -481,7 +481,7 @@ export default function GroupFeedScreen() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-white/5 min-w-[44px] min-h-[44px]"
+                                    className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-accent min-w-[44px] min-h-[44px]"
                                     onClick={() => handleToggleLike(share._id)}
                                     data-tour="like-btn"
                                   >
@@ -526,14 +526,14 @@ export default function GroupFeedScreen() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-white/5 text-white hover:text-destructive/80 transition-colors min-w-[44px] min-h-[44px]"
+                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-accent text-foreground hover:text-destructive/80 transition-colors min-w-[44px] min-h-[44px]"
                                   disabled={isRemoving === share._id}
                                   aria-label="Remove from group"
                                 >
                                   {isRemoving === share._id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
-                                    <Trash2 className="w-4 h-4 text-white" />
+                                    <Trash2 className="w-4 h-4" />
                                   )}
                                 </Button>
                               </AlertDialogTrigger>
