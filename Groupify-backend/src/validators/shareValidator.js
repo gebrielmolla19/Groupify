@@ -52,6 +52,22 @@ const groupFeedQuerySchema = Joi.object({
 });
 
 /**
+ * Validation schema for the unheard shares query
+ */
+const unheardQuerySchema = Joi.object({
+  limit: Joi.number()
+    .integer()
+    .min(1)
+    .max(100)
+    .default(20)
+    .messages({
+      'number.base': 'Limit must be a number',
+      'number.min': 'Limit must be at least 1',
+      'number.max': 'Limit cannot exceed 100'
+    })
+});
+
+/**
  * Validation schema for share ID parameter
  */
 const shareIdSchema = Joi.object({
@@ -107,6 +123,7 @@ const validate = (schema, source = 'body') => {
 module.exports = {
   shareSongSchema,
   groupFeedQuerySchema,
+  unheardQuerySchema,
   shareIdSchema,
   groupIdParamSchema,
   validate

@@ -83,6 +83,28 @@ class ShareController {
   }
 
   /**
+   * Get unheard shares across the user's groups
+   */
+  static async getUnheardShares(req, res, next) {
+    try {
+      const result = await ShareService.getUnheardShares(req.userId, req.query.limit);
+
+      logger.debug('[Share] Unheard shares fetched', {
+        userId: req.userId,
+        total: result.total,
+        groups: Object.keys(result.byGroup).length
+      });
+
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Mark a share as listened
    */
   static async markAsListened(req, res, next) {

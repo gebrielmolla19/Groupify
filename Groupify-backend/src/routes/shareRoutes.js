@@ -5,6 +5,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 const {
   shareSongSchema,
   groupFeedQuerySchema,
+  unheardQuerySchema,
   shareIdSchema,
   groupIdParamSchema,
   validate
@@ -30,6 +31,14 @@ router.get(
   validate(groupIdParamSchema, 'params'),
   validate(groupFeedQuerySchema, 'query'),
   ShareController.getGroupFeed
+);
+
+// Unheard shares across the user's groups (for Home)
+router.get(
+  '/unheard',
+  authMiddleware,
+  validate(unheardQuerySchema, 'query'),
+  ShareController.getUnheardShares
 );
 
 // Mark a share as listened

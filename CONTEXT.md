@@ -50,6 +50,12 @@ A member having played most of a share's track (at least 80%). Listens
 are detected from playback, never declared by the member.
 _Avoid_: Play, view
 
+**Unheard**:
+A share, from the point of view of one member, that someone else shared
+and that member has no listen on yet. Your own shares are never unheard
+to you.
+_Avoid_: Unread, unplayed, new
+
 **Like**:
 A member marking a share as one they enjoyed.
 
