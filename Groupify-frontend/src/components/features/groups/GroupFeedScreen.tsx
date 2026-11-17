@@ -241,7 +241,7 @@ export default function GroupFeedScreen() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hover:bg-accent text-foreground shrink-0 min-w-[44px] min-h-[44px]"
+                  className="shrink-0 min-w-[44px] min-h-[44px]"
                   onClick={() => navigate("/")}
                   aria-label="Back to dashboard"
                 >
@@ -255,7 +255,7 @@ export default function GroupFeedScreen() {
                 </div>
                 <Button
                   variant="outline"
-                  className="border-border hover:bg-accent hover:border-ring/40 text-foreground shrink-0 min-h-[44px] px-2 sm:px-4"
+                  className="border-border hover:border-ring/40 shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/playlist`)}
                   aria-label="View group playlist"
                   data-tour="playlist-btn"
@@ -265,7 +265,7 @@ export default function GroupFeedScreen() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-border hover:bg-accent hover:border-ring/40 text-foreground shrink-0 min-h-[44px] px-2 sm:px-4"
+                  className="border-border hover:border-ring/40 shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/analytics`)}
                   aria-label="View group analytics"
                   data-tour="analytics-btn"
@@ -275,7 +275,7 @@ export default function GroupFeedScreen() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-border hover:bg-accent hover:border-ring/40 text-foreground shrink-0 min-h-[44px] px-2 sm:px-4"
+                  className="border-border hover:border-ring/40 shrink-0 min-h-[44px] px-2 sm:px-4"
                   onClick={() => navigate(`/groups/${groupId}/settings`)}
                   aria-label="Group settings"
                   data-tour="settings-btn"
@@ -481,7 +481,7 @@ export default function GroupFeedScreen() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-accent min-w-[44px] min-h-[44px]"
+                                    className="h-10 w-10 sm:h-8 sm:w-8 min-w-[44px] min-h-[44px]"
                                     onClick={() => handleToggleLike(share._id)}
                                     data-tour="like-btn"
                                   >
@@ -526,7 +526,7 @@ export default function GroupFeedScreen() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:bg-accent text-foreground hover:text-destructive/80 transition-colors min-w-[44px] min-h-[44px]"
+                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:text-destructive/80 transition-colors min-w-[44px] min-h-[44px]"
                                   disabled={isRemoving === share._id}
                                   aria-label="Remove from group"
                                 >
