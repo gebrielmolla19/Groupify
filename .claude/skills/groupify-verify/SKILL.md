@@ -19,6 +19,7 @@ staged, unstaged and untracked files):
 
 | App | Checks |
 |---|---|
+| Any change | **no secrets in added lines** (`scripts/check-secrets.sh`; runs even for docs-only changes) |
 | Backend | `eslint . --quiet`, `jest` using CI's placeholder env vars (no `.env` needed) |
 | Frontend | `eslint . --quiet`, `vitest run`, `vite build`, and **type errors in files you touched** |
 
