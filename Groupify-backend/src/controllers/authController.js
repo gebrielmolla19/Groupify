@@ -6,7 +6,7 @@ const config = require('../config/env');
 const logger = require('../utils/logger');
 const TokenManager = require('../utils/tokenManager');
 const { createSpotifyReauthError } = require('../utils/spotifyReauth');
-const { SPOTIFY_SCOPES } = require('../config/spotifyScopes');
+const { SPOTIFY_SCOPES, hasRequiredScopes } = require('../config/spotifyScopes');
 
 // In-memory store for one-time auth codes (single-server dev use)
 const authCodes = new Map();
@@ -157,6 +157,18 @@ class AuthController {
       // ever doesn't, assume the ones we asked for (sign-in grants all or
       // none) rather than send the user round the sign-in loop forever.
       const spotifyScopes = tokenData.scope || SPOTIFY_SCOPES.join(' ');
+      // A grant short of what we asked for would send this user straight back
+      // to sign-in on their first Spotify request (TokenManager), round and
+      // round. Spotify grants all requested scopes or none, so this shouldn't
+      // happen; say so loudly if it does.
+      if (!hasRequiredScopes(spotifyScopes)) {
+        const granted = new Set(spotifyScopes.split(/\s+/));
+        logger.warn('[Auth] Spotify granted fewer scopes than requested; the user will be asked to sign in again', {
+          spotifyId: spotifyProfile.id,
+          appIndex,
+          missingScopes: SPOTIFY_SCOPES.filter((scope) => !granted.has(scope))
+        });
+      }
 
       // Create or update user
       let user = await User.findOne({ spotifyId: spotifyProfile.id });

@@ -13,6 +13,7 @@ jest.mock('../src/services/spotifyService', () => ({
 }));
 
 const SpotifyService = require('../src/services/spotifyService');
+const logger = require('../src/utils/logger');
 const ALL_SCOPES = SPOTIFY_SCOPES.join(' ');
 
 // Following a playlist moved to PUT /me/library in February 2026, which needs
@@ -38,6 +39,21 @@ describe('Spotify scopes', () => {
     expect(res.statusCode).toBe(302);
     const stored = await User.findOne({ spotifyId: 'scoped-user' }).lean();
     expect(stored.spotifyScopes).toBe(ALL_SCOPES);
+  });
+
+  it('logs which scopes are missing when Spotify grants fewer than requested at sign-in', async () => {
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    const partial = SPOTIFY_SCOPES.filter((s) => s !== 'user-follow-modify').join(' ');
+    SpotifyService.exchangeCodeForToken.mockResolvedValueOnce({ accessToken: 'a', refreshToken: 'r', expiresIn: 3600, scope: partial });
+    SpotifyService.getUserProfile.mockResolvedValueOnce({ id: 'short-grant', display_name: 'Sample User', images: [] });
+
+    await request(app).get('/api/v1/auth/callback?code=c&state=app%3A0');
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('fewer scopes than requested'),
+      expect.objectContaining({ missingScopes: ['user-follow-modify'] })
+    );
+    warn.mockRestore();
   });
 
   it('asks a user whose grant predates the new scopes to sign in again, without calling Spotify', async () => {
