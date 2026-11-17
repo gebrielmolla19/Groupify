@@ -754,6 +754,8 @@ export interface ExportPlaylistResponse {
 export interface ExportPlaylistResult {
   playlist: ExportPlaylistResponse;
   isNewPlaylist: boolean;
+  /** True when Spotify refused changes to the old playlist and a new one replaced it. */
+  replacedPlaylist: boolean;
   playlistId: string;
   playlistUrl: string | null;
   canModify?: boolean;
@@ -777,6 +779,7 @@ export const exportGroupToPlaylist = async (
   return {
     playlist: data.playlist,
     isNewPlaylist: data.isNewPlaylist,
+    replacedPlaylist: data.replacedPlaylist === true,
     playlistId: data.playlistId,
     playlistUrl: data.playlistUrl,
     canModify: data.canModify !== false

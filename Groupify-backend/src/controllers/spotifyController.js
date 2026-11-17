@@ -123,6 +123,8 @@ class SpotifyController {
 
       let playlist;
       let isNewPlaylist = false;
+      // Set when Spotify refused the owner's update and a fresh playlist replaces the stored one.
+      let replacedPlaylist = false;
 
       if (group.spotifyPlaylistId) {
         const isPlaylistOwner = group.spotifyPlaylistOwnerId &&
@@ -209,8 +211,23 @@ class SpotifyController {
             await group.save();
 
             playlist = null;
-          } else if (error.response?.status === 403) {
-            throw new Error('You no longer have permission to modify this playlist. It may have been transferred to another user.');
+          } else if (error.statusCode === 403 || error.response?.status === 403) {
+            // Spotify refuses changes to the stored playlist (for example it
+            // was moved off the owner's account). Recover the same way as a
+            // deleted playlist: create a fresh one below. The stored ids are
+            // only replaced once that succeeds, so a 403 that a new playlist
+            // can't fix (token or scope trouble) leaves the group as it was.
+            logger.warn('[Spotify] Spotify refused updating the stored playlist — will create a new one', {
+              userId: req.userId,
+              userDisplayName: req.user?.displayName,
+              groupId,
+              groupName: group.name,
+              oldPlaylistId: group.spotifyPlaylistId,
+              spotifyError: error.spotifyError || error.message
+            });
+
+            playlist = null;
+            replacedPlaylist = true;
           } else if (error.response?.status >= 500 && error.response?.status < 600) {
             throw error;
           } else {
@@ -257,12 +274,15 @@ class SpotifyController {
           throw new Error('Failed to create playlist: No playlist ID returned from Spotify');
         }
 
-        await SpotifyService.addTracksToPlaylist(accessToken, playlist.id, trackUris);
-
+        // Point the group at the new playlist before filling it. If adding the
+        // tracks fails, the next export updates this playlist instead of
+        // leaving it empty on Spotify and creating yet another one.
         group.spotifyPlaylistId = playlist.id;
         group.spotifyPlaylistUrl = playlist.external_urls?.spotify || null;
         group.spotifyPlaylistOwnerId = req.userId;
         await group.save();
+
+        await SpotifyService.addTracksToPlaylist(accessToken, playlist.id, trackUris);
 
         isNewPlaylist = true;
 
@@ -338,10 +358,13 @@ class SpotifyController {
 
       res.json({
         success: true,
-        message: isNewPlaylist
-          ? `Collaborative playlist created successfully${invitedCount > 0 ? ` and ${invitedCount} member${invitedCount > 1 ? 's' : ''} invited` : ''}`
-          : 'Playlist updated successfully',
+        message: replacedPlaylist
+          ? `Spotify wouldn't let Groupify update the old playlist, so it created a new playlist${invitedCount > 0 ? ` and invited ${invitedCount} member${invitedCount > 1 ? 's' : ''}` : ''}. Members who followed the old one need to follow the new one.`
+          : isNewPlaylist
+            ? `Collaborative playlist created successfully${invitedCount > 0 ? ` and ${invitedCount} member${invitedCount > 1 ? 's' : ''} invited` : ''}`
+            : 'Playlist updated successfully',
         isNewPlaylist,
+        replacedPlaylist,
         playlist: {
           id: playlist.id,
           name: playlist.name,
