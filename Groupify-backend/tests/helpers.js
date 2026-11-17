@@ -1,6 +1,7 @@
 const User = require('../src/models/User');
 const Group = require('../src/models/Group');
 const { generateToken } = require('../src/middleware/authMiddleware');
+const { SPOTIFY_SCOPES } = require('../src/config/spotifyScopes');
 
 /**
  * Create a test user and return the user document
@@ -13,6 +14,7 @@ async function createUser(overrides = {}) {
     spotifyAccessToken: overrides.spotifyAccessToken || 'access-token',
     spotifyRefreshToken: overrides.spotifyRefreshToken || 'refresh-token',
     tokenExpiresAt: overrides.tokenExpiresAt || new Date(Date.now() + 3600000),
+    spotifyScopes: SPOTIFY_SCOPES.join(' '),
     ...overrides
   });
 }

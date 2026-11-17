@@ -69,6 +69,9 @@ Source pages (all developer.spotify.com unless noted):
 [create-pl]: https://developer.spotify.com/documentation/web-api/reference/create-playlist
 [change-pl]: https://developer.spotify.com/documentation/web-api/reference/change-playlist-details
 [pl-items]: https://developer.spotify.com/documentation/web-api/reference/get-playlists-items
+[add-items]: https://developer.spotify.com/documentation/web-api/reference/add-items-to-playlist
+[replace-items]: https://developer.spotify.com/documentation/web-api/reference/reorder-or-replace-playlists-items
+[save-library]: https://developer.spotify.com/documentation/web-api/reference/save-library-items
 [unfollow]: https://developer.spotify.com/documentation/web-api/reference/unfollow-playlist
 [collab-2015]: https://developer.spotify.com/community/news/2015/05/26/last-month-news/
 [refresh]: https://developer.spotify.com/documentation/web-api/tutorials/refreshing-tokens
@@ -288,6 +291,31 @@ Endpoints Groupify calls today:
 - Still available: `GET /me/player/recently-played` and all player
   endpoints in section 2. ([changelog][chg-feb26])
 
+### 4b. Replacement endpoints as Groupify uses them
+
+Read directly on 2026-11-17 for #87.
+- `POST /me/playlists`: JSON body `name`, `public`, `collaborative`,
+  `description`; returns the playlist (201). `collaborative: true` needs
+  `public: false`. ([create][create-pl])
+- `POST /playlists/{id}/items`: `uris` in the query or a JSON body (the
+  query wins if both), at most 100 per request; returns `snapshot_id`
+  (201). ([add items][add-items])
+- `PUT /playlists/{id}/items`: replaces every item with up to 100 `uris`
+  (an empty list clears the playlist); returns `snapshot_id` (200).
+  Scope `playlist-modify-public` or `-private` by the playlist's
+  visibility. ([update items][replace-items])
+- `GET /playlists/{id}/items`: `limit` at most **50** (default 20). Each
+  entry has the track or episode under **`item`**; `track` is kept but
+  deprecated. Only for playlists the user owns or collaborates on,
+  otherwise 403. Scope `playlist-read-private`. ([items][pl-items])
+- `PUT /me/library`: `uris` as a comma-separated **query** parameter, at
+  most 40; accepts `spotify:playlist:{id}` among other types. The page
+  lists the scopes `user-library-modify`, `user-follow-modify` and
+  `playlist-modify-public` without saying which applies to which URI
+  type. Returns 200. ([save to library][save-library])
+- Token responses (code exchange and refresh) include `scope`, the
+  space-separated scopes granted. ([refreshing tokens][refresh])
+
 ## 5. Playlists
 
 All [S].
@@ -361,38 +389,22 @@ All [S].
 
 ## Mismatches with the repo
 
-Not fixed. Items 1 to 6 depend on whether the February 2026 endpoint
-changes apply to Groupify's Client IDs (they apply to development-mode
-apps created on or after 2026-02-11; postponed for older ones, revised
-date unknown). The exception is `GET /audio-features` in item 5,
-which has been closed since November 2024 to new apps and to
-development-mode apps without a pending extension request, regardless.
+Items 1 to 7 were fixed in #87 (2026-11-17): Groupify now uses the
+replacement endpoints in section 4b for every development-mode removal,
+caps search at 10, and asks for the extra scopes (adr/0003).
 
-1. `Groupify-backend/src/services/spotifyService.js:404` creates
-   playlists with `POST /users/{userId}/playlists`. Removed for
-   development mode; replacement `POST /me/playlists`.
-2. `spotifyService.js:510, 617, 735` use `/playlists/{id}/tracks`.
-   Renamed to `/items`. `Groupify-backend/src/controllers/spotifyController.js`
-   (about lines 160 and 412) reads `playlist.tracks?.total`; the field
-   was renamed to `items`.
-3. `spotifyService.js:837` follows a playlist with
-   `PUT /playlists/{id}/followers`. Removed; replacement
-   `PUT /me/library`.
-4. `spotifyService.js:175-182` allows search `limit` up to 50 and the
-   controller (`spotifyController.js:19`) defaults to 20. Development
-   mode max is 10, default 5.
-5. `spotifyService.js:219` (`GET /tracks`) and `:240`
-   (`GET /audio-features`) call endpoints that are removed / closed.
-   Neither method appears to have a caller.
-6. `Groupify-backend/src/controllers/authController.js:172, 181` store
-   `spotifyProfile.email`. `email` is removed from `GET /me` in
-   development mode (the code already tolerates null; the
-   `user-read-email` scope would then return nothing).
-7. Collaborative playlist scopes: `authController.js:48-58` requests
-   `playlist-modify-private` and `playlist-read-private` only. The
-   create-playlist reference says collaborative playlists need both
-   `playlist-modify-private` and `playlist-modify-public`.
-   `playlist-read-collaborative` is not requested either.
+1. Fixed: playlists are created with `POST /me/playlists`.
+2. Fixed: add, replace and read use `/playlists/{id}/items`; reads page
+   at 50 and the controller reads `items.total` (falling back to
+   `tracks.total`).
+3. Fixed: following saves `spotify:playlist:{id}` with `PUT /me/library`.
+4. Fixed: search asks for at most 10; the frontend default is 10.
+5. Fixed: the unused `getTracks` and `getAudioFeatures` were removed.
+6. No change needed: sign-in already stores `email: null` when `GET /me`
+   leaves it out.
+7. Partly fixed: `playlist-modify-public` is now requested, so creating
+   a collaborative playlist has both modify scopes.
+   `playlist-read-collaborative` is still not requested.
 8. Refresh token lifetime: fixed for the expiry itself (#86).
    `SpotifyService.refreshAccessToken` turns `400 invalid_grant` into a
    401 with code `SPOTIFY_REAUTH_REQUIRED`, `TokenManager` clears the

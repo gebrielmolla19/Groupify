@@ -6,6 +6,11 @@ const Share = require('../models/Share');
 const Group = require('../models/Group');
 const logger = require('../utils/logger');
 
+// Since February 2026 Spotify's playlist object carries its item count in
+// `items.total` (formerly `tracks.total`). Our API keeps answering with
+// `tracks.total` so the frontend doesn't change.
+const playlistItemCount = (playlist) => playlist.items?.total ?? playlist.tracks?.total ?? 0;
+
 /**
  * Spotify Controller
  * Handles HTTP requests for Spotify API interactions
@@ -16,7 +21,7 @@ class SpotifyController {
    */
   static async searchTracks(req, res, next) {
     try {
-      const { q: query, limit = 20 } = req.query;
+      const { q: query, limit = 10 } = req.query;
 
       if (!query || query.trim().length === 0) {
         const error = new Error('Search query is required');
@@ -118,7 +123,6 @@ class SpotifyController {
       }
 
       const accessToken = await TokenManager.getValidAccessToken(req.userId);
-      const spotifyProfile = await SpotifyService.getUserProfile(accessToken);
       const trackUris = shares.map(share => `spotify:track:${share.spotifyTrackId}`);
 
       let playlist;
@@ -155,7 +159,7 @@ class SpotifyController {
                 id: playlist.id,
                 name: playlist.name,
                 external_urls: playlist.external_urls,
-                tracks: { total: playlist.tracks?.total || 0 }
+                tracks: { total: playlistItemCount(playlist) }
               },
               playlistId: playlist.id,
               playlistUrl: playlist.external_urls?.spotify || null,
@@ -263,7 +267,6 @@ class SpotifyController {
 
         playlist = await SpotifyService.createPlaylist(
           accessToken,
-          spotifyProfile.id,
           name,
           description,
           false, // public: false (required for collaborative)
@@ -436,7 +439,7 @@ class SpotifyController {
           id: playlist.id,
           name: playlist.name,
           external_urls: playlist.external_urls,
-          tracks: { total: playlist.tracks?.total || 0 }
+          tracks: { total: playlistItemCount(playlist) }
         },
         playlistId: playlist.id,
         playlistUrl: playlist.external_urls?.spotify || null

@@ -705,11 +705,12 @@ export const removeShare = async (shareId: string): Promise<{ success: boolean; 
 // ==================== SPOTIFY OPERATIONS ====================
 
 /**
- * Search Spotify tracks
+ * Search Spotify tracks. Spotify returns at most 10 per request for
+ * development-mode apps (February 2026), so that's the default and the cap.
  */
 export const searchSpotifyTracks = async (
   query: string,
-  limit: number = 20
+  limit: number = 10
 ): Promise<SpotifyTrack[]> => {
   const response = await fetchWithAuth(
     `/spotify/search?q=${encodeURIComponent(query)}&limit=${limit}`

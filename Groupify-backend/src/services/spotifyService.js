@@ -3,6 +3,11 @@ const logger = require('../utils/logger');
 const { createSpotifyReauthError } = require('../utils/spotifyReauth');
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
+const SEARCH_LIMIT_MAX = 10;
+// GET /playlists/{id}/items returns at most 50 per page.
+const PLAYLIST_ITEMS_PAGE_SIZE = 50;
+// POST and PUT /playlists/{id}/items take at most 100 URIs per request.
+const PLAYLIST_ITEMS_WRITE_MAX = 100;
 
 /**
  * Spotify API Service
@@ -168,10 +173,11 @@ class SpotifyService {
    * Search for tracks
    * @param {string} accessToken - Spotify access token
    * @param {string} query - Search query
-   * @param {number} limit - Number of results (max 50)
+   * @param {number} limit - Number of results. Spotify caps this at 10 for
+   *   development-mode apps since February 2026 (research/spotify.md §4a).
    * @returns {Promise<Object>} Search results
    */
-  static async searchTracks(accessToken, query, limit = 20) {
+  static async searchTracks(accessToken, query, limit = SEARCH_LIMIT_MAX) {
     try {
       const response = await axios.get(`${SPOTIFY_API_BASE}/search`, {
         headers: {
@@ -180,7 +186,7 @@ class SpotifyService {
         params: {
           q: query,
           type: 'track',
-          limit: Math.min(limit, 50)
+          limit: Math.min(Math.max(limit || SEARCH_LIMIT_MAX, 1), SEARCH_LIMIT_MAX)
         }
       });
       return response.data;
@@ -205,48 +211,6 @@ class SpotifyService {
       return response.data;
     } catch (error) {
       throw new Error(`Failed to fetch track details: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get multiple tracks by IDs
-   * @param {string} accessToken - Spotify access token
-   * @param {string[]} trackIds - Array of Spotify track IDs (max 50)
-   * @returns {Promise<Object>} Tracks data
-   */
-  static async getTracks(accessToken, trackIds) {
-    try {
-      const ids = trackIds.slice(0, 50).join(',');
-      const response = await axios.get(`${SPOTIFY_API_BASE}/tracks`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        params: { ids }
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to fetch tracks: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get audio features for tracks
-   * @param {string} accessToken - Spotify access token
-   * @param {string[]} trackIds - Array of Spotify track IDs (max 100)
-   * @returns {Promise<Object>} Audio features data
-   */
-  static async getAudioFeatures(accessToken, trackIds) {
-    try {
-      const ids = trackIds.slice(0, 100).join(',');
-      const response = await axios.get(`${SPOTIFY_API_BASE}/audio-features`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        params: { ids }
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to fetch audio features: ${error.message}`);
     }
   }
 
@@ -296,7 +260,8 @@ class SpotifyService {
       return {
         accessToken: response.data.access_token,
         refreshToken: response.data.refresh_token,
-        expiresIn: response.data.expires_in
+        expiresIn: response.data.expires_in,
+        scope: response.data.scope
       };
     } catch (error) {
       // Handle specific Spotify API errors
@@ -371,7 +336,8 @@ class SpotifyService {
       return {
         accessToken: response.data.access_token,
         expiresIn: response.data.expires_in,
-        refreshToken: response.data.refresh_token || refreshToken // May not always return new refresh token
+        refreshToken: response.data.refresh_token || refreshToken, // May not always return new refresh token
+        scope: response.data.scope
       };
     } catch (error) {
       // Expired (six months after authorisation) or revoked refresh token.
@@ -388,15 +354,15 @@ class SpotifyService {
 
   /**
    * Create a new playlist for the user
-   * @param {string} accessToken - Spotify access token
-   * @param {string} userId - Spotify user ID
+   * @param {string} accessToken - Spotify access token (the playlist is
+   *   created on this user's account)
    * @param {string} name - Playlist name
    * @param {string} description - Playlist description
    * @param {boolean} isPublic - Whether playlist is public (default: false)
    * @param {boolean} collaborative - Whether playlist is collaborative (default: false)
    * @returns {Promise<Object>} Created playlist data
    */
-  static async createPlaylist(accessToken, userId, name, description = '', isPublic = false, collaborative = false, maxRetries = 3) {
+  static async createPlaylist(accessToken, name, description = '', isPublic = false, collaborative = false, maxRetries = 3) {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     
     const attemptCreate = async (retryCount = 0) => {
@@ -410,7 +376,7 @@ class SpotifyService {
         };
 
         const response = await axios.post(
-          `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+          `${SPOTIFY_API_BASE}/me/playlists`,
           playlistData,
           {
             headers: {
@@ -507,16 +473,15 @@ class SpotifyService {
     
     const attemptAddTracks = async (retryCount = 0) => {
       try {
-        // Spotify API allows max 100 tracks per request
         const chunks = [];
-        for (let i = 0; i < trackUris.length; i += 100) {
-          chunks.push(trackUris.slice(i, i + 100));
+        for (let i = 0; i < trackUris.length; i += PLAYLIST_ITEMS_WRITE_MAX) {
+          chunks.push(trackUris.slice(i, i + PLAYLIST_ITEMS_WRITE_MAX));
         }
 
         const results = [];
         for (const chunk of chunks) {
           const response = await axios.post(
-            `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+            `${SPOTIFY_API_BASE}/playlists/${playlistId}/items`,
             {
               uris: chunk
             },
@@ -607,53 +572,25 @@ class SpotifyService {
     
     const attemptReplace = async (retryCount = 0) => {
       try {
-        // First, get all existing tracks to clear them
-        const existingTracks = await this.getPlaylistTracks(accessToken, playlistId, maxRetries);
-        
-        // Clear existing tracks if any
-        if (existingTracks.length > 0) {
-          const trackUrisToRemove = existingTracks.map(track => ({ uri: track.track.uri }));
-          
-          // Spotify API allows max 100 tracks per delete request
-          const chunks = [];
-          for (let i = 0; i < trackUrisToRemove.length; i += 100) {
-            chunks.push(trackUrisToRemove.slice(i, i + 100));
-          }
-
-          for (const chunk of chunks) {
-            try {
-              await axios.delete(
-                `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                  },
-                  data: {
-                    tracks: chunk
-                  }
-                }
-              );
-            } catch (deleteError) {
-              // Retry delete on server errors
-              if (deleteError.response?.status >= 500 && deleteError.response?.status < 600 && retryCount < maxRetries) {
-                const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-                logger.warn(`Spotify API server error (${deleteError.response.status}) when deleting tracks, retrying in ${delay}ms...`);
-                await sleep(delay);
-                // Retry the entire replace operation
-                return attemptReplace(retryCount + 1);
-              }
-              throw deleteError;
+        // PUT replaces everything in the playlist with up to 100 items (an
+        // empty list clears it); anything beyond that is appended after.
+        const response = await axios.put(
+          `${SPOTIFY_API_BASE}/playlists/${playlistId}/items`,
+          { uris: trackUris.slice(0, PLAYLIST_ITEMS_WRITE_MAX) },
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
             }
           }
+        );
+
+        const rest = trackUris.slice(PLAYLIST_ITEMS_WRITE_MAX);
+        if (rest.length > 0) {
+          return await this.addTracksToPlaylist(accessToken, playlistId, rest, maxRetries);
         }
 
-        // Add new tracks (this already has retry logic)
-        if (trackUris.length > 0) {
-          return await this.addTracksToPlaylist(accessToken, playlistId, trackUris, maxRetries);
-        }
-
-        return { snapshot_id: playlistId };
+        return response.data;
       } catch (error) {
         // Handle specific Spotify API errors
         if (error.response) {
@@ -727,7 +664,8 @@ class SpotifyService {
    * @param {string} accessToken - Spotify access token
    * @param {string} playlistId - Spotify playlist ID
    * @param {number} maxRetries - Maximum number of retries (default: 3)
-   * @returns {Promise<Array>} Array of track objects
+   * @returns {Promise<Array>} The playlist's item entries (the track is under
+   *   `item`; `track` is deprecated)
    * @throws {Error} If playlist doesn't exist (404) or other errors
    */
   static async getPlaylistTracks(accessToken, playlistId, maxRetries = 3) {
@@ -737,11 +675,11 @@ class SpotifyService {
       try {
         const tracks = [];
         let offset = 0;
-        const limit = 100;
+        const limit = PLAYLIST_ITEMS_PAGE_SIZE;
 
         while (true) {
           const response = await axios.get(
-            `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+            `${SPOTIFY_API_BASE}/playlists/${playlistId}/items`,
             {
               headers: {
                 'Authorization': `Bearer ${accessToken}`
@@ -842,13 +780,17 @@ class SpotifyService {
     
     const attemptFollow = async (retryCount = 0) => {
       try {
+        // Following a playlist is saving it to the user's library since
+        // February 2026. The endpoint takes Spotify URIs as a query parameter.
         await axios.put(
-          `${SPOTIFY_API_BASE}/playlists/${playlistId}/followers`,
-          {},
+          `${SPOTIFY_API_BASE}/me/library`,
+          null,
           {
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
+              'Authorization': `Bearer ${accessToken}`
+            },
+            params: {
+              uris: `spotify:playlist:${playlistId}`
             }
           }
         );
@@ -872,13 +814,13 @@ class SpotifyService {
             return attemptFollow(retryCount + 1);
           }
           
-          // 403 can mean user already follows, or insufficient permissions
-          // 404 means playlist doesn't exist
-          // Both are acceptable - we'll log but not throw for 403 (already following)
+          // The old follow endpoint's 403 was read as "already following".
+          // Saving to the library is a PUT, so saving again isn't a refusal;
+          // a 403 here is a real one (for example a missing scope).
           if (status === 403) {
-            // User might already be following, which is fine
-            logger.warn(`User already follows playlist or insufficient permissions: ${spotifyMessage}`);
-            return; // Don't throw - already following is acceptable
+            const forbidden = new Error(`Spotify refused to follow the playlist: ${spotifyMessage}`);
+            forbidden.statusCode = 403;
+            throw forbidden;
           } else if (status === 404) {
             throw new Error(`Playlist not found: ${spotifyMessage}`);
           } else if (status === 401) {

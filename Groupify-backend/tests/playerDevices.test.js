@@ -2,6 +2,7 @@ const request = require('supertest');
 const app = require('../src/app');
 const User = require('../src/models/User');
 const { generateToken } = require('../src/middleware/authMiddleware');
+const { SPOTIFY_SCOPES } = require('../src/config/spotifyScopes');
 
 jest.mock('../src/services/spotifyService', () => ({
   getAvailableDevices: jest.fn(),
@@ -24,6 +25,7 @@ describe('Player Devices Endpoint', () => {
       spotifyAccessToken: 'access-token',
       spotifyRefreshToken: 'refresh-token',
       tokenExpiresAt: new Date(Date.now() + 3600000),
+      spotifyScopes: SPOTIFY_SCOPES.join(' '),
     });
 
     token = generateToken(user._id);
