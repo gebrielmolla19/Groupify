@@ -109,6 +109,31 @@ describe('Playlist export after Spotify refuses an update (403)', () => {
     expect(stored.spotifyPlaylistId).toBe('old-playlist');
   });
 
+  it('keeps the new playlist on the group when adding its tracks fails, so a retry fills it instead of making another', async () => {
+    SpotifyService.getPlaylistTracks.mockRejectedValueOnce(spotify403());
+    SpotifyService.createPlaylist.mockResolvedValueOnce({ id: 'new-playlist', name: 'New', external_urls: {} });
+    const unavailable = new Error('Spotify API is temporarily unavailable (503). Please try again in a moment.');
+    unavailable.statusCode = 503;
+    SpotifyService.addTracksToPlaylist.mockRejectedValueOnce(unavailable);
+
+    const first = await exportPlaylist(group._id, ownerToken);
+    expect(first.statusCode).toBe(503);
+    const afterFailure = await Group.findById(group._id).lean();
+    expect(afterFailure.spotifyPlaylistId).toBe('new-playlist');
+
+    // The retry updates the new playlist; nothing else is created.
+    SpotifyService.getPlaylistTracks.mockResolvedValueOnce([]);
+    SpotifyService.replacePlaylistTracks.mockResolvedValueOnce();
+    axios.get.mockResolvedValueOnce({ data: { id: 'new-playlist', name: 'New', external_urls: {} } });
+
+    const retry = await exportPlaylist(group._id, ownerToken);
+
+    expect(retry.statusCode).toBe(200);
+    expect(retry.body.isNewPlaylist).toBe(false);
+    expect(SpotifyService.createPlaylist).toHaveBeenCalledTimes(1);
+    expect(SpotifyService.replacePlaylistTracks).toHaveBeenCalledWith(expect.anything(), 'new-playlist', ['spotify:track:t1']);
+  });
+
   it('does not let a member who does not own the playlist take it over', async () => {
     const { user: member, token: memberToken } = await createUserAndToken({ spotifyId: 'member-spotify' });
     await Group.updateOne({ _id: group._id }, { $push: { members: member._id } });

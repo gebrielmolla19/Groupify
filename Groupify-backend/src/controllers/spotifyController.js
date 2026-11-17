@@ -274,12 +274,15 @@ class SpotifyController {
           throw new Error('Failed to create playlist: No playlist ID returned from Spotify');
         }
 
-        await SpotifyService.addTracksToPlaylist(accessToken, playlist.id, trackUris);
-
+        // Point the group at the new playlist before filling it. If adding the
+        // tracks fails, the next export updates this playlist instead of
+        // leaving it empty on Spotify and creating yet another one.
         group.spotifyPlaylistId = playlist.id;
         group.spotifyPlaylistUrl = playlist.external_urls?.spotify || null;
         group.spotifyPlaylistOwnerId = req.userId;
         await group.save();
+
+        await SpotifyService.addTracksToPlaylist(accessToken, playlist.id, trackUris);
 
         isNewPlaylist = true;
 
