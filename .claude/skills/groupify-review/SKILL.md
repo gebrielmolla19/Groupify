@@ -1,6 +1,6 @@
 ---
 name: groupify-review
-description: Independently review a Groupify pull request and post the findings to GitHub as inline review comments. Meant to run in a FRESH context (a reviewer subagent or a new session) that did not write the code. Use when asked to "review PR #N", or when launched as the reviewer by the groupify-pr skill.
+description: 'Independently review a Groupify pull request and post the findings to GitHub as inline review comments. Meant to run in a FRESH context (a reviewer subagent or a new session) that did not write the code. Use when asked to "review PR #N", or when launched as the reviewer by the groupify-pr skill.'
 ---
 
 # Reviewing a Groupify pull request
