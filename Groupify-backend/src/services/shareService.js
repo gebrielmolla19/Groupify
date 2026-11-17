@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Share = require('../models/Share');
 const Group = require('../models/Group');
 const SpotifyService = require('./spotifyService');
@@ -124,6 +125,48 @@ class ShareService {
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10)
     };
+  }
+
+  /**
+   * Unheard shares across every active group the user belongs to: shared by
+   * someone else, with no listen by the user. Newest first.
+   * @param {string} userId - User ID
+   * @param {number} limit - How many shares to return (the counts cover all)
+   * @returns {Promise<Object>} { shares, total, byGroup, oldestAt }
+   */
+  static async getUnheardShares(userId, limit = 20) {
+    const groupIds = await Group.find({ members: userId, isActive: true }).distinct('_id');
+    const user = new mongoose.Types.ObjectId(userId);
+    const match = {
+      group: { $in: groupIds },
+      sharedBy: { $ne: user },
+      'listeners.user': { $ne: user }
+    };
+
+    const [shares, perGroup] = await Promise.all([
+      Share.find(match)
+        .populate('group', 'name')
+        .populate('sharedBy', 'displayName profileImage spotifyId')
+        .populate('listeners.user', 'displayName profileImage spotifyId')
+        .populate('likes.user', 'displayName profileImage spotifyId')
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit, 10)),
+      Share.aggregate([
+        { $match: match },
+        { $group: { _id: '$group', count: { $sum: 1 }, oldestAt: { $min: '$createdAt' } } }
+      ])
+    ]);
+
+    const byGroup = {};
+    let total = 0;
+    let oldestAt = null;
+    for (const row of perGroup) {
+      byGroup[row._id.toString()] = row.count;
+      total += row.count;
+      if (!oldestAt || row.oldestAt < oldestAt) oldestAt = row.oldestAt;
+    }
+
+    return { shares, total, byGroup, oldestAt };
   }
 
   /**
