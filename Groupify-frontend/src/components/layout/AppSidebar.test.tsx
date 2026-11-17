@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import AppSidebar from './AppSidebar';
 import * as sidebarModule from '../ui/sidebar';
 
@@ -22,8 +22,9 @@ vi.mock('../ui/sidebar', async () => {
 vi.mock('../../contexts/UserContext', () => ({
   useUser: () => ({ user: { displayName: 'Maya', profileImage: null } }),
 }));
+const createGroup = vi.fn();
 vi.mock('../../hooks/useGroups', () => ({
-  useGroups: () => ({ groups: [], createGroup: vi.fn(), joinGroupByCode: vi.fn() }),
+  useGroups: () => ({ groups: [], createGroup, joinGroupByCode: vi.fn() }),
 }));
 vi.mock('../../hooks/useChangelogStatus', () => ({ useChangelogStatus: () => ({ hasUnread: false }) }));
 
@@ -37,6 +38,10 @@ function renderSidebar(isMobile: boolean) {
     <MemoryRouter>
       <TestSidebarProvider isMobile={isMobile}>
         <AppSidebar rail={rail} />
+        <Routes>
+          <Route path="/" element={null} />
+          <Route path="/groups/:groupId" element={<p>Group feed page</p>} />
+        </Routes>
       </TestSidebarProvider>
     </MemoryRouter>,
   );
@@ -69,5 +74,15 @@ describe('AppSidebar', () => {
     await openNewOrJoinMenu();
     await userEvent.click(screen.getByRole('menuitem', { name: item }));
     expect(await screen.findByRole('dialog', { name: title })).toBeInTheDocument();
+  });
+
+  it('on desktop, creating a group from the rail opens the new group', async () => {
+    createGroup.mockResolvedValueOnce({ _id: 'g-new', name: 'Road trip' });
+    renderSidebar(false);
+    await openNewOrJoinMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'New group' }));
+    await userEvent.type(await screen.findByPlaceholderText('Enter group name'), 'Road trip');
+    await userEvent.click(screen.getByRole('button', { name: 'Create Group' }));
+    expect(await screen.findByText('Group feed page')).toBeInTheDocument();
   });
 });

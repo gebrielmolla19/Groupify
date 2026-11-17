@@ -35,6 +35,12 @@ export default function DashboardScreen() {
     setIsJoinDialogOpen(true);
   };
 
+  const handleCreateGroup = async (data: { name: string; description?: string }) => {
+    const created = await createGroup(data);
+    navigate(`/groups/${created._id}`);
+    return created;
+  };
+
   const handleJoinGroup = async (inviteCode: string) => {
     try {
       setIsJoining(true);
@@ -253,7 +259,7 @@ export default function DashboardScreen() {
       <CreateGroupDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        onCreateGroup={createGroup}
+        onCreateGroup={handleCreateGroup}
       />
 
       {/* Join Group Dialog */}
