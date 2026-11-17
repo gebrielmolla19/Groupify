@@ -77,7 +77,7 @@ const STEPS: OnboardingStep[] = [
     icon: <ListMusic style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
     title: 'Listens Are Tracked Automatically',
     description:
-      "Play most of a track and your listen is logged — there's nothing to tap. The headphones count on each song, and the avatar circles below it, show everyone who has listened.",
+      "Play most of a track and your listen is logged — there's nothing to tap. The headphones icon on each song tracks its listens, and the avatar circles below it show who has listened.",
     hint: 'The faster you listen, the better your Listener Reflex score in analytics!',
     route: (groupId) => (groupId ? `/groups/${groupId}` : '/'),
     highlight: '[data-tour="listeners"]',
