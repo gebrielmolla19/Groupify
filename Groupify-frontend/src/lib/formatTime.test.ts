@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatTime, formatTrackTime } from './formatTime';
+import { formatAge, formatTime, formatTrackTime } from './formatTime';
 
 describe('formatTrackTime', () => {
   it('formats as m:ss', () => {
@@ -46,5 +46,21 @@ describe('formatTime', () => {
   it('returns days and hours when applicable', () => {
     expect(formatTime(86400000)).toBe('1d');
     expect(formatTime(90000000)).toBe('1d 1h'); // 25h
+  });
+});
+
+describe('formatAge', () => {
+  it('uses the largest whole unit, short', () => {
+    expect(formatAge(30_000)).toBe('now');
+    expect(formatAge(5 * 60_000)).toBe('5m');
+    expect(formatAge(3 * 3_600_000)).toBe('3h');
+    expect(formatAge(2 * 86_400_000)).toBe('2d');
+    expect(formatAge(15 * 86_400_000)).toBe('2w');
+    expect(formatAge(45 * 86_400_000)).toBe('1mo');
+    expect(formatAge(400 * 86_400_000)).toBe('1y');
+  });
+
+  it('treats future times as now', () => {
+    expect(formatAge(-60_000)).toBe('now');
   });
 });

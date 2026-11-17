@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Share } from '../types';
+import { Like, Share } from '../types';
 import {
   getGroupFeed as apiGetGroupFeed,
   shareSong as apiShareSong,
@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { isSpotifyReauthError } from '../lib/apiError';
 import { logger } from '../utils/logger';
+import { withListen } from '../lib/heardStack';
 import { useSocket } from '../contexts/SocketContext';
 
 export const useGroupFeed = (groupId: string) => {
@@ -134,7 +135,7 @@ export const useGroupFeed = (groupId: string) => {
       logger.debug('Socket songShared received:', incomingShare._id);
     };
 
-    const onSongLiked = (payload: { shareId: string; userId: string; likeCount: number; likes: string[] }) => {
+    const onSongLiked = (payload: { shareId: string; userId: string; likeCount: number; likes: Like[] }) => {
       setShares(prev =>
         prev.map(s =>
           s._id === payload.shareId
@@ -154,7 +155,7 @@ export const useGroupFeed = (groupId: string) => {
     const onSongListened = (payload: { shareId: string; userId: string; listenCount: number }) => {
       setShares(prev =>
         prev.map(s =>
-          s._id === payload.shareId ? { ...s, listenCount: payload.listenCount } : s
+          s._id === payload.shareId ? withListen(s, payload.userId, payload.listenCount, new Date().toISOString()) : s
         )
       );
       logger.debug('Socket songListened received:', payload.shareId);

@@ -1,12 +1,9 @@
-import { ArrowLeft, Search, UserPlus, List, Play, Headphones, Music2, Plus, Loader2, Settings, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, List, Music2, Plus, Loader2, Settings, TrendingUp } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { Card, CardContent } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
 import { ScrollArea } from "../../ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../../ui/alert-dialog";
 import { Share, SpotifyTrack } from "../../../types";
 import { toast } from "sonner";
 import { useGroupFeed } from "../../../hooks/useGroupFeed";
@@ -14,7 +11,6 @@ import { useSpotifySearch } from "../../../hooks/useSpotifySearch";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { useUser } from "../../../contexts/UserContext";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
-import { formatDistanceToNow } from "date-fns";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
@@ -22,6 +18,8 @@ import { useGroups } from "../../../hooks/useGroups";
 import { useGroupInvites } from "../../../hooks/useGroupInvites";
 import InviteFriendDialog from "./InviteFriendDialog";
 import InvitesList from "./InvitesList";
+import ShareRow from "./ShareRow";
+import { isUser } from "../../../lib/heardStack";
 import { logger } from "../../../utils/logger";
 
 export default function GroupFeedScreen() {
@@ -419,218 +417,23 @@ export default function GroupFeedScreen() {
 
               {/* Feed Content */}
               {!isLoading && shares.length > 0 && (
-                <div className="space-y-3 max-w-4xl">
+                <ul aria-label="Shares" className="@container max-w-4xl space-y-1">
                   {shares.map((share) => (
-                    <Card
+                    <ShareRow
                       key={share._id}
-                      className="group overflow-hidden border-border hover:border-primary/50 transition-all duration-300 hover:shadow-[0_0_15px_rgba(0,255,136,0.1)]"
-                    >
-                      <CardContent className="p-3 md:p-4 relative">
-                        <div className="flex items-center gap-3 md:gap-4">
-                          {/* Album Art */}
-                          <div className="relative flex-shrink-0">
-                            {share.trackImage ? (
-                              <img
-                                src={share.trackImage}
-                                alt={share.trackName}
-                                className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <Music2 className="w-6 h-6 text-primary" />
-                              </div>
-                            )}
-                            <Button
-                              size="icon"
-                              className="absolute inset-0 m-auto w-10 h-10 sm:w-8 sm:h-8 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-primary-foreground rounded-full disabled:opacity-50 min-w-[44px] min-h-[44px]"
-                              aria-label={`Play ${share.trackName}`}
-                              onClick={() => handlePlayTrack(share)}
-                              disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
-                            >
-                              {isPlaying === share._id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                              ) : (
-                                <Play className="w-4 h-4 fill-current" aria-hidden="true" />
-                              )}
-                            </Button>
-                          </div>
-
-                          {/* Track Info */}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="truncate mb-1 text-sm sm:text-base">{share.trackName}</h4>
-                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                              {share.artistName}
-                            </p>
-                          </div>
-
-                          {/* Sharer Info */}
-                          <div className="hidden lg:flex items-center gap-2 min-w-0 max-w-[150px]">
-                            <Avatar className="w-8 h-8 border border-primary/30 shrink-0">
-                              <AvatarImage src={share.sharedBy.profileImage || undefined} />
-                              <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                {share.sharedBy.displayName.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <p className="text-sm truncate">{share.sharedBy.displayName}</p>
-                              <p className="text-xs text-muted-foreground whitespace-nowrap">
-                                {formatDistanceToNow(new Date(share.createdAt), { addSuffix: true })}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Stats */}
-                          <div className="flex items-center gap-2 md:gap-4 text-sm text-muted-foreground shrink-0">
-                            {/* Listens are recorded from playback only (CONTEXT.md, "Listen"); there is no manual control. */}
-                            <div className="flex items-center gap-1" aria-label={`${share.listenCount} listeners`} data-tour="listeners">
-                              <Headphones className="w-4 h-4 text-foreground" aria-hidden="true" />
-                              <span className="hidden sm:inline">{share.listenCount}</span>
-                            </div>
-                          </div>
-
-                          {/* Like Button */}
-                          <div className="flex items-center gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-10 w-10 sm:h-8 sm:w-8 min-w-[44px] min-h-[44px]"
-                                    onClick={() => handleToggleLike(share._id)}
-                                    data-tour="like-btn"
-                                  >
-                                    <img
-                                      src={share.likes?.some(like => like.user._id === user?._id || like.user.id === user?.id)
-                                        ? "/like-icon-svg/like-icon-liked.svg"
-                                        : "/like-icon-svg/like-icon-like.svg"
-                                      }
-                                      alt={share.likes?.some(like => like.user._id === user?._id || like.user.id === user?.id)
-                                        ? "Unlike"
-                                        : "Like"
-                                      }
-                                      className="w-4 h-4"
-                                    />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {share.likes?.length > 0 ? (
-                                    <div className="text-xs">
-                                      <p className="font-semibold mb-1">Liked by:</p>
-                                      {share.likes.map(like => (
-                                        <div key={like.user._id || like.user.id} className="block">
-                                          {like.user.displayName}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p>Like this song</p>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <span className="text-xs text-muted-foreground min-w-[1ch]">
-                              {share.likeCount || 0}
-                            </span>
-                          </div>
-
-                          {/* Remove Button (Owner or Sharer only) */}
-                          {(share.sharedBy._id === user?._id || share.sharedBy.id === user?.id || group?.createdBy?._id === user?._id || group?.createdBy?.id === user?.id) && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-10 w-10 sm:h-8 sm:w-8 hover:text-destructive/80 transition-colors min-w-[44px] min-h-[44px]"
-                                  disabled={isRemoving === share._id}
-                                  aria-label="Remove from group"
-                                >
-                                  {isRemoving === share._id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-4 h-4" />
-                                  )}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Remove song from group?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will remove "{share.trackName}" from the group feed. This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleRemoveShare(share._id)}
-                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                  >
-                                    Remove
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-
-                        {/* Listener Avatars - Bottom Right Corner */}
-                        {share.listeners && share.listeners.length > 0 && (() => {
-                          // Sort listeners by listenedAt timestamp (chronological order)
-                          const sortedListeners = [...share.listeners].sort((a, b) => {
-                            const dateA = new Date(a.listenedAt).getTime();
-                            const dateB = new Date(b.listenedAt).getTime();
-                            return dateA - dateB; // Oldest first
-                          });
-
-                          return (
-                            <div className="absolute bottom-3 right-3 flex items-center">
-                              {sortedListeners.map((listener, index) => {
-                                // Handle both populated and unpopulated listener objects
-                                const listenerUser = listener.user && typeof listener.user === 'object'
-                                  ? listener.user
-                                  : null;
-
-                                if (!listenerUser) return null;
-
-                                return (
-                                  <Avatar
-                                    key={listenerUser._id || listenerUser.id || index}
-                                    className="!w-7 !h-7 sm:!w-6 sm:!h-6 border-2 border-background shrink-0"
-                                    style={{
-                                      marginLeft: index > 0 ? '-8px' : '0',
-                                      zIndex: index + 1,
-                                      width: '28px',
-                                      height: '28px'
-                                    }}
-                                    title={listenerUser.displayName}
-                                  >
-                                    <AvatarImage src={listenerUser.profileImage || undefined} className="object-cover" />
-                                    <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                                      {listenerUser.displayName?.charAt(0).toUpperCase() || '?'}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Mobile sharer info */}
-                        <div className="lg:hidden flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                          <Avatar className="w-6 h-6 border border-primary/30 shrink-0">
-                            <AvatarImage src={share.sharedBy.profileImage || undefined} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                              {share.sharedBy.displayName.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                            Shared by {share.sharedBy.displayName} • {formatDistanceToNow(new Date(share.createdAt), { addSuffix: true })}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      share={share}
+                      viewer={user}
+                      members={group?.members ?? []}
+                      canRemove={isUser(share.sharedBy, user) || (!!group && isUser(group.createdBy, user))}
+                      isStarting={isPlaying === share._id}
+                      playDisabled={!deviceId || isPlayerLoading}
+                      isRemoving={isRemoving === share._id}
+                      onPlay={() => handlePlayTrack(share)}
+                      onToggleLike={() => handleToggleLike(share._id)}
+                      onRemove={() => handleRemoveShare(share._id)}
+                    />
                   ))}
-                </div>
+                </ul>
               )}
 
               {/* Empty State */}
