@@ -4,6 +4,7 @@ import { getSpotifyAccessToken, playTrack as apiPlayTrack, getSpotifyDevices as 
 import { toast } from 'sonner';
 import type { SpotifyPlayer, SpotifyPlayerState, SpotifyTrack } from '../types/spotifyPlayer';
 import { logger } from '../utils/logger';
+import { isSpotifyReauthError } from '../lib/apiError';
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
 
@@ -61,7 +62,8 @@ const INITIAL_SNAPSHOT: PlayerSnapshot = {
 const notifiedErrors = new WeakSet<object>();
 
 export const wasPlaybackErrorNotified = (err: unknown): boolean =>
-  typeof err === 'object' && err !== null && notifiedErrors.has(err);
+  // An expired Spotify sign-in is shown once by UserContext, which signs the user out.
+  isSpotifyReauthError(err) || (typeof err === 'object' && err !== null && notifiedErrors.has(err));
 
 const isDeviceGoneError = (msg: string) =>
   msg.includes('404') || msg.includes('not found') || msg.includes('not ready');
@@ -311,7 +313,10 @@ const spotifyPlayerStore = (() => {
         const msg = err instanceof Error ? err.message : 'Failed to get Spotify access token';
         logger.error('Failed to get Spotify token:', err);
         setState({ error: msg, isLoading: false });
-        toast.error('Failed to connect to Spotify. Please try logging in again.');
+        // UserContext already says "sign in again" and signs the user out.
+        if (!isSpotifyReauthError(err)) {
+          toast.error('Failed to connect to Spotify. Please try logging in again.');
+        }
         return;
       }
 
@@ -326,7 +331,10 @@ const spotifyPlayerStore = (() => {
             // the UI doesn't sit on a dead player.
             logger.error('Failed to refresh Spotify token:', err);
             setState({ error: 'Lost connection to Spotify. Please log in again.', isPlaying: false });
-            toast.error('Failed to refresh Spotify token. Please log in again.');
+            // UserContext already says "sign in again" and signs the user out.
+            if (!isSpotifyReauthError(err)) {
+              toast.error('Failed to refresh Spotify token. Please log in again.');
+            }
           }
         },
         volume: 1.0,

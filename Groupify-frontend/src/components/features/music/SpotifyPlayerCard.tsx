@@ -116,7 +116,7 @@ export default function SpotifyPlayerCard() {
       });
     } catch (err) {
       logger.error('Failed to load Spotify devices:', err);
-      toast.error('Failed to load Spotify devices');
+      if (!wasPlaybackErrorNotified(err)) toast.error('Failed to load Spotify devices');
     } finally {
       setIsDevicesLoading(false);
     }
@@ -141,7 +141,9 @@ export default function SpotifyPlayerCard() {
       toast.success(message);
     } catch (err) {
       logger.error('Failed to transfer playback:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to switch playback device');
+      if (!wasPlaybackErrorNotified(err)) {
+        toast.error(err instanceof Error ? err.message : 'Failed to switch playback device');
+      }
     } finally {
       setIsSwitchingDevice(false);
     }
@@ -198,7 +200,7 @@ export default function SpotifyPlayerCard() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to control playback';
       logger.error('Playback control error:', err);
-      toast.error(errorMsg);
+      if (!wasPlaybackErrorNotified(err)) toast.error(errorMsg);
     } finally {
       setIsControlling(false);
     }
@@ -214,7 +216,7 @@ export default function SpotifyPlayerCard() {
       }
     } catch (err) {
       logger.error('Seek error:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to seek');
+      if (!wasPlaybackErrorNotified(err)) toast.error(err instanceof Error ? err.message : 'Failed to seek');
     }
   };
 
@@ -267,7 +269,7 @@ export default function SpotifyPlayerCard() {
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to next track';
         logger.error('Next track error:', err);
-        toast.error(errorMsg);
+        if (!wasPlaybackErrorNotified(err)) toast.error(errorMsg);
       } finally {
         setIsControlling(false);
       }
@@ -320,7 +322,7 @@ export default function SpotifyPlayerCard() {
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to skip to previous track';
         logger.error('Previous track error:', err);
-        toast.error(errorMsg);
+        if (!wasPlaybackErrorNotified(err)) toast.error(errorMsg);
       } finally {
         setIsControlling(false);
       }

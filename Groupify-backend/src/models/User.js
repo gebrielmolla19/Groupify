@@ -18,17 +18,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Spotify tokens. Set at every Spotify sign-in; cleared when Spotify
+  // rejects the refresh token (expired or revoked), until the user signs in
+  // again. See TokenManager.clearSpotifyTokens.
   spotifyAccessToken: {
-    type: String,
-    required: true
+    type: String
   },
   spotifyRefreshToken: {
-    type: String,
-    required: true
+    type: String
   },
   tokenExpiresAt: {
-    type: Date,
-    required: true
+    type: Date
   },
   groups: [{
     type: mongoose.Schema.Types.ObjectId,

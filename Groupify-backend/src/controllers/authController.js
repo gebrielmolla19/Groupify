@@ -4,6 +4,8 @@ const User = require('../models/User');
 const { generateToken } = require('../middleware/authMiddleware');
 const config = require('../config/env');
 const logger = require('../utils/logger');
+const TokenManager = require('../utils/tokenManager');
+const { createSpotifyReauthError } = require('../utils/spotifyReauth');
 
 // In-memory store for one-time auth codes (single-server dev use)
 const authCodes = new Map();
@@ -299,18 +301,14 @@ class AuthController {
         throw error;
       }
 
-      const spotifyConfig = config.spotify.getConfig(user.spotifyAppIndex ?? 0);
-      const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken, spotifyConfig);
-
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expiresIn);
-
-      user.spotifyAccessToken = tokenData.accessToken;
-      if (tokenData.refreshToken) {
-        user.spotifyRefreshToken = tokenData.refreshToken;
+      if (!user.spotifyRefreshToken) {
+        throw createSpotifyReauthError();
       }
-      user.tokenExpiresAt = expiresAt;
-      await user.save();
+
+      // Same path as every other Spotify call, so an expired refresh token
+      // (invalid_grant) clears the stored tokens here too.
+      await TokenManager.refreshUserToken(userId, user);
+      const expiresAt = user.tokenExpiresAt;
 
       logger.info('[Auth] Spotify token refreshed via API', {
         userId,
@@ -364,7 +362,6 @@ class AuthController {
   static async getSpotifyToken(req, res, next) {
     try {
       const userId = req.userId;
-      const TokenManager = require('../utils/tokenManager');
 
       const spotifyToken = await TokenManager.getValidAccessToken(userId);
 
@@ -422,9 +419,7 @@ class AuthController {
       }
 
       if (!user.spotifyRefreshToken) {
-        const error = new Error('No Spotify session — please log in again');
-        error.statusCode = 401;
-        throw error;
+        throw createSpotifyReauthError();
       }
 
       const newToken = generateToken(decoded.userId);

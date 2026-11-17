@@ -9,6 +9,7 @@ import {
   removeShare as apiRemoveShare
 } from '../lib/api';
 import { toast } from 'sonner';
+import { isSpotifyReauthError } from '../lib/apiError';
 import { logger } from '../utils/logger';
 import { useSocket } from '../contexts/SocketContext';
 
@@ -55,7 +56,8 @@ export const useGroupFeed = (groupId: string) => {
       return newShare;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to share track';
-      toast.error(errorMessage);
+      // UserContext already told the user to sign in with Spotify again.
+      if (!isSpotifyReauthError(err)) toast.error(errorMessage);
       throw err;
     }
   }, [groupId]);

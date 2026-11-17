@@ -292,3 +292,41 @@ describe('SpotifyService.seekToPosition', () => {
       .rejects.toThrow('No active device found');
   });
 });
+
+describe('SpotifyService.refreshAccessToken', () => {
+  const credentials = { clientId: 'id', clientSecret: 'secret' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('marks a 400 invalid_grant as "Spotify sign-in required"', async () => {
+    const invalidGrant = new Error('Request failed with status code 400');
+    invalidGrant.response = { status: 400, data: { error: 'invalid_grant', error_description: 'Refresh token revoked' } };
+    axios.post.mockRejectedValueOnce(invalidGrant);
+
+    await expect(SpotifyService.refreshAccessToken('old-refresh', credentials)).rejects.toMatchObject({
+      statusCode: 401,
+      errorCode: 'SPOTIFY_REAUTH_REQUIRED',
+    });
+    expect(axios.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mark a server error as "Spotify sign-in required"', async () => {
+    const serverError = new Error('Request failed with status code 503');
+    serverError.response = { status: 503, data: {} };
+    axios.post.mockRejectedValueOnce(serverError);
+
+    const error = await SpotifyService.refreshAccessToken('refresh', credentials).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.errorCode).toBeUndefined();
+  });
+
+  it('does not mark a network failure as "Spotify sign-in required"', async () => {
+    axios.post.mockRejectedValueOnce(new Error('socket hang up'));
+
+    const error = await SpotifyService.refreshAccessToken('refresh', credentials).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.errorCode).toBeUndefined();
+  });
+});

@@ -38,7 +38,8 @@ class PlayerController {
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
-          message: error.message
+          message: error.message,
+          ...(error.errorCode && { code: error.errorCode })
         });
       }
 
@@ -104,7 +105,8 @@ class PlayerController {
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
-          message: error.message
+          message: error.message,
+          ...(error.errorCode && { code: error.errorCode })
         });
       }
 
@@ -152,7 +154,8 @@ class PlayerController {
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
-          message: error.message
+          message: error.message,
+          ...(error.errorCode && { code: error.errorCode })
         });
       }
 
@@ -225,7 +228,8 @@ class PlayerController {
       if (error.statusCode) {
         return res.status(error.statusCode).json({
           success: false,
-          message: error.message
+          message: error.message,
+          ...(error.errorCode && { code: error.errorCode })
         });
       }
 
@@ -254,7 +258,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Playback paused' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
       next(error);
     }
   }
@@ -272,7 +276,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Playback resumed' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
       next(error);
     }
   }
@@ -290,7 +294,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Skipped to next track' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
       next(error);
     }
   }
@@ -308,7 +312,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Skipped to previous track' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
       next(error);
     }
   }
@@ -331,7 +335,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Seeked', data: { positionMs } });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
       next(error);
     }
   }

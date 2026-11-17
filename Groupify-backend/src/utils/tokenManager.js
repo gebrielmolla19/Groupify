@@ -2,6 +2,7 @@ const SpotifyService = require('../services/spotifyService');
 const User = require('../models/User');
 const config = require('../config/env');
 const logger = require('./logger');
+const { createSpotifyReauthError, isSpotifyReauthError } = require('./spotifyReauth');
 
 /**
  * Token Manager Utility
@@ -20,6 +21,12 @@ class TokenManager {
 
       if (!user) {
         throw new Error('User not found');
+      }
+
+      // Tokens are cleared when Spotify rejects the refresh token; don't ask
+      // Spotify again until the user signs in again.
+      if (!user.spotifyRefreshToken) {
+        throw createSpotifyReauthError();
       }
 
       // Check if token is expired (with 5 minute buffer)
@@ -43,6 +50,9 @@ class TokenManager {
 
       return user.spotifyAccessToken;
     } catch (error) {
+      if (isSpotifyReauthError(error)) {
+        throw error;
+      }
       logger.error('[TokenManager] Failed to get valid access token', {
         userId,
         error: error.message
@@ -57,6 +67,7 @@ class TokenManager {
    * @returns {Promise<string>} New access token
    */
   static async refreshUserToken(userId, existingUser = null) {
+    let rejectedRefreshToken = null;
     try {
       logger.info('[TokenManager] Refreshing Spotify access token', { userId });
 
@@ -67,6 +78,7 @@ class TokenManager {
       }
 
       const spotifyConfig = config.spotify.getConfig(user.spotifyAppIndex ?? 0);
+      rejectedRefreshToken = user.spotifyRefreshToken;
       const tokenData = await SpotifyService.refreshAccessToken(user.spotifyRefreshToken, spotifyConfig);
 
       // Calculate expiration time
@@ -89,6 +101,12 @@ class TokenManager {
 
       return tokenData.accessToken;
     } catch (error) {
+      if (isSpotifyReauthError(error)) {
+        if (rejectedRefreshToken) {
+          await this.clearSpotifyTokens(userId, rejectedRefreshToken);
+        }
+        throw error;
+      }
       logger.error('[TokenManager] Failed to refresh Spotify token', {
         userId,
         error: error.message,
@@ -96,6 +114,24 @@ class TokenManager {
       });
       throw new Error(`Failed to refresh user token: ${error.message}`);
     }
+  }
+
+  /**
+   * Forget a user's Spotify tokens after Spotify rejected the refresh token,
+   * so later requests answer "sign in again" without calling Spotify.
+   * Signing in with Spotify stores new ones.
+   *
+   * Only clears if the stored refresh token is still the rejected one: a
+   * sign-in that finished while Spotify was answering must not be undone.
+   * @param {string} userId - User MongoDB ID
+   * @param {string} rejectedRefreshToken - The refresh token Spotify rejected
+   */
+  static async clearSpotifyTokens(userId, rejectedRefreshToken) {
+    await User.updateOne(
+      { _id: userId, spotifyRefreshToken: rejectedRefreshToken },
+      { $unset: { spotifyAccessToken: '', spotifyRefreshToken: '', tokenExpiresAt: '' } }
+    );
+    logger.warn('[TokenManager] Spotify refresh token rejected; cleared stored Spotify tokens', { userId });
   }
 
   /**

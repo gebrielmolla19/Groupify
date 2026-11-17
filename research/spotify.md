@@ -393,13 +393,11 @@ development-mode apps without a pending extension request, regardless.
    create-playlist reference says collaborative playlists need both
    `playlist-modify-private` and `playlist-modify-public`.
    `playlist-read-collaborative` is not requested either.
-8. Refresh token lifetime: the code assumes a stored refresh token stays
-   valid. `Groupify-backend/src/utils/tokenManager.js` and
-   `spotifyService.js:347-378` have no `invalid_grant` handling (errors
-   are wrapped into a generic `Error`), and
-   `authController.js:394-432` (`refreshJwt`) treats "has a refresh
-   token" as a live Spotify session. Spotify now expires refresh tokens
-   six months after authorisation. No authorisation date is stored.
+8. Refresh token lifetime: fixed for the expiry itself (#86).
+   `SpotifyService.refreshAccessToken` turns `400 invalid_grant` into a
+   401 with code `SPOTIFY_REAUTH_REQUIRED`, `TokenManager` clears the
+   stored tokens, and the frontend signs the user out. Still open: no
+   authorisation date is stored, so the app can't warn before expiry.
 9. Recently played as proof of listening:
    `Groupify-backend/src/utils/scheduler.js:34-70` marks a share as
    listened for any item in recently-played. (The scheduler is switched

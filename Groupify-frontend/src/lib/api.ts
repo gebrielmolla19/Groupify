@@ -4,7 +4,7 @@
  */
 
 import { API_BASE_URL } from './config';
-import { ApiError } from './apiError';
+import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences } from '../types';
 import { TasteGravityResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
@@ -30,6 +30,23 @@ export const setToken = (token: string): void => {
  */
 export const removeToken = (): void => {
   localStorage.removeItem(TOKEN_STORAGE_KEY);
+};
+
+/** Body of an error response from the backend. */
+interface ErrorBody {
+  message?: string;
+  code?: string;
+}
+
+/**
+ * When the server says the user's Spotify sign-in has expired, tell the app
+ * (UserContext signs the user out). Returns the code to put on the ApiError.
+ */
+const announceIfSpotifyReauth = (body: ErrorBody): string | null => {
+  if (body.code === SPOTIFY_REAUTH_REQUIRED) {
+    window.dispatchEvent(new CustomEvent(SPOTIFY_REAUTH_EVENT, { detail: { message: body.message } }));
+  }
+  return body.code ?? null;
 };
 
 // Track whether a token refresh is already in progress to avoid parallel refreshes
@@ -58,7 +75,18 @@ const refreshJwtToken = async (): Promise<string | null> => {
     body: JSON.stringify({ token: expiredToken }),
   });
 
-  if (REFRESH_REFUSED_STATUSES.includes(response.status)) return null;
+  if (REFRESH_REFUSED_STATUSES.includes(response.status)) {
+    const refusal: ErrorBody = await response.json().catch(() => ({}));
+    if (announceIfSpotifyReauth(refusal) === SPOTIFY_REAUTH_REQUIRED) {
+      // Surface the real reason, not the original "Token expired", so callers
+      // can tell the user has already been told.
+      throw new ApiError(refusal.message || 'Spotify sign-in required', {
+        status: response.status,
+        code: SPOTIFY_REAUTH_REQUIRED,
+      });
+    }
+    return null;
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: '' }));
@@ -127,7 +155,7 @@ export const fetchWithAuth = async (
 
   // On 401 "Token expired", try to refresh and retry once
   if (response.status === 401) {
-    const body = await response.json().catch(() => ({ message: '' }));
+    const body: ErrorBody = await response.json().catch(() => ({ message: '' }));
     if (body.message === 'Token expired') {
       // Deduplicate concurrent refresh attempts
       if (!refreshPromise) {
@@ -145,10 +173,10 @@ export const fetchWithAuth = async (
         const retryResponse = await fetchOrNetworkError(url, { ...options, headers: retryHeaders });
 
         if (!retryResponse.ok) {
-          const retryError = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
+          const retryError: ErrorBody = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
           throw new ApiError(
             retryError.message || `HTTP error! status: ${retryResponse.status}`,
-            { status: retryResponse.status }
+            { status: retryResponse.status, code: announceIfSpotifyReauth(retryError) }
           );
         }
         return retryResponse;
@@ -157,13 +185,13 @@ export const fetchWithAuth = async (
 
     // Refresh failed or non-expiry 401 — throw as normal
     const errorMessage = body.message || `HTTP error! status: ${response.status}`;
-    throw new ApiError(errorMessage, { status: response.status });
+    throw new ApiError(errorMessage, { status: response.status, code: announceIfSpotifyReauth(body) });
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+    const error: ErrorBody = await response.json().catch(() => ({ message: 'An error occurred' }));
     const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-    throw new ApiError(errorMessage, { status: response.status });
+    throw new ApiError(errorMessage, { status: response.status, code: error.code ?? null });
   }
 
   return response;

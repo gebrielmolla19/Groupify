@@ -26,6 +26,7 @@ import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { exportGroupToPlaylist, followGroupPlaylist } from "../../../lib/api";
 import { useUser } from "../../../contexts/UserContext";
 import { toast } from "sonner";
+import { isSpotifyReauthError } from "../../../lib/apiError";
 import { useState, useEffect, useMemo } from "react";
 import { logger } from "../../../utils/logger";
 import { useParams, useNavigate } from "react-router-dom";
@@ -172,7 +173,8 @@ export default function PlaylistViewScreen() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to export playlist';
-      toast.error(errorMessage);
+      // UserContext already told the user to sign in with Spotify again.
+      if (!isSpotifyReauthError(err)) toast.error(errorMessage);
       logger.error('Failed to export playlist:', err);
     } finally {
       setIsExporting(false);
@@ -202,7 +204,8 @@ export default function PlaylistViewScreen() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to follow playlist';
-      toast.error(errorMessage);
+      // UserContext already told the user to sign in with Spotify again.
+      if (!isSpotifyReauthError(err)) toast.error(errorMessage);
       logger.error('Failed to follow playlist:', err);
     } finally {
       setIsFollowing(false);
