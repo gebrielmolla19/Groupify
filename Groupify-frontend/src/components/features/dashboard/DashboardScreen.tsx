@@ -16,7 +16,8 @@ import { useNavigate } from "react-router-dom";
 export default function DashboardScreen() {
   const navigate = useNavigate();
   const { groups, isLoading, error, createGroup, joinGroupByCode } = useGroups();
-  const unheard = useUnheardShares();
+  // A few of the newest on Home; the rest are a tap away in each group's Unheard filter.
+  const unheard = useUnheardShares(5);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -42,12 +43,16 @@ export default function DashboardScreen() {
   const headlineLoading = isLoading || (unheard.isLoading && !waiting);
   // Say it, then show it: the headline is about what's waiting, unless there's nowhere for it to wait.
   // Without the unheard data there's no count to claim, so stay neutral rather than say "caught up".
-  const headline = noGroups ? "Start a group" : waiting ? waitingHeadline(waiting.total) : "Welcome back";
+  const counts = waiting && {
+    total: waiting.total,
+    newThisWeek: waiting.newThisWeek,
+    groupCount: Object.keys(waiting.byGroup).length,
+    oldestAt: waiting.oldestAt,
+  };
+  const headline = noGroups ? "Start a group" : counts ? waitingHeadline(counts) : "Welcome back";
   const summary = noGroups
     ? "Groups are where friends share tracks. Create one, or join with a code."
-    : waiting
-      ? waitingSummary({ total: waiting.total, groupCount: Object.keys(waiting.byGroup).length, oldestAt: waiting.oldestAt })
-      : "";
+    : counts ? waitingSummary(counts) : "";
 
   return (
     <>
@@ -109,7 +114,7 @@ export default function DashboardScreen() {
             ))}
           </div>
         )}
-        {waiting && waiting.shares.length > 0 && <WaitingList shares={waiting.shares} total={waiting.total} />}
+        {waiting && waiting.shares.length > 0 && <WaitingList shares={waiting.shares} total={waiting.total} byGroup={waiting.byGroup} groups={groups} />}
 
         {/* Your groups */}
         {error && (

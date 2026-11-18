@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countShares, filterShares } from './feedFilter';
+import { countShares, filterShares, isFeedFilter } from './feedFilter';
 import type { Share, User } from '../types';
 
 const u = (id: string) => ({ _id: id, id, displayName: id.toUpperCase() }) as User;
@@ -60,5 +60,12 @@ describe('countShares', () => {
 
   it('counts nothing but All without a viewer', () => {
     expect(countShares(shares, null)).toEqual({ all: 4, unheard: 0, yours: 0, liked: 0 });
+  });
+});
+
+describe('isFeedFilter', () => {
+  it('accepts the four filters and nothing else', () => {
+    for (const f of ['all', 'unheard', 'yours', 'liked']) expect(isFeedFilter(f)).toBe(true);
+    for (const f of ['Unheard', 'mine', '', null]) expect(isFeedFilter(f)).toBe(false);
   });
 });

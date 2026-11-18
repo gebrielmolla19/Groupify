@@ -77,3 +77,14 @@ test('switching groups goes back to All', async ({ page }) => {
   await expect(page).toHaveURL(/\/groups\/g1$/);
   await expect(chip(page, 'All')).toHaveAttribute('aria-checked', 'true');
 });
+
+// Home's per-group links open the feed on Unheard.
+test('?filter=unheard opens the feed on Unheard', async ({ page }) => {
+  await openSampleFeed(page, { theme: 'dark' });
+  await page.goto('/groups/g1?filter=unheard');
+  await expect(chip(page, 'Unheard')).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => shown(page)).toEqual(['Sample Track 2']);
+
+  await page.goto('/groups/g1?filter=nonsense');
+  await expect(chip(page, 'All')).toHaveAttribute('aria-checked', 'true');
+});

@@ -657,6 +657,7 @@ export const getUnheardShares = async (limit: number = 20): Promise<UnheardShare
   return {
     shares: data.shares.map((share: UnheardShares['shares'][number]) => ({ ...share, id: share._id })),
     total: data.total,
+    newThisWeek: data.newThisWeek,
     byGroup: data.byGroup,
     oldestAt: data.oldestAt,
   };

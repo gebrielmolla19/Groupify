@@ -4,6 +4,10 @@ import { isUser } from './heardStack';
 export const FEED_FILTERS = ['all', 'unheard', 'yours', 'liked'] as const;
 export type FeedFilter = (typeof FEED_FILTERS)[number];
 
+/** Whether a value (say, from the URL) names a feed filter. */
+export const isFeedFilter = (value: string | null): value is FeedFilter =>
+  (FEED_FILTERS as readonly (string | null)[]).includes(value);
+
 type Viewer = Pick<User, '_id' | 'id'> | null | undefined;
 
 /**

@@ -12,7 +12,7 @@ import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { useUser } from "../../../contexts/UserContext";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
 
 import { useGroupInvites } from "../../../hooks/useGroupInvites";
@@ -24,7 +24,7 @@ import DetailPane from "../../layout/DetailPane";
 import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import FeedFilters, { EMPTY_FILTER_TEXT } from "./FeedFilters";
-import { countShares, filterShares, type FeedFilter } from "../../../lib/feedFilter";
+import { countShares, filterShares, isFeedFilter, type FeedFilter } from "../../../lib/feedFilter";
 import { isUser } from "../../../lib/heardStack";
 import { logger } from "../../../utils/logger";
 
@@ -53,7 +53,12 @@ export default function GroupFeedScreen() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   // Filters work on the shares already loaded, not the group's full history.
   // The route remounts this screen per group, so each group starts on All.
-  const [filter, setFilter] = useState<FeedFilter>('all');
+  // Home links here with ?filter=unheard to open on that filter.
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState<FeedFilter>(() => {
+    const requested = searchParams.get('filter');
+    return isFeedFilter(requested) ? requested : 'all';
+  });
   const filterCounts = useMemo(() => countShares(shares, user), [shares, user]);
   const visibleShares = useMemo(() => filterShares(shares, filter, user), [shares, filter, user]);
 

@@ -1,17 +1,27 @@
 import { Link } from "react-router-dom";
 import { Music2 } from "lucide-react";
-import type { UnheardShares } from "../../../types";
+import type { Group, UnheardShares } from "../../../types";
 import { formatAge } from "../../../lib/formatTime";
 
 interface WaitingListProps {
   shares: UnheardShares["shares"];
   /** All unheard shares, which can be more than the list shows. */
   total: number;
+  byGroup: UnheardShares["byGroup"];
+  /** The viewer's groups, for the names on the per-group links. */
+  groups: Group[];
 }
 
-/** Home's list of unheard shares; each row opens the share's group. */
-export default function WaitingList({ shares, total }: WaitingListProps) {
+/**
+ * Home's newest unheard shares; each row opens the share's group. When there
+ * are more than it shows, links per group open each feed on its Unheard filter.
+ */
+export default function WaitingList({ shares, total, byGroup, groups }: WaitingListProps) {
   const more = total - shares.length;
+  const perGroup = groups
+    .filter((group) => byGroup[group._id] > 0)
+    .map((group) => ({ group, count: byGroup[group._id] }))
+    .sort((a, b) => b.count - a.count);
   return (
     <>
       <ul aria-label="Waiting for you" className="@container space-y-1">
@@ -42,10 +52,24 @@ export default function WaitingList({ shares, total }: WaitingListProps) {
           );
         })}
       </ul>
-      {more > 0 && (
-        <p className="mt-2 pl-5 text-sm text-soft">
-          And {more} more in your groups.
-        </p>
+      {more > 0 && perGroup.length > 0 && (
+        <div className="mt-4 pl-5">
+          <p className="text-sm text-soft">And {more} more. Hear them group by group:</p>
+          <ul aria-label="Unheard by group" className="mt-2 flex flex-wrap gap-2">
+            {perGroup.map(({ group, count }) => (
+              <li key={group._id} className="min-w-0 max-w-full">
+                <Link
+                  to={`/groups/${group._id}?filter=unheard`}
+                  className="flex min-h-11 max-w-full items-center gap-2 rounded-xl border border-line px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="truncate">{group.name}</span>
+                  <span className="font-mono text-xs text-soft">{count}</span>
+                  <span className="sr-only">unheard</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </>
   );

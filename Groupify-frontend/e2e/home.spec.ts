@@ -2,15 +2,17 @@ import { test, expect } from '@playwright/test';
 import { openSampleHome } from './support/sampleHome';
 
 // #57 slice 5: Home. Sample data (see support/sampleHome.ts): three groups,
-// three unheard shares (two in Sample Group, one in Second Group), oldest 5 days.
+// three unheard shares this week (two in Sample Group, one in Second Group);
+// `backlog` adds six older ones, the oldest 400 days old.
 const waiting = (page: import('@playwright/test').Page) => page.getByRole('list', { name: 'Waiting for you' });
 
 test('says what is waiting, then lists it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openSampleHome(page, { theme: 'dark' });
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('3 tracks are waiting for you');
-  await expect(page.getByText('Across 2 groups. The oldest has been sitting for 5 days.')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('3 new tracks this week');
+  await expect(page.getByText('Across 2 groups.')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Unheard by group' })).toHaveCount(0);
   await expect(waiting(page).getByRole('listitem')).toHaveCount(3);
   await expect(waiting(page).getByRole('link').first()).toContainText('Waiting Track 1');
   await expect(waiting(page).getByRole('link').first()).toContainText('Sample Group · Test Friend · 1d');
@@ -58,7 +60,7 @@ test('a failed load says so, claims nothing, and can retry', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Your groups' })).toBeVisible();
 
   await alert.getByRole('button', { name: 'Try again' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('3 tracks are waiting for you');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('3 new tracks this week');
   await expect(alert).toHaveCount(0);
   await expect(waiting(page).getByRole('listitem')).toHaveCount(3);
 });
@@ -75,4 +77,31 @@ test('at 375px Home fits, with 44px controls', async ({ page }) => {
   for (const link of await waiting(page).getByRole('link').all()) {
     expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test('a long backlog shows the 5 newest, then links to each group\'s unheard', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openSampleHome(page, { theme: 'dark', backlog: true });
+
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('4 new tracks this week');
+  await expect(page.getByText('5 older tracks are still waiting too. The oldest has been waiting for over a year.')).toBeVisible();
+  await expect(waiting(page).getByRole('listitem')).toHaveCount(5);
+  await expect(page.getByText('And 4 more. Hear them group by group:')).toBeVisible();
+
+  // Every group with unheard shares, most first, with its full count.
+  const byGroup = page.getByRole('list', { name: 'Unheard by group' }).getByRole('link');
+  await expect(byGroup).toHaveText([/Sample Group\s*6/, /Second Group\s*2/, /Quiet Group\s*1/]);
+  await expect(byGroup.first()).toHaveAccessibleName('Sample Group 6 unheard');
+
+  await byGroup.first().click();
+  await expect(page).toHaveURL(/\/groups\/g1\?filter=unheard$/);
+});
+
+test('at 375px the per-group links wrap without page scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openSampleHome(page, { theme: 'dark', backlog: true });
+  const links = page.getByRole('list', { name: 'Unheard by group' }).getByRole('link');
+  await expect(links).toHaveCount(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  for (const link of await links.all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
