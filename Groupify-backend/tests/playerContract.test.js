@@ -209,13 +209,14 @@ describe('Player API contract with Spotify', () => {
       expect(res.body.message).toMatch(/Premium/);
     });
 
-    it('passes Spotify\'s 429 through with the Retry-After wait in the message (invariant 7)', async () => {
+    it('passes Spotify\'s 429 through with the wait the client can read (invariant 7, #121)', async () => {
       axios.put.mockRejectedValueOnce(spotifyError(429, 'API rate limit exceeded', { 'retry-after': '7' }));
 
       const res = await play('web1');
 
       expect(res.status).toBe(429);
-      expect(res.body.message).toBe('Spotify rate limit exceeded. Retry after 7 seconds.');
+      expect(res.body).toMatchObject({ success: false, message: 'Spotify rate limit exceeded. Retry after 7 seconds.', retryAfter: 7 });
+      expect(res.headers['retry-after']).toBe('7');
       // One request: Groupify doesn't hammer Spotify while it's limiting us.
       expect(axios.put).toHaveBeenCalledTimes(1);
     });
@@ -334,6 +335,42 @@ describe('Player API contract with Spotify', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.playback).toBeNull();
+    });
+  });
+
+  // #121: every player route reports Spotify's rate limit the same way, so
+  // the client can wait the time Spotify asked for before polling again.
+  describe('Spotify rate limit (429)', () => {
+    const routes = [
+      ['GET /playback', 'get', () => request(app).get('/api/v1/player/playback').set('Authorization', auth)],
+      ['GET /devices', 'get', () => request(app).get('/api/v1/player/devices').set('Authorization', auth)],
+      ['PUT /transfer', 'put', () => request(app).put('/api/v1/player/transfer').set('Authorization', auth).send({ device_id: 'spk' })],
+      ['PUT /pause', 'put', () => request(app).put('/api/v1/player/pause').set('Authorization', auth).send({})],
+      ['PUT /resume', 'put', () => request(app).put('/api/v1/player/resume').set('Authorization', auth).send({})],
+      ['POST /next', 'post', () => request(app).post('/api/v1/player/next').set('Authorization', auth).send({})],
+      ['POST /previous', 'post', () => request(app).post('/api/v1/player/previous').set('Authorization', auth).send({})],
+      ['PUT /seek', 'put', () => request(app).put('/api/v1/player/seek').set('Authorization', auth).send({ position_ms: 0 })],
+    ];
+
+    it.each(routes)('%s returns 429 with retryAfter and a Retry-After header', async (_route, method, send) => {
+      axios[method].mockRejectedValueOnce(spotifyError(429, 'API rate limit exceeded', { 'retry-after': '12' }));
+
+      const res = await send();
+
+      expect(res.status).toBe(429);
+      expect(res.body).toMatchObject({ success: false, retryAfter: 12 });
+      expect(res.headers['retry-after']).toBe('12');
+      expect(axios[method]).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves retryAfter out when Spotify gives no usable wait', async () => {
+      axios.get.mockRejectedValueOnce(spotifyError(429, 'API rate limit exceeded', { 'retry-after': 'soon' }));
+
+      const res = await request(app).get('/api/v1/player/playback').set('Authorization', auth);
+
+      expect(res.status).toBe(429);
+      expect(res.body.retryAfter).toBeUndefined();
+      expect(res.headers['retry-after']).toBeUndefined();
     });
   });
 

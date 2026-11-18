@@ -175,3 +175,19 @@ test('phone mini player: previous, play/pause and next', async ({ page }) => {
   await player(page).getByRole('button', { name: 'Previous track' }).click();
   await expect(player(page)).toContainText('Sample Track 2');
 });
+
+test('a Spotify rate limit pauses playback polling for the wait it asked for (invariant 7, #121)', async ({ page }) => {
+  await openPlayer(page, { playbackRateLimit: 6 });
+  const polls = async () => (await apiCalls(page, 'GET /player/playback')).length;
+
+  await expect.poll(polls).toBe(1);
+  const limitedAt = Date.now();
+  // The player bar polls every 3 s, so without the pause there'd be more by now.
+  await page.waitForTimeout(4500);
+  expect(await polls()).toBe(1);
+
+  await expect.poll(polls, { timeout: 10000 }).toBeGreaterThan(1);
+  expect(Date.now() - limitedAt).toBeGreaterThanOrEqual(5000);
+  // A rate limit isn't the user's problem: no error toast.
+  await expect(page.locator('[data-sonner-toast][data-type="error"]')).toHaveCount(0);
+});
