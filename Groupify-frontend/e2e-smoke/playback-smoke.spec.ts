@@ -12,7 +12,8 @@ const TRACKS = (process.env.SMOKE_TRACK_IDS ?? '').split(',').map((s) => s.trim(
 const WEB_PLAYER = 'Groupify Web Player';
 const SPEAKER = 'Groupify Test Speaker';
 
-interface Playback { is_playing: boolean; progress_ms: number; item: { id: string; duration_ms: number } | null; device: { id: string; name: string } }
+// `linked_from`: Spotify can relink a track to another ID for the market.
+interface Playback { is_playing: boolean; progress_ms: number; item: { id: string; duration_ms: number; linked_from?: { id: string } } | null; device: { id: string; name: string } }
 interface Device { id: string; name: string; is_active: boolean }
 interface Share { _id: string; spotifyTrackId: string; trackName: string; listeners: { user: { _id: string } | string }[] }
 
@@ -88,6 +89,32 @@ test('real playback on Spotify', async ({ browser, request }) => {
   const app = groupify(request, jwt);
   let touchedPlayback = false;
   const contexts = [await browser.newContext(), await browser.newContext()];
+  const ids = { web: '', speaker: '' };
+
+  /**
+   * What Spotify reports, as labels the public log can show: which of
+   * TRACKS is playing (by index) and on which of our devices, never names.
+   */
+  const state = async () => {
+    const now = await spotify.playback();
+    if (!now) return { playing: false, track: 'none', device: 'none' };
+    const index = TRACKS.findIndex((t) => t === now.item?.id || t === now.item?.linked_from?.id);
+    const device = now.device.id === ids.web ? 'web' : now.device.id === ids.speaker ? 'speaker' : 'other';
+    return { playing: now.is_playing, track: index === -1 ? 'other' : index, device };
+  };
+
+  // Diagnostics for a failed run: the player API's statuses, the app's
+  // toasts and its Spotify errors. No tokens, names or device names.
+  const diagnostics: string[] = [];
+  const watch = (page: Page) => {
+    page.on('response', (res) => {
+      const path = new URL(res.url()).pathname;
+      if (path.includes('/api/v1/player/') && !path.endsWith('/playback')) diagnostics.push(`${res.request().method()} ${path.replace(/^.*\/api\/v1/, '')} -> ${res.status()}`);
+    });
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' || /spotify|playback|player/i.test(msg.text())) diagnostics.push(`console.${msg.type()}: ${msg.text().slice(0, 200)}`);
+    });
+  };
 
   try {
     await test.step('stops before touching anything if the owner is listening', async () => {
@@ -107,15 +134,15 @@ test('real playback on Spotify', async ({ browser, request }) => {
     const share = (i: number) => shares.find((s) => s.spotifyTrackId === TRACKS[i])!;
 
     const page = await contexts[0].newPage();
+    watch(page);
     const player = page.getByTestId('spotify-player');
-    let webDeviceId = '';
 
     await test.step(`"${WEB_PLAYER}" joins the device list without taking over playback`, async () => {
       const before = await spotify.playback();
       await openGroupify(page, jwt, `/groups/${group._id}`);
       await expect.poll(async () => {
-        webDeviceId = (await spotify.devices()).find((d) => d.name === WEB_PLAYER)?.id ?? '';
-        return webDeviceId;
+        ids.web = (await spotify.devices()).find((d) => d.name === WEB_PLAYER)?.id ?? '';
+        return ids.web;
       }, { timeout: 45_000 }).not.toBe('');
       const after = await spotify.playback();
       expect(after?.device.id ?? null).toBe(before?.device.id ?? null);
@@ -124,10 +151,7 @@ test('real playback on Spotify', async ({ browser, request }) => {
     await test.step('play: Spotify plays the share on this browser, and it advances', async () => {
       touchedPlayback = true;
       await page.getByRole('button', { name: `Play ${share(0).trackName}` }).click();
-      await expect.poll(async () => {
-        const now = await spotify.playback();
-        return now?.is_playing && now.item?.id === TRACKS[0] && now.device.id === webDeviceId;
-      }, { timeout: 30_000 }).toBe(true);
+      await expect.poll(state, { timeout: 30_000 }).toEqual({ playing: true, track: 0, device: 'web' });
       const first = (await spotify.playback())!.progress_ms;
       await page.waitForTimeout(3000);
       expect((await spotify.playback())!.progress_ms).toBeGreaterThan(first + 1500);
@@ -135,15 +159,12 @@ test('real playback on Spotify', async ({ browser, request }) => {
 
     await test.step('pause', async () => {
       await player.getByRole('button', { name: 'Pause', exact: true }).click();
-      await expect.poll(async () => (await spotify.playback())?.is_playing, { timeout: 15_000 }).toBe(false);
+      await expect.poll(state, { timeout: 15_000 }).toEqual({ playing: false, track: 0, device: 'web' });
     });
 
     await test.step('next plays the next share', async () => {
       await player.getByRole('button', { name: 'Next track', exact: true }).click();
-      await expect.poll(async () => {
-        const now = await spotify.playback();
-        return now?.is_playing && now.item?.id === TRACKS[1];
-      }, { timeout: 30_000 }).toBe(true);
+      await expect.poll(state, { timeout: 30_000 }).toEqual({ playing: true, track: 1, device: 'web' });
     });
 
     await test.step('seek lands where the bar was clicked', async () => {
@@ -157,36 +178,31 @@ test('real playback on Spotify', async ({ browser, request }) => {
     await test.step('a track that ends auto-advances and is marked as listened', async () => {
       const bar = (await player.locator('span[aria-label="Seek"]').boundingBox())!;
       await page.mouse.click(bar.x + bar.width * 0.99, bar.y + bar.height / 2);
-      await expect.poll(async () => (await spotify.playback())?.item?.id, { timeout: 45_000 }).toBe(TRACKS[2]);
+      await expect.poll(state, { timeout: 45_000 }).toEqual({ playing: true, track: 2, device: 'web' });
       await expect.poll(async () => (await app.feed(group._id)).find((s) => s._id === share(1)._id)!.listeners.length, { timeout: 30_000 })
         .toBeGreaterThan(0);
       await player.getByRole('button', { name: 'Pause', exact: true }).click();
-      await expect.poll(async () => (await spotify.playback())?.is_playing, { timeout: 15_000 }).toBe(false);
+      await expect.poll(async () => (await state()).playing, { timeout: 15_000 }).toBe(false);
     });
 
     await test.step('opening Groupify while another device plays does not take it over', async () => {
       const speakerPage = await contexts[1].newPage();
       await openSpeaker(speakerPage, await spotify.accessToken());
-      let speakerId = '';
       await expect.poll(async () => {
-        speakerId = (await spotify.devices()).find((d) => d.name === SPEAKER)?.id ?? '';
-        return speakerId;
+        ids.speaker = (await spotify.devices()).find((d) => d.name === SPEAKER)?.id ?? '';
+        return ids.speaker;
       }, { timeout: 45_000 }).not.toBe('');
-      await spotify.play(speakerId, [`spotify:track:${TRACKS[0]}`]);
-      await expect.poll(async () => {
-        const now = await spotify.playback();
-        return now?.is_playing && now.device.id === speakerId;
-      }, { timeout: 20_000 }).toBe(true);
+      await spotify.play(ids.speaker, [`spotify:track:${TRACKS[0]}`]);
+      await expect.poll(state, { timeout: 20_000 }).toEqual({ playing: true, track: 0, device: 'speaker' });
 
       // A fresh Groupify tab registers its own player.
       const second = await contexts[0].newPage();
+      watch(second);
       await openGroupify(second, jwt, '/');
       await expect.poll(async () => (await spotify.devices()).filter((d) => d.name === WEB_PLAYER).length, { timeout: 45_000 })
         .toBeGreaterThan(1);
       await page.waitForTimeout(5000);
-      const now = await spotify.playback();
-      expect(now?.device.id).toBe(speakerId);
-      expect(now?.is_playing).toBe(true);
+      expect(await state()).toEqual({ playing: true, track: 0, device: 'speaker' });
 
       await spotify.pause();
       await second.close();
@@ -196,8 +212,13 @@ test('real playback on Spotify', async ({ browser, request }) => {
     await test.step(`signing out removes "${WEB_PLAYER}" from the device list`, async () => {
       await page.goto('/profile');
       await page.getByRole('button', { name: 'Sign Out' }).click();
-      await expect.poll(async () => (await spotify.devices()).some((d) => d.id === webDeviceId), { timeout: 45_000 }).toBe(false);
+      await expect.poll(async () => (await spotify.devices()).some((d) => d.id === ids.web), { timeout: 45_000 }).toBe(false);
     });
+  } catch (error) {
+    const toasts = await contexts[0].pages()[0]?.locator('[data-sonner-toast]').allTextContents().catch(() => []) ?? [];
+    console.log(['Diagnostics:', `Spotify state: ${JSON.stringify(await state().catch(() => 'unavailable'))}`,
+      ...toasts.map((t) => `toast: ${t}`), ...diagnostics].join('\n  '));
+    throw error;
   } finally {
     // Leave the account as it was: nothing playing, no test devices.
     if (touchedPlayback) {
