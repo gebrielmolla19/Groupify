@@ -14,6 +14,9 @@ const envSchema = Joi.object({
     // SPOTIFY_CLIENT_ID_1, SPOTIFY_CLIENT_SECRET_1, SPOTIFY_CLIENT_ID_2, SPOTIFY_CLIENT_SECRET_2, etc.
     FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
     GEMINI_API_KEY: Joi.string().optional().allow('').description('Google Gemini API key for AI-generated analytics text'),
+    // Test-only switches for the e2e and real-Spotify smoke tests (CONTRIBUTING §4). Never set in production.
+    E2E_TEST_LOGIN: Joi.string().optional().allow('').description('"true" enables POST /auth/test-login'),
+    SPOTIFY_TEST_REFRESH_TOKEN: Joi.string().optional().allow('').description('Owner refresh token given to the e2e test user by the smoke test'),
 })
     .unknown()
     .required();
