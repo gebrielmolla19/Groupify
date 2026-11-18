@@ -6,9 +6,10 @@
 // terminal: the token controls your Spotify account within Groupify's
 // scopes, so never paste it into a chat, an issue, a PR or a log.
 //
-// Before running, add this redirect URI to the Spotify app you pick, in the
-// Spotify dashboard (Spotify allows http only for loopback IPs):
-//   http://127.0.0.1:8888/callback
+// It reuses the local-dev redirect URI, which the Spotify app you pick must
+// already list in the Spotify dashboard (Spotify matches it exactly):
+//   http://127.0.0.1:5001/api/v1/auth/callback
+// So stop the local backend first: this script listens on port 5001.
 //
 // Usage (from Groupify-backend, with .env filled in):
 //   node scripts/get-spotify-refresh-token.js          # SPOTIFY_CLIENT_ID
@@ -18,8 +19,9 @@ const http = require('http');
 const crypto = require('crypto');
 const { SPOTIFY_SCOPES } = require('../src/config/spotifyScopes');
 
-const PORT = 8888;
-const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
+const PORT = 5001;
+const CALLBACK_PATH = '/api/v1/auth/callback';
+const REDIRECT_URI = `http://127.0.0.1:${PORT}${CALLBACK_PATH}`;
 
 const appArg = process.argv.indexOf('--app');
 const appIndex = appArg === -1 ? 0 : Number(process.argv[appArg + 1]);
@@ -45,7 +47,7 @@ const authorizeUrl = 'https://accounts.spotify.com/authorize?' + new URLSearchPa
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, REDIRECT_URI);
-  if (url.pathname !== '/callback') {
+  if (url.pathname !== CALLBACK_PATH) {
     res.writeHead(404).end();
     return;
   }
@@ -80,6 +82,15 @@ const server = http.createServer(async (req, res) => {
     finish(500, 'Token request failed. See the terminal.');
     console.error('Token request failed:', err.message);
   }
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is in use. Stop the local backend (npm run dev) and run this again.`);
+  } else {
+    console.error('Could not start:', err.message);
+  }
+  process.exit(1);
 });
 
 server.listen(PORT, '127.0.0.1', () => {

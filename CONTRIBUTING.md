@@ -269,12 +269,14 @@ uses a throwaway database on the runner and keeps no traces or
 screenshots, because Actions logs and artifacts are public.
 
 One-time setup, by the owner:
-1. In the Spotify dashboard, add `http://127.0.0.1:8888/callback` as a
-   redirect URI on the app you'll use.
+1. Check that the Spotify app you'll use lists the local-dev redirect URI
+   `http://127.0.0.1:5001/api/v1/auth/callback` in the Spotify
+   dashboard (the helper reuses it), and stop the local backend: the
+   helper listens on port 5001.
 2. In your own terminal, run
    `cd Groupify-backend && node scripts/get-spotify-refresh-token.js`
-   (add `--app N` for `SPOTIFY_CLIENT_ID_N`). Sign in in the browser it
-   gives you; it prints a refresh token.
+   (add `--app N` for `SPOTIFY_CLIENT_ID_N`). Open the link it prints and
+   sign in; it prints a refresh token.
 3. In GitHub (Settings → Secrets and variables → Actions), add the
    secrets `SPOTIFY_TEST_REFRESH_TOKEN`, `SPOTIFY_TEST_CLIENT_ID` and
    `SPOTIFY_TEST_CLIENT_SECRET` (that app's ID and secret), and the
