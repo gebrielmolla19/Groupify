@@ -264,9 +264,48 @@ touching the player, auth or the API client):
 - [ ] Opening Groupify while music plays in the Spotify app does **not**
       pause it
 - [ ] Logging out removes "Groupify Web Player" from the Spotify device list
-- [ ] Phone (Safari and Chrome, through a tunnel with its URL added as a
-      Spotify redirect URI): tap to play, next/prev, lock and unlock the
-      screen, then tap play
+- [ ] Phone checks below, on iOS Safari and Android Chrome
+
+**Phone checks** (needs a phone signed in to a Premium account, and
+[`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)).
+A phone can't reach `127.0.0.1`, and Spotify only accepts an HTTPS
+redirect URI unless it's a loopback IP (`research/spotify.md` §7), so
+both apps go through HTTPS tunnels:
+
+1. Start both apps as above, then open one tunnel per app. Each prints
+   an `https://….trycloudflare.com` URL, and the URL **changes every
+   time** a tunnel starts:
+   ```bash
+   cloudflared tunnel --url http://127.0.0.1:5001   # API_URL
+   cloudflared tunnel --url http://127.0.0.1:3000   # WEB_URL
+   ```
+2. Backend `.env`: `FRONTEND_URL=<WEB_URL>` and
+   `SPOTIFY_REDIRECT_URI=<API_URL>/api/v1/auth/callback`. Restart the
+   backend.
+3. Restart the frontend pointing at the API tunnel. Vite rejects host
+   names it doesn't know, so allow the tunnel domain:
+   ```bash
+   VITE_API_BASE_URL=<API_URL>/api/v1 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.trycloudflare.com npm run dev
+   ```
+4. In the Spotify dashboard, add `<API_URL>/api/v1/auth/callback` as a
+   redirect URI on the app you sign in with. Each `SPOTIFY_CLIENT_ID_N`
+   app has its own list (`adr/0001`), and Spotify matches it exactly.
+5. On the phone, open `<WEB_URL>` and sign in with Spotify.
+
+Then, in Safari on iOS and in Chrome on Android:
+- [ ] Tap a share's play button: audio starts from that tap (iOS needs
+      the tap)
+- [ ] Previous, pause/play and next in the mini player
+- [ ] Pause, lock the screen for 30 s, unlock, tap play: it plays again
+- [ ] A track that ends auto-advances
+- [ ] Open the `<WEB_URL>` link from an in-app browser (for example
+      Instagram): it says this browser can't play Spotify audio, not a
+      spinner
+
+Afterwards, put `FRONTEND_URL` and `SPOTIFY_REDIRECT_URI` back in
+`.env`, and remove the tunnel's redirect URI from the Spotify dashboard.
+Quick tunnels are for testing only: anyone with the URL can reach your
+local app while they run.
 
 ---
 

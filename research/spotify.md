@@ -384,6 +384,15 @@ All [S].
   carry over if the same ones are requested.
   ([refresh expiry post][blog-refresh])
 - Tokens tied to the issuing Client ID: no statement found (Unverified).
+- **Redirect URIs** (read on the live page 2026-11-18, [redirect URI][redirect]):
+  HTTPS is required unless the URI is a loopback address, and loopback
+  must be an IP literal (`http://127.0.0.1:PORT`, `http://[::1]:PORT`):
+  "`localhost` is not allowed as redirect URI". The URI must match the
+  one registered on the app exactly; the only allowance is a dynamic
+  port on a loopback URI registered without one. No wildcards are
+  mentioned.
+
+[redirect]: https://developer.spotify.com/documentation/web-api/concepts/redirect_uri
 
 ---
 
@@ -442,6 +451,13 @@ caps search at 10, and asks for the extra scopes (adr/0003).
     `useGlobalPlaybackTracking.ts:16`, the hook that records listens,
     passes 10000, outside the project's own range. Spotify documents no
     polling interval; these numbers are the project's own.
+15. `Groupify-backend/.env.example` and the default in
+    `src/config/env.js` use `http://localhost:5001/api/v1/auth/callback`
+    as `SPOTIFY_REDIRECT_URI`. Spotify's redirect URI page (section 7)
+    says `localhost` is not allowed; `http://127.0.0.1:5001/...` is.
+    Existing apps may still accept a URI registered earlier (not
+    confirmed). CONTRIBUTING §4's phone steps use HTTPS tunnel URLs, so
+    they aren't affected.
 
 Consistent with the docs: SDK scopes requested (`streaming`,
 `user-read-email`, `user-read-private`), player scopes, all eight SDK

@@ -88,9 +88,8 @@ the PR as **Not verified** for the user:
       list
 - [ ] Remote mode: with music playing in the Spotify app, the card
       shows it, and play/pause/next/seek control it
-- [ ] Phone, Safari and Chrome (needs a tunnel URL added as a Spotify
-      redirect URI): tap to play, next/prev, lock and unlock the screen,
-      then tap play
+- [ ] Phone, Safari and Chrome: the "Phone checks" in CONTRIBUTING §4,
+      which has the tunnel setup and the list
 - [ ] Opening the app in an in-app browser (for example Instagram) shows
       the "this browser can't play Spotify audio" message instead of
       spinning forever
