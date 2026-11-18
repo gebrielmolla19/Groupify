@@ -21,8 +21,7 @@ class PlayerController {
         throw error;
       }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      const devices = await SpotifyService.getAvailableDevices(accessToken);
+      const devices = await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.getAvailableDevices(accessToken));
 
       logger.debug('[Player] Available devices fetched', {
         userId,
@@ -76,8 +75,7 @@ class PlayerController {
         throw error;
       }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.transferPlayback(accessToken, device_id.trim(), Boolean(play));
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.transferPlayback(accessToken, device_id.trim(), Boolean(play)));
 
       const user = await User.findById(userId);
       if (!user) {
@@ -135,8 +133,7 @@ class PlayerController {
         throw error;
       }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      const playback = await SpotifyService.getCurrentPlayback(accessToken);
+      const playback = await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.getCurrentPlayback(accessToken));
 
       logger.debug('[Player] Current playback state fetched', {
         userId,
@@ -206,8 +203,7 @@ class PlayerController {
         throw error;
       }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.playTrack(accessToken, device_id.trim(), track_uri.trim());
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.playTrack(accessToken, device_id.trim(), track_uri.trim()));
 
       logger.info('[Player] Track playback started', {
         userId,
@@ -253,8 +249,7 @@ class PlayerController {
       const userId = req.userId;
       if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.pausePlayback(accessToken, req.body?.device_id || undefined);
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.pausePlayback(accessToken, req.body?.device_id || undefined));
 
       res.json({ success: true, message: 'Playback paused' });
     } catch (error) {
@@ -271,8 +266,7 @@ class PlayerController {
       const userId = req.userId;
       if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.resumePlayback(accessToken, req.body?.device_id || undefined);
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.resumePlayback(accessToken, req.body?.device_id || undefined));
 
       res.json({ success: true, message: 'Playback resumed' });
     } catch (error) {
@@ -289,8 +283,7 @@ class PlayerController {
       const userId = req.userId;
       if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.skipToNext(accessToken, req.body?.device_id || undefined);
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.skipToNext(accessToken, req.body?.device_id || undefined));
 
       res.json({ success: true, message: 'Skipped to next track' });
     } catch (error) {
@@ -307,8 +300,7 @@ class PlayerController {
       const userId = req.userId;
       if (!userId) { const e = new Error('User ID not found'); e.statusCode = 401; throw e; }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.skipToPrevious(accessToken, req.body?.device_id || undefined);
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.skipToPrevious(accessToken, req.body?.device_id || undefined));
 
       res.json({ success: true, message: 'Skipped to previous track' });
     } catch (error) {
@@ -330,8 +322,7 @@ class PlayerController {
         return res.status(400).json({ success: false, message: 'position_ms must be a non-negative integer' });
       }
 
-      const accessToken = await TokenManager.getValidAccessToken(userId);
-      await SpotifyService.seekToPosition(accessToken, positionMs, req.body?.device_id || undefined);
+      await TokenManager.withValidAccessToken(userId, (accessToken) => SpotifyService.seekToPosition(accessToken, positionMs, req.body?.device_id || undefined));
 
       res.json({ success: true, message: 'Seeked', data: { positionMs } });
     } catch (error) {
