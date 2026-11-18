@@ -30,7 +30,9 @@ export default function PlaylistRow({ share, position, viewer, isStarting, playD
   return (
     <li
       className="group/row flex cursor-pointer items-center gap-2 rounded-xl py-2 pr-2 transition-colors hover:bg-selected/60 @2xl:gap-3"
-      onClick={() => { if (!playDisabled && !isStarting) onPlay(); }}
+      // Not guarded on playDisabled: a tap while the player isn't ready should
+      // still reach onPlay, which says so in a toast.
+      onClick={() => { if (!isStarting) onPlay(); }}
     >
       <span className="w-6 shrink-0 text-right font-mono text-xs text-quiet" aria-hidden="true">{position}</span>
 
