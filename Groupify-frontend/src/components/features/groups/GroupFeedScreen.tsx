@@ -38,7 +38,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, total, unheardComplete, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, olderIds, total, unheardStatus, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -59,8 +59,16 @@ export default function GroupFeedScreen() {
     const requested = searchParams.get('filter');
     return isFeedFilter(requested) ? requested : 'all';
   });
-  const filterCounts = useMemo(() => countShares(shares, user), [shares, user]);
-  const visibleShares = useMemo(() => filterShares(shares, filter, user), [shares, filter, user]);
+  // All, Yours and Liked cover the loaded page; Unheard also has the group's older unheard shares.
+  const pageShares = useMemo(() => (olderIds.size ? shares.filter((s) => !olderIds.has(s._id)) : shares), [shares, olderIds]);
+  const filterCounts = useMemo(
+    () => ({ ...countShares(pageShares, user), unheard: countShares(shares, user).unheard }),
+    [pageShares, shares, user],
+  );
+  const visibleShares = useMemo(
+    () => filterShares(filter === 'unheard' ? shares : pageShares, filter, user),
+    [shares, pageShares, filter, user],
+  );
 
   // The share open in the song detail: a pane beside the feed on wide
   // screens, a bottom sheet otherwise. The last one stays shown while the
@@ -467,10 +475,10 @@ export default function GroupFeedScreen() {
                 <FeedFilters value={filter} counts={filterCounts} onChange={setFilter} />
               )}
               {/* Some older unheard shares weren't loaded: don't claim the list is complete. */}
-              {!isLoading && filter === 'unheard' && !unheardComplete && (
+              {!isLoading && filter === 'unheard' && unheardStatus === 'incomplete' && (
                 <p className="max-w-4xl pb-2 text-sm text-soft">Some older unheard tracks couldn't be loaded here.</p>
               )}
-              {!isLoading && filter !== 'all' && shares.length > 0 && visibleShares.length === 0 && (filter !== 'unheard' || unheardComplete) && (
+              {!isLoading && filter !== 'all' && shares.length > 0 && visibleShares.length === 0 && (filter !== 'unheard' || unheardStatus === 'complete') && (
                 <p className="max-w-4xl py-8 text-center text-sm md:text-base text-soft">{EMPTY_FILTER_TEXT[filter]}</p>
               )}
               {!isLoading && visibleShares.length > 0 && (

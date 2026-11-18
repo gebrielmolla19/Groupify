@@ -98,6 +98,13 @@ test('Unheard includes older unheard shares beyond the loaded page', async ({ pa
   await expect(page.getByText("couldn't be loaded here")).toHaveCount(0);
 });
 
+test('older unheard shares stay out of All', async ({ page }) => {
+  await openSampleFeed(page, { theme: 'dark', olderUnheard: 2 });
+  await expect(chip(page, 'Unheard')).toHaveAccessibleName('Unheard 3');
+  await expect(chip(page, 'All')).toHaveAccessibleName('All 3');
+  await expect.poll(() => shown(page)).toEqual(['Sample Track 1', 'Sample Track 2', 'Sample Track 3']);
+});
+
 test('if older unheard shares fail to load, Unheard says so instead of "heard everything"', async ({ page }) => {
   await openSampleFeed(page, { theme: 'dark', olderUnheard: 2, olderUnheardFails: true });
   await page.goto('/groups/g1?filter=unheard');
