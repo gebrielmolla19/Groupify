@@ -18,6 +18,8 @@ export const usePlaylist = (groupId: string, externalSortBy?: SortOption) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [internalSortBy, setInternalSortBy] = useState<SortOption>('most-listened');
+  // Bumped by refetch() to run the fetch effect again.
+  const [reloadKey, setReloadKey] = useState(0);
   
   // Use external sortBy if provided, otherwise use internal state
   const sortBy = externalSortBy ?? internalSortBy;
@@ -87,7 +89,7 @@ export const usePlaylist = (groupId: string, externalSortBy?: SortOption) => {
 
     window.addEventListener('trackListened', handleGlobalListened);
     return () => window.removeEventListener('trackListened', handleGlobalListened);
-  }, [groupId]);
+  }, [groupId, reloadKey]);
 
   // Sort shares based on selected option
   const sortedShares = useMemo(() => {
@@ -147,11 +149,7 @@ export const usePlaylist = (groupId: string, externalSortBy?: SortOption) => {
     sortBy,
     setSortBy,
     stats,
-    refetch: () => {
-      // Trigger refetch by updating groupId dependency
-      setShares([]);
-      setIsLoading(true);
-    }
+    refetch: () => setReloadKey((k) => k + 1),
   };
 };
 
