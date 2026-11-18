@@ -1,0 +1,56 @@
+name: E2E
+
+# Playwright specs in Groupify-frontend/e2e, including the fake-SDK playback
+# spec (#76). They stub the backend and Spotify, so they only need the Vite
+# dev server. Runs on every PR (no path filter), so the check always reports
+# and can be made required on main. Also runnable by hand from the Actions
+# tab (workflow_dispatch).
+on:
+  # Every PR, including stacked PRs whose base is another feature branch.
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Frontend E2E
+    # Pinned: Playwright 1.58 can't install Chromium on ubuntu-latest (26.04).
+    # Move up when @playwright/test supports the newer image.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: Groupify-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Groupify-frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright
+        run: npx playwright test
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            Groupify-frontend/playwright-report
+            Groupify-frontend/test-results
+          retention-days: 7

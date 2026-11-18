@@ -250,6 +250,13 @@ cd Groupify-frontend && npm run dev    # http://127.0.0.1:3000
 
 MongoDB is hosted (Atlas); don't start a local one.
 
+**E2E specs** (`Groupify-frontend/e2e/`, Playwright) stub the backend and,
+for playback, the Spotify SDK, so they need no account:
+`cd Groupify-frontend && npx playwright test`. CI runs them (the E2E
+workflow) on every PR. `e2e/playback.spec.ts`
+checks the calls the app makes to Spotify for the checklist below; it
+can't prove audio plays, so the manual checklist still applies.
+
 **Manual playback checklist** (needs Spotify Premium; run it for anything
 touching the player, auth or the API client):
 - [ ] Desktop Chrome: play, next, previous, pause/resume, seek
