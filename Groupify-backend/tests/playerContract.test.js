@@ -119,6 +119,8 @@ describe('Player API contract with Spotify', () => {
       expect(saved.tokenExpiresAt.getTime()).toBeGreaterThan(Date.now());
     });
 
+    // Today's behaviour: no forced refresh when Spotify rejects a token we
+    // think is still valid. #123 changes this to refresh once and retry.
     it('passes Spotify\'s 401 through as a 401, without retrying', async () => {
       axios.put.mockRejectedValueOnce(spotifyError(401, 'The access token expired'));
 
@@ -235,10 +237,48 @@ describe('Player API contract with Spotify', () => {
     });
   });
 
-  it('every player route needs a signed-in user', async () => {
-    const res = await request(app).put('/api/v1/player/play').send({ device_id: 'web1', track_uri: 'spotify:track:t1' });
+  describe('reading state', () => {
+    it('GET /devices returns Spotify\'s device list', async () => {
+      axios.get.mockResolvedValueOnce(devices('phone', 'web1'));
+
+      const res = await request(app).get('/api/v1/player/devices').set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(axios.get.mock.calls[0][0]).toBe(`${SPOTIFY}/me/player/devices`);
+      expect(res.body.devices.map((d) => d.id)).toEqual(['phone', 'web1']);
+    });
+
+    it('GET /playback returns what Spotify reports is playing', async () => {
+      axios.get.mockResolvedValueOnce({ data: { is_playing: true, item: { id: 't1' }, device: { id: 'phone' } } });
+
+      const res = await request(app).get('/api/v1/player/playback').set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(axios.get.mock.calls[0][0]).toBe(`${SPOTIFY}/me/player`);
+      expect(res.body.playback).toMatchObject({ is_playing: true, item: { id: 't1' } });
+    });
+
+    it('GET /playback reports nothing playing when Spotify has no active device', async () => {
+      axios.get.mockRejectedValueOnce(spotifyError(404));
+
+      const res = await request(app).get('/api/v1/player/playback').set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(res.body.playback).toBeNull();
+    });
+  });
+
+  it.each([
+    'get /devices', 'get /playback', 'put /transfer', 'put /play', 'put /pause',
+    'put /resume', 'post /next', 'post /previous', 'put /seek',
+  ])('%s needs a signed-in user', async (route) => {
+    const [method, path] = route.split(' ');
+
+    const res = await request(app)[method](`/api/v1/player${path}`).send({ device_id: 'web1', track_uri: 'spotify:track:t1', position_ms: 0 });
 
     expect(res.status).toBe(401);
+    expect(axios.get).not.toHaveBeenCalled();
     expect(axios.put).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
   });
 });
