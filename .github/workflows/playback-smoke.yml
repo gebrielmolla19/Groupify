@@ -15,6 +15,9 @@ on:
         description: Three short Spotify track IDs, comma-separated (defaults to the SMOKE_TRACK_IDS variable)
         required: false
 
+permissions:
+  contents: read
+
 # One run at a time: two would fight over the account's playback.
 concurrency:
   group: playback-smoke

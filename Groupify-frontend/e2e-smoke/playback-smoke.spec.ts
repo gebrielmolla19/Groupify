@@ -88,6 +88,8 @@ test('real playback on Spotify', async ({ browser, request }) => {
   const spotify = spotifyApi(request, jwt);
   const app = groupify(request, jwt);
   let touchedPlayback = false;
+  // A pause that fails must not pass quietly: the account would keep playing.
+  let cleanupError: Error | null = null;
   const contexts = [await browser.newContext(), await browser.newContext()];
   const ids = { web: '', speaker: '' };
 
@@ -133,13 +135,14 @@ test('real playback on Spotify', async ({ browser, request }) => {
   };
 
   try {
-    await test.step('stops before touching anything if the owner is listening', async () => {
-      const now = await spotify.playback();
-      if (now?.is_playing) {
-        // No device name: the Actions log is public.
+    // No device or track name in the message: the Actions log is public.
+    const stopIfOwnerListening = async () => {
+      if ((await spotify.playback())?.is_playing) {
         throw new Error('Something is playing on this Spotify account. Stopped before touching playback; run again when nothing is playing.');
       }
-    });
+    };
+
+    await test.step('stops before touching anything if the owner is listening', stopIfOwnerListening);
 
     // Newest share first in the playlist, so share in reverse: playlist = TRACKS.
     const { group } = await app.post('/groups', { name: `Playback smoke ${new Date().toISOString().slice(0, 16)}` });
@@ -163,6 +166,8 @@ test('real playback on Spotify', async ({ browser, request }) => {
     });
 
     await test.step('play: Spotify plays the share on this browser, and it advances', async () => {
+      // Setup takes up to a minute; the owner may have started listening since step 1.
+      await stopIfOwnerListening();
       touchedPlayback = true;
       await page.getByRole('button', { name: `Play ${share(0).trackName}` }).click();
       await expect.poll(state, { timeout: 30_000 }).toEqual({ playing: true, track: 0, device: 'web' });
@@ -216,7 +221,7 @@ test('real playback on Spotify', async ({ browser, request }) => {
       await page.waitForTimeout(5000);
       expect(await state()).toEqual({ playing: true, track: 0, device: 'speaker' });
 
-      await spotify.pause();
+      expect((await spotify.pause()).ok(), 'pausing the speaker device').toBeTruthy();
       await second.close();
       await speakerPage.evaluate(() => (window as unknown as { speaker: { disconnect: () => void } }).speaker.disconnect());
     });
@@ -234,9 +239,18 @@ test('real playback on Spotify', async ({ browser, request }) => {
   } finally {
     // Leave the account as it was: nothing playing, no test devices.
     if (touchedPlayback) {
-      const now = await spotify.playback().catch(() => null);
-      if (now?.is_playing) await spotify.pause().catch(() => {});
+      try {
+        if ((await spotify.playback())?.is_playing) {
+          const res = await spotify.pause();
+          if (!res.ok()) cleanupError = new Error(`Pausing at the end failed with HTTP ${res.status()}; the account may still be playing.`);
+        }
+      } catch (error) {
+        cleanupError = new Error(`Pausing at the end failed (${(error as Error).name}); the account may still be playing.`);
+      }
     }
     for (const context of contexts) await context.close();
+    if (cleanupError) console.log(cleanupError.message);
   }
+  // Only reached when the test itself passed; a failed run is already red.
+  if (cleanupError) throw cleanupError;
 });
