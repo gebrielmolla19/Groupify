@@ -119,16 +119,85 @@ describe('Player API contract with Spotify', () => {
       expect(saved.tokenExpiresAt.getTime()).toBeGreaterThan(Date.now());
     });
 
-    // Today's behaviour: no forced refresh when Spotify rejects a token we
-    // think is still valid. #123 changes this to refresh once and retry.
-    it('passes Spotify\'s 401 through as a 401, without retrying', async () => {
-      axios.put.mockRejectedValueOnce(spotifyError(401, 'The access token expired'));
+    // #123: Spotify can reject a token we still think is valid (revoked
+    // early, clock skew). Refresh once and retry once.
+    describe('when Spotify rejects a token we think is valid (401)', () => {
+      const refreshed = () => axios.post.mockResolvedValueOnce({ data: { access_token: 'fresh-token', expires_in: 3600 } });
 
-      const res = await play('web1');
+      it('refreshes the token, saves it, and retries once with it', async () => {
+        refreshed();
+        axios.put
+          .mockRejectedValueOnce(spotifyError(401, 'The access token expired'))
+          .mockResolvedValueOnce({ data: {} });
 
-      expect(res.status).toBe(401);
-      expect(res.body).toMatchObject({ success: false, message: 'Invalid or expired Spotify token' });
-      expect(axios.put).toHaveBeenCalledTimes(1);
+        const res = await play('web1');
+
+        expect(res.status).toBe(200);
+        expect(axios.post).toHaveBeenCalledTimes(1);
+        expect(axios.put.mock.calls.map(([, , config]) => config.headers.Authorization)).toEqual(['Bearer access-token', 'Bearer fresh-token']);
+        expect(targetedDevices()).toEqual(['web1', 'web1']);
+        const saved = await User.findById(user._id).select('+spotifyAccessToken');
+        expect(saved.spotifyAccessToken).toBe('fresh-token');
+      });
+
+      it('passes a second 401 through without refreshing again', async () => {
+        refreshed();
+        axios.put
+          .mockRejectedValueOnce(spotifyError(401))
+          .mockRejectedValueOnce(spotifyError(401));
+
+        const res = await play('web1');
+
+        expect(res.status).toBe(401);
+        expect(res.body).toMatchObject({ success: false, message: 'Invalid or expired Spotify token' });
+        expect(axios.post).toHaveBeenCalledTimes(1);
+        expect(axios.put).toHaveBeenCalledTimes(2);
+      });
+
+      it('asks the user to sign in again when Spotify rejects the refresh token too', async () => {
+        const invalidGrant = new Error('Request failed with status code 400');
+        invalidGrant.response = { status: 400, data: { error: 'invalid_grant', error_description: 'Refresh token revoked' } };
+        axios.post.mockRejectedValueOnce(invalidGrant);
+        axios.put.mockRejectedValueOnce(spotifyError(401));
+
+        const res = await play('web1');
+
+        expect(res.status).toBe(401);
+        expect(res.body.code).toBe('SPOTIFY_REAUTH_REQUIRED');
+        expect(axios.put).toHaveBeenCalledTimes(1);
+      });
+
+      it('reports the original 401 and keeps the stored tokens when the refresh fails for another reason', async () => {
+        axios.post.mockRejectedValueOnce(spotifyError(503, 'Service unavailable'));
+        axios.put.mockRejectedValueOnce(spotifyError(401));
+
+        const res = await play('web1');
+
+        expect(res.status).toBe(401);
+        expect(res.body).toMatchObject({ success: false, message: 'Invalid or expired Spotify token' });
+        expect(res.body.code).toBeUndefined();
+        expect(axios.put).toHaveBeenCalledTimes(1);
+        const saved = await User.findById(user._id).select('+spotifyAccessToken +spotifyRefreshToken');
+        expect(saved.spotifyAccessToken).toBe('access-token');
+        expect(saved.spotifyRefreshToken).toBe('refresh-token');
+      });
+
+      it.each([
+        // (Not POST /next: the token refresh is an axios.post too.)
+        ['PUT /pause', 'put', () => request(app).put('/api/v1/player/pause').set('Authorization', auth).send({})],
+        ['GET /devices', 'get', () => request(app).get('/api/v1/player/devices').set('Authorization', auth)],
+        ['GET /playback', 'get', () => request(app).get('/api/v1/player/playback').set('Authorization', auth)],
+      ])('%s refreshes and retries too', async (_route, method, send) => {
+        refreshed();
+        axios[method]
+          .mockRejectedValueOnce(spotifyError(401))
+          .mockResolvedValueOnce({ data: { devices: [] } });
+
+        const res = await send();
+
+        expect(res.status).toBe(200);
+        expect(axios[method].mock.calls.at(-1)[1 + (method === 'get' ? 0 : 1)].headers.Authorization).toBe('Bearer fresh-token');
+      });
     });
 
     it('passes Spotify\'s 403 through as Premium required', async () => {

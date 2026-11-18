@@ -70,6 +70,37 @@ class TokenManager {
   }
 
   /**
+   * Run a Spotify call with the user's access token. If Spotify answers 401
+   * for a token we still think is valid (revoked early, clock skew), refresh
+   * once and retry once; a second 401 is passed on. A refresh token Spotify
+   * rejects ends in the usual "sign in again" error.
+   * @param {string} userId - User MongoDB ID
+   * @param {(accessToken: string) => Promise<T>} call - The Spotify call
+   * @returns {Promise<T>}
+   * @template T
+   */
+  static async withValidAccessToken(userId, call) {
+    const accessToken = await this.getValidAccessToken(userId);
+    try {
+      return await call(accessToken);
+    } catch (error) {
+      const spotifyStatus = isSpotifyReauthError(error) ? null : (error.statusCode ?? error.response?.status);
+      if (spotifyStatus !== 401) throw error;
+
+      logger.info('[TokenManager] Spotify rejected the access token; refreshing once and retrying', { userId });
+      let freshToken;
+      try {
+        freshToken = await this.refreshUserToken(userId);
+      } catch (refreshError) {
+        if (isSpotifyReauthError(refreshError)) throw refreshError;
+        // Couldn't refresh (network, Spotify down): report the original 401.
+        throw error;
+      }
+      return call(freshToken);
+    }
+  }
+
+  /**
    * Refresh a user's Spotify access token
    * @param {string} userId - User MongoDB ID
    * @returns {Promise<string>} New access token
