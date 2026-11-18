@@ -40,6 +40,10 @@ interface ErrorBody {
   retryAfter?: number;
 }
 
+/** The wait a 429 body asked for, in ms, or null if it gave none. */
+const retryAfterMsOf = (body: ErrorBody): number | null =>
+  typeof body.retryAfter === 'number' && body.retryAfter >= 0 ? body.retryAfter * 1000 : null;
+
 /**
  * When the server says the user's Spotify sign-in has expired, tell the app
  * (UserContext signs the user out). Returns the code to put on the ApiError.
@@ -178,7 +182,7 @@ export const fetchWithAuth = async (
           const retryError: ErrorBody = await retryResponse.json().catch(() => ({ message: 'An error occurred' }));
           throw new ApiError(
             retryError.message || `HTTP error! status: ${retryResponse.status}`,
-            { status: retryResponse.status, code: announceIfSpotifyReauth(retryError) }
+            { status: retryResponse.status, code: announceIfSpotifyReauth(retryError), retryAfterMs: retryAfterMsOf(retryError) }
           );
         }
         return retryResponse;
@@ -193,8 +197,7 @@ export const fetchWithAuth = async (
   if (!response.ok) {
     const error: ErrorBody = await response.json().catch(() => ({ message: 'An error occurred' }));
     const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-    const retryAfterMs = typeof error.retryAfter === 'number' && error.retryAfter >= 0 ? error.retryAfter * 1000 : null;
-    throw new ApiError(errorMessage, { status: response.status, code: error.code ?? null, retryAfterMs });
+    throw new ApiError(errorMessage, { status: response.status, code: error.code ?? null, retryAfterMs: retryAfterMsOf(error) });
   }
 
   return response;

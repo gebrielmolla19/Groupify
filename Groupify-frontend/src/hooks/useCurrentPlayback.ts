@@ -1,16 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentPlayback } from '../lib/api';
 import { isApiError } from '../lib/apiError';
+import { isSpotifyPollingPaused, pauseSpotifyPolling } from '../lib/spotifyRateLimit';
 import { logger } from '../utils/logger';
-
-/** How long to stop polling after a 429 that didn't say how long to wait. */
-const DEFAULT_RATE_LIMIT_WAIT_MS = 30_000;
-
-/**
- * Spotify rate-limits the whole app, so after a 429 every poller in the page
- * (the player bar, listen tracking) waits until this time (#121).
- */
-let rateLimitedUntil = 0;
 
 export interface CurrentPlayback {
   device: {
@@ -73,7 +65,7 @@ export const useCurrentPlayback = (
     }
 
     const pollPlayback = async () => {
-      if (Date.now() < rateLimitedUntil) return;
+      if (isSpotifyPollingPaused()) return;
       try {
         setIsLoading(true);
         setError(null);
@@ -94,9 +86,8 @@ export const useCurrentPlayback = (
         }
       } catch (err) {
         if (isApiError(err) && err.status === 429) {
-          const waitMs = err.retryAfterMs ?? DEFAULT_RATE_LIMIT_WAIT_MS;
-          rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + waitMs);
-          logger.warn('Spotify rate limit: pausing playback polling', { waitMs });
+          pauseSpotifyPolling(err.retryAfterMs);
+          logger.warn('Spotify rate limit: pausing playback polling', { retryAfterMs: err.retryAfterMs });
           return;
         }
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch playback state';
