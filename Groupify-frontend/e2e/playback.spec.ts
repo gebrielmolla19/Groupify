@@ -7,6 +7,8 @@ import { openPlayer, readLog, remotePlayback, spotify, stateFor, waitForDevice }
 // (groupify-playback skill). Real audio is tier 3.
 
 const player = (page: Page) => page.getByTestId('spotify-player');
+// API polls (GET /player/playback every few seconds) share the log, so read SDK calls on their own.
+const sdkCalls = async (page: Page) => (await readLog(page)).filter((l) => l.startsWith('sdk:'));
 const apiCalls = async (page: Page, prefix: string) => (await readLog(page)).filter((l) => l.startsWith(`api:${prefix}`));
 const playRequest = (track: string, device = 'web1') =>
   `api:PUT /player/play ${JSON.stringify({ device_id: device, track_uri: `spotify:track:${track}` })}`;
@@ -43,8 +45,7 @@ test('pause calls activateElement() and then togglePlay()', async ({ page }) => 
   await playFromFeed(page, 1);
   await player(page).getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(player(page).getByRole('button', { name: 'Play', exact: true })).toBeVisible();
-  const log = await readLog(page);
-  expect(log.slice(-2)).toEqual(['sdk:activateElement', 'sdk:togglePlay']);
+  expect((await sdkCalls(page)).slice(-2)).toEqual(['sdk:activateElement', 'sdk:togglePlay']);
 });
 
 test('next and previous play the neighbouring shares in the group playlist', async ({ page }) => {
@@ -73,7 +74,7 @@ test('seek works by keyboard and by click', async ({ page }) => {
 
   await slider.focus();
   await page.keyboard.press('ArrowRight');
-  await expect.poll(async () => (await readLog(page)).at(-1)).toBe('sdk:seek 107000');
+  await expect.poll(async () => (await sdkCalls(page)).at(-1)).toBe('sdk:seek 107000');
 
   // 75% of 269000 is 201750; the slider steps by whole seconds.
   const track = player(page).locator('span[aria-label="Seek"]');
@@ -167,7 +168,7 @@ test('phone mini player: previous, play/pause and next', async ({ page }) => {
 
   await player(page).getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(player(page).getByRole('button', { name: 'Play', exact: true })).toBeVisible();
-  expect((await readLog(page)).slice(-2)).toEqual(['sdk:activateElement', 'sdk:togglePlay']);
+  expect((await sdkCalls(page)).slice(-2)).toEqual(['sdk:activateElement', 'sdk:togglePlay']);
 
   await player(page).getByRole('button', { name: 'Next track' }).click();
   await expect(player(page)).toContainText('Sample Track 3');

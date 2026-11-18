@@ -19,7 +19,9 @@ concurrency:
 jobs:
   e2e:
     name: Frontend E2E
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.58 can't install Chromium on ubuntu-latest (26.04).
+    # Move up when @playwright/test supports the newer image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
