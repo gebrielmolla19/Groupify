@@ -111,9 +111,25 @@ test('real playback on Spotify', async ({ browser, request }) => {
       const path = new URL(res.url()).pathname;
       if (path.includes('/api/v1/player/') && !path.endsWith('/playback')) diagnostics.push(`${res.request().method()} ${path.replace(/^.*\/api\/v1/, '')} -> ${res.status()}`);
     });
+    // Errors and warnings only: info lines carry track and group names.
     page.on('console', (msg) => {
-      if (msg.type() === 'error' || /spotify|playback|player/i.test(msg.text())) diagnostics.push(`console.${msg.type()}: ${msg.text().slice(0, 200)}`);
+      if (msg.type() === 'error' || msg.type() === 'warning') diagnostics.push(`console.${msg.type()}: ${msg.text().slice(0, 200)}`);
     });
+  };
+
+  /**
+   * The device a page registers. Spotify keeps closed players listed for a
+   * while (an earlier run's, the owner's own Groupify tab), so it's the new
+   * one with that name, not the first.
+   */
+  const devicesNamed = async (name: string) => new Set((await spotify.devices()).filter((d) => d.name === name).map((d) => d.id));
+  const newDevice = async (name: string, known: Set<string>) => {
+    let id = '';
+    await expect.poll(async () => {
+      id = [...await devicesNamed(name)].find((d) => !known.has(d)) ?? '';
+      return id;
+    }, { timeout: 45_000 }).not.toBe('');
+    return id;
   };
 
   try {
@@ -139,11 +155,9 @@ test('real playback on Spotify', async ({ browser, request }) => {
 
     await test.step(`"${WEB_PLAYER}" joins the device list without taking over playback`, async () => {
       const before = await spotify.playback();
+      const known = await devicesNamed(WEB_PLAYER);
       await openGroupify(page, jwt, `/groups/${group._id}`);
-      await expect.poll(async () => {
-        ids.web = (await spotify.devices()).find((d) => d.name === WEB_PLAYER)?.id ?? '';
-        return ids.web;
-      }, { timeout: 45_000 }).not.toBe('');
+      ids.web = await newDevice(WEB_PLAYER, known);
       const after = await spotify.playback();
       expect(after?.device.id ?? null).toBe(before?.device.id ?? null);
     });
@@ -187,20 +201,18 @@ test('real playback on Spotify', async ({ browser, request }) => {
 
     await test.step('opening Groupify while another device plays does not take it over', async () => {
       const speakerPage = await contexts[1].newPage();
+      const knownSpeakers = await devicesNamed(SPEAKER);
       await openSpeaker(speakerPage, await spotify.accessToken());
-      await expect.poll(async () => {
-        ids.speaker = (await spotify.devices()).find((d) => d.name === SPEAKER)?.id ?? '';
-        return ids.speaker;
-      }, { timeout: 45_000 }).not.toBe('');
+      ids.speaker = await newDevice(SPEAKER, knownSpeakers);
       await spotify.play(ids.speaker, [`spotify:track:${TRACKS[0]}`]);
       await expect.poll(state, { timeout: 20_000 }).toEqual({ playing: true, track: 0, device: 'speaker' });
 
       // A fresh Groupify tab registers its own player.
       const second = await contexts[0].newPage();
       watch(second);
+      const knownTabs = await devicesNamed(WEB_PLAYER);
       await openGroupify(second, jwt, '/');
-      await expect.poll(async () => (await spotify.devices()).filter((d) => d.name === WEB_PLAYER).length, { timeout: 45_000 })
-        .toBeGreaterThan(1);
+      await newDevice(WEB_PLAYER, knownTabs);
       await page.waitForTimeout(5000);
       expect(await state()).toEqual({ playing: true, track: 0, device: 'speaker' });
 
