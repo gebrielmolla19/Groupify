@@ -257,6 +257,35 @@ workflow) on every PR. `e2e/playback.spec.ts`
 checks the calls the app makes to Spotify for the checklist below; it
 can't prove audio plays, so the manual checklist still applies.
 
+**Real-Spotify smoke test** (`e2e-smoke/`, the "Playback smoke" workflow)
+plays for real on the owner's Premium account and reads Spotify's own
+state to check: the player joins the device list without taking over,
+play, pause, next, seek, auto-advance and mark-listened, a new tab
+doesn't steal another device's playback, and sign-out removes the
+device. Each play lasts a few seconds; everything is paused at the end.
+It runs only by hand (Actions → Playback smoke → Run workflow), and it
+stops before touching playback if anything is playing on the account. It
+uses a throwaway database on the runner and keeps no traces or
+screenshots, because Actions logs and artifacts are public.
+
+One-time setup, by the owner:
+1. In the Spotify dashboard, add `http://127.0.0.1:8888/callback` as a
+   redirect URI on the app you'll use.
+2. In your own terminal, run
+   `cd Groupify-backend && node scripts/get-spotify-refresh-token.js`
+   (add `--app N` for `SPOTIFY_CLIENT_ID_N`). Sign in in the browser it
+   gives you; it prints a refresh token.
+3. In GitHub (Settings → Secrets and variables → Actions), add the
+   secrets `SPOTIFY_TEST_REFRESH_TOKEN`, `SPOTIFY_TEST_CLIENT_ID` and
+   `SPOTIFY_TEST_CLIENT_SECRET` (that app's ID and secret), and the
+   variable `SMOKE_TRACK_IDS`: three short track IDs, comma-separated.
+   Never paste the token anywhere else. If it might have leaked, remove
+   Groupify under Apps in your Spotify account settings and repeat.
+
+If a run fails at sign-in with "sign in with Spotify again", the refresh
+token was revoked or has expired (six months after step 2): repeat
+steps 2 and 3.
+
 **Manual playback checklist** (needs Spotify Premium; run it for anything
 touching the player, auth or the API client):
 - [ ] Desktop Chrome: play, next, previous, pause/resume, seek
