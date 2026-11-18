@@ -167,6 +167,21 @@ describe('Player API contract with Spotify', () => {
         expect(axios.put).toHaveBeenCalledTimes(1);
       });
 
+      it('reports the original 401 and keeps the stored tokens when the refresh fails for another reason', async () => {
+        axios.post.mockRejectedValueOnce(spotifyError(503, 'Service unavailable'));
+        axios.put.mockRejectedValueOnce(spotifyError(401));
+
+        const res = await play('web1');
+
+        expect(res.status).toBe(401);
+        expect(res.body).toMatchObject({ success: false, message: 'Invalid or expired Spotify token' });
+        expect(res.body.code).toBeUndefined();
+        expect(axios.put).toHaveBeenCalledTimes(1);
+        const saved = await User.findById(user._id).select('+spotifyAccessToken +spotifyRefreshToken');
+        expect(saved.spotifyAccessToken).toBe('access-token');
+        expect(saved.spotifyRefreshToken).toBe('refresh-token');
+      });
+
       it.each([
         // (Not POST /next: the token refresh is an axios.post too.)
         ['PUT /pause', 'put', () => request(app).put('/api/v1/player/pause').set('Authorization', auth).send({})],
