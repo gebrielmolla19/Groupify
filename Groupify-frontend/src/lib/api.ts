@@ -36,6 +36,8 @@ export const removeToken = (): void => {
 interface ErrorBody {
   message?: string;
   code?: string;
+  /** Seconds to wait, sent with a 429 from the player API (#121). */
+  retryAfter?: number;
 }
 
 /**
@@ -191,7 +193,8 @@ export const fetchWithAuth = async (
   if (!response.ok) {
     const error: ErrorBody = await response.json().catch(() => ({ message: 'An error occurred' }));
     const errorMessage = error.message || `HTTP error! status: ${response.status}`;
-    throw new ApiError(errorMessage, { status: response.status, code: error.code ?? null });
+    const retryAfterMs = typeof error.retryAfter === 'number' && error.retryAfter >= 0 ? error.retryAfter * 1000 : null;
+    throw new ApiError(errorMessage, { status: response.status, code: error.code ?? null, retryAfterMs });
   }
 
   return response;

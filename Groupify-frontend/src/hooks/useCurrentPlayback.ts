@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentPlayback } from '../lib/api';
-import { toast } from 'sonner';
+import { isApiError } from '../lib/apiError';
 import { logger } from '../utils/logger';
+
+/** How long to stop polling after a 429 that didn't say how long to wait. */
+const DEFAULT_RATE_LIMIT_WAIT_MS = 30_000;
+
+/**
+ * Spotify rate-limits the whole app, so after a 429 every poller in the page
+ * (the player bar, listen tracking) waits until this time (#121).
+ */
+let rateLimitedUntil = 0;
 
 export interface CurrentPlayback {
   device: {
@@ -51,7 +60,7 @@ export const useCurrentPlayback = (
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastTrackId, setLastTrackId] = useState<string | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +73,7 @@ export const useCurrentPlayback = (
     }
 
     const pollPlayback = async () => {
+      if (Date.now() < rateLimitedUntil) return;
       try {
         setIsLoading(true);
         setError(null);
@@ -83,6 +93,12 @@ export const useCurrentPlayback = (
           setLastTrackId(null);
         }
       } catch (err) {
+        if (isApiError(err) && err.status === 429) {
+          const waitMs = err.retryAfterMs ?? DEFAULT_RATE_LIMIT_WAIT_MS;
+          rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + waitMs);
+          logger.warn('Spotify rate limit: pausing playback polling', { waitMs });
+          return;
+        }
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch playback state';
         setError(errorMsg);
         // Don't show toast for 404/204 (no playback) - that's normal

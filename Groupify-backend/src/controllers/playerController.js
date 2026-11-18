@@ -4,6 +4,21 @@ const TokenManager = require('../utils/tokenManager');
 const logger = require('../utils/logger');
 
 /**
+ * Send an error that has a statusCode. A Spotify rate limit also carries the
+ * wait Spotify asked for, as `retryAfter` (seconds) in the body, which the
+ * browser can read cross-origin, and as the standard Retry-After header (#121).
+ */
+const sendError = (res, error) => {
+  if (error.retryAfter !== undefined) res.set('Retry-After', String(error.retryAfter));
+  return res.status(error.statusCode).json({
+    success: false,
+    message: error.message,
+    ...(error.errorCode && { code: error.errorCode }),
+    ...(error.retryAfter !== undefined && { retryAfter: error.retryAfter })
+  });
+};
+
+/**
  * Player Controller
  * Handles Spotify playback control operations
  */
@@ -34,13 +49,7 @@ class PlayerController {
         devices
       });
     } catch (error) {
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-          ...(error.errorCode && { code: error.errorCode })
-        });
-      }
+      if (error.statusCode) return sendError(res, error);
 
       logger.error('[Player] Failed to get available devices', {
         userId: req.userId,
@@ -100,13 +109,7 @@ class PlayerController {
         data: { deviceId: device_id.trim() }
       });
     } catch (error) {
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-          ...(error.errorCode && { code: error.errorCode })
-        });
-      }
+      if (error.statusCode) return sendError(res, error);
 
       logger.error('[Player] Failed to transfer playback', {
         userId: req.userId,
@@ -148,13 +151,7 @@ class PlayerController {
         playback: playback || null
       });
     } catch (error) {
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-          ...(error.errorCode && { code: error.errorCode })
-        });
-      }
+      if (error.statusCode) return sendError(res, error);
 
       logger.error('[Player] Failed to get current playback', {
         userId: req.userId,
@@ -221,13 +218,7 @@ class PlayerController {
         }
       });
     } catch (error) {
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-          ...(error.errorCode && { code: error.errorCode })
-        });
-      }
+      if (error.statusCode) return sendError(res, error);
 
       logger.error('[Player] Failed to start track playback', {
         userId: req.userId,
@@ -253,7 +244,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Playback paused' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
+      if (error.statusCode) return sendError(res, error);
       next(error);
     }
   }
@@ -270,7 +261,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Playback resumed' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
+      if (error.statusCode) return sendError(res, error);
       next(error);
     }
   }
@@ -287,7 +278,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Skipped to next track' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
+      if (error.statusCode) return sendError(res, error);
       next(error);
     }
   }
@@ -304,7 +295,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Skipped to previous track' });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
+      if (error.statusCode) return sendError(res, error);
       next(error);
     }
   }
@@ -326,7 +317,7 @@ class PlayerController {
 
       res.json({ success: true, message: 'Seeked', data: { positionMs } });
     } catch (error) {
-      if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message, ...(error.errorCode && { code: error.errorCode }) });
+      if (error.statusCode) return sendError(res, error);
       next(error);
     }
   }

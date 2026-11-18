@@ -87,6 +87,8 @@ export interface FakeSpotifyOptions {
   remote?: typeof remotePlayback | null;
   /** Statuses for successive PUT /player/play requests; 200 once they run out. */
   playStatuses?: number[];
+  /** The first GET /player/playback answers 429 with this retryAfter (seconds), as the backend does for Spotify's rate limit. */
+  playbackRateLimit?: number;
   viewport?: { width: number; height: number };
 }
 
@@ -116,6 +118,7 @@ export async function openPlayer(page: Page, opts: FakeSpotifyOptions = {}) {
     route.fulfill({ contentType: 'application/javascript', body: FAKE_SDK }));
 
   const playStatuses = [...(opts.playStatuses ?? [])];
+  let playbackRateLimit = opts.playbackRateLimit;
   await page.route('**/api/v1/**', async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname.replace(/^.*\/api\/v1/, '');
@@ -137,6 +140,11 @@ export async function openPlayer(page: Page, opts: FakeSpotifyOptions = {}) {
     if (path === '/auth/spotify-token') json = { success: true, accessToken: 'fake-access-token' };
     else if (path === '/auth/me') json = { success: true, user: me };
     else if (path === '/player/devices') json = { success: true, devices };
+    else if (path === '/player/playback' && playbackRateLimit !== undefined) {
+      const retryAfter = playbackRateLimit;
+      playbackRateLimit = undefined;
+      return route.fulfill({ status: 429, headers: { 'Retry-After': String(retryAfter) }, json: { success: false, message: `Spotify rate limit exceeded. Retry after ${retryAfter} seconds.`, retryAfter } });
+    }
     else if (path === '/player/playback') json = { success: true, playback: opts.remote ?? null };
     else if (path.startsWith('/player/')) json = { success: true, message: 'OK' };
     else if (path === '/groups') json = { success: true, groups: [group] };

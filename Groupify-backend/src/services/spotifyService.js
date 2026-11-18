@@ -10,6 +10,21 @@ const PLAYLIST_ITEMS_PAGE_SIZE = 50;
 const PLAYLIST_ITEMS_WRITE_MAX = 100;
 
 /**
+ * Spotify's 429 as an error the player API can pass on: `statusCode` 429 and,
+ * when Spotify sent a usable `Retry-After`, the wait in whole seconds as
+ * `retryAfter`, so the client can stop polling for that long (#121).
+ */
+const rateLimitError = (error) => {
+  const header = error.response?.headers?.['retry-after'];
+  const seconds = header === undefined || header === '' ? NaN : Number(header);
+  const retryAfter = Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : undefined;
+  const err = new Error(`Spotify rate limit exceeded${retryAfter === undefined ? '.' : `. Retry after ${retryAfter} seconds.`}`);
+  err.statusCode = 429;
+  if (retryAfter !== undefined) err.retryAfter = retryAfter;
+  return err;
+};
+
+/**
  * Spotify API Service
  * Handles all interactions with the Spotify Web API
  */
@@ -870,6 +885,7 @@ class SpotifyService {
       );
       return response.data;
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       // Handle specific Spotify API errors
       if (error.response) {
         const status = error.response.status;
@@ -921,6 +937,7 @@ class SpotifyService {
       );
       return response.data;
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       // 204 means no active playback - this is normal, not an error
       if (error.response?.status === 204) {
         return null;
@@ -951,6 +968,7 @@ class SpotifyService {
       );
       return response.data.devices || [];
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       logger.error('[Spotify] Failed to get available devices:', error.message);
       throw error;
     }
@@ -1053,6 +1071,7 @@ class SpotifyService {
         throw firstPlayError;
       }
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       // Handle specific Spotify API errors
       if (error.response) {
         const status = error.response.status;
@@ -1081,12 +1100,6 @@ class SpotifyService {
           customError.message = `Invalid track URI: ${message}`;
           customError.statusCode = 400;
           throw customError;
-        } else if (status === 429) {
-          const retryAfter = error.response.headers?.['retry-after'];
-          customError.message = `Spotify rate limit exceeded${retryAfter ? `. Retry after ${retryAfter} seconds.` : '.'}`;
-          customError.statusCode = 429;
-          customError.retryAfter = retryAfter;
-          throw customError;
         } else {
           customError.message = `Failed to play track: ${message}`;
           customError.statusCode = status || 500;
@@ -1112,6 +1125,7 @@ class SpotifyService {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       if (error.response) {
         const status = error.response.status;
         // 403 = already paused or restricted — not a real error
@@ -1142,6 +1156,7 @@ class SpotifyService {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       if (error.response) {
         const status = error.response.status;
         if (status === 404) {
@@ -1169,6 +1184,7 @@ class SpotifyService {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       if (error.response) {
         const status = error.response.status;
         if (status === 404) {
@@ -1196,6 +1212,7 @@ class SpotifyService {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       if (error.response) {
         const status = error.response.status;
         if (status === 404) {
@@ -1222,6 +1239,7 @@ class SpotifyService {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
     } catch (error) {
+      if (error.response?.status === 429) throw rateLimitError(error);
       if (error.response) {
         const status = error.response.status;
         if (status === 404) {
