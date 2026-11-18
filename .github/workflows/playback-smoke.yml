@@ -9,6 +9,9 @@ name: Playback smoke (real Spotify)
 # and SPOTIFY_TEST_CLIENT_SECRET (scripts/get-spotify-refresh-token.js), and
 # three short track IDs (input below, or the SMOKE_TRACK_IDS variable).
 on:
+  # TEMPORARY: lets the first runs happen before this file is on main. Remove before merging.
+  push:
+    branches: [test/playback-smoke]
   workflow_dispatch:
     inputs:
       track_ids:
