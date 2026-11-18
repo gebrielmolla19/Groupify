@@ -64,6 +64,21 @@ describe('GET /api/v1/shares/unheard', () => {
     expect(unheard.likes[0].user).toMatchObject({ _id: me._id.toString() });
   });
 
+  it('counts the unheard shares from the last 7 days', async () => {
+    const { user: me, token } = await createUserAndToken();
+    const { user: friend } = await createUserAndToken();
+    const group = await createGroup(me._id, { members: [me._id, friend._id] });
+    await share(group._id, friend._id, { daysAgo: 1 });
+    await share(group._id, friend._id, { daysAgo: 6 });
+    await share(group._id, friend._id, { daysAgo: 8 });
+    await share(group._id, friend._id, { daysAgo: 2, listeners: [me._id] }); // heard
+
+    const res = await get(token, '?limit=1');
+
+    expect(res.body.newThisWeek).toBe(2);
+    expect(res.body.total).toBe(3);
+  });
+
   it('reports the oldest unheard share date', async () => {
     const { user: me, token } = await createUserAndToken();
     const { user: friend } = await createUserAndToken();
@@ -87,7 +102,7 @@ describe('GET /api/v1/shares/unheard', () => {
 
     const res = await get(token);
 
-    expect(res.body).toMatchObject({ shares: [], total: 0, byGroup: {}, oldestAt: null });
+    expect(res.body).toMatchObject({ shares: [], total: 0, newThisWeek: 0, byGroup: {}, oldestAt: null });
   });
 
   it('caps the list with limit but still counts everything', async () => {
@@ -100,6 +115,25 @@ describe('GET /api/v1/shares/unheard', () => {
 
     expect(res.body.shares).toHaveLength(2);
     expect(res.body.total).toBe(3);
+  });
+
+  it('narrows to one group with groupId, only if the user is in it', async () => {
+    const { user: me, token } = await createUserAndToken();
+    const { user: friend } = await createUserAndToken();
+    const a = await createGroup(me._id, { members: [me._id, friend._id] });
+    const b = await createGroup(me._id, { members: [me._id, friend._id] });
+    const notMine = await createGroup(friend._id);
+    const inA = await share(a._id, friend._id);
+    await share(b._id, friend._id);
+    await share(notMine._id, friend._id);
+
+    const res = await get(token, `?groupId=${a._id}`);
+    expect(res.body.shares.map((s) => s._id)).toEqual([inA._id.toString()]);
+    expect(res.body.total).toBe(1);
+    expect(res.body.byGroup).toEqual({ [a._id.toString()]: 1 });
+
+    expect((await get(token, `?groupId=${notMine._id}`)).body.total).toBe(0);
+    expect((await get(token, '?groupId=nope')).statusCode).toBe(400);
   });
 
   it('rejects a bad limit', async () => {

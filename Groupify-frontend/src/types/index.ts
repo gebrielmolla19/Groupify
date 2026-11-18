@@ -72,6 +72,8 @@ export interface UnheardShares {
   /** Newest first, capped; the counts below cover every unheard share. */
   shares: (Share & { group: Pick<Group, '_id' | 'name'> })[];
   total: number;
+  /** Unheard shares from the last 7 days. */
+  newThisWeek: number;
   /** Unheard count per group ID; groups with none are left out. */
   byGroup: Record<string, number>;
   oldestAt: string | null;

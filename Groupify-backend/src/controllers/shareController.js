@@ -87,7 +87,7 @@ class ShareController {
    */
   static async getUnheardShares(req, res, next) {
     try {
-      const result = await ShareService.getUnheardShares(req.userId, req.query.limit);
+      const result = await ShareService.getUnheardShares(req.userId, req.query.limit, req.query.groupId);
 
       logger.debug('[Share] Unheard shares fetched', {
         userId: req.userId,

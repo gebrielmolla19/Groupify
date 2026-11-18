@@ -4,6 +4,10 @@ import { isUser } from './heardStack';
 export const FEED_FILTERS = ['all', 'unheard', 'yours', 'liked'] as const;
 export type FeedFilter = (typeof FEED_FILTERS)[number];
 
+/** Whether a value (say, from the URL) names a feed filter. */
+export const isFeedFilter = (value: string | null): value is FeedFilter =>
+  (FEED_FILTERS as readonly (string | null)[]).includes(value);
+
 type Viewer = Pick<User, '_id' | 'id'> | null | undefined;
 
 /**
@@ -37,4 +41,15 @@ export function countShares(shares: Share[], viewer: Viewer): Record<FeedFilter,
     for (const filter of FEED_FILTERS) if (matches(share, filter, viewer)) counts[filter]++;
   }
   return counts;
+}
+
+/**
+ * Add shares the feed hasn't loaded (say, older unheard ones) to the loaded
+ * list, newest first. A share already loaded keeps its loaded copy.
+ */
+export function mergeShares(loaded: Share[], extra: Share[]): Share[] {
+  const have = new Set(loaded.map((s) => s._id));
+  const added = extra.filter((s) => !have.has(s._id));
+  if (added.length === 0) return loaded;
+  return [...loaded, ...added].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

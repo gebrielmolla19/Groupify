@@ -5,8 +5,10 @@ import {
   shareSong as apiShareSong,
   markAsListened as apiMarkAsListened,
   toggleLike as apiToggleLike,
-  removeShare as apiRemoveShare
+  removeShare as apiRemoveShare,
+  getUnheardShares as apiGetUnheardShares
 } from '../lib/api';
+import { mergeShares } from '../lib/feedFilter';
 import { toast } from 'sonner';
 import { isSpotifyReauthError } from '../lib/apiError';
 import { logger } from '../utils/logger';
@@ -18,7 +20,26 @@ export const useGroupFeed = (groupId: string) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  // The feed loads only its newest page. Older unheard shares are fetched
+  // after it and kept in `shares` too (so likes and listens update them), but
+  // marked here so All still shows just the page.
+  const [olderIds, setOlderIds] = useState<ReadonlySet<string>>(new Set());
+  // 'complete' once every unheard share in the group is loaded.
+  const [unheardStatus, setUnheardStatus] = useState<'complete' | 'loading' | 'incomplete'>('complete');
   const { socket, joinGroup, leaveGroup } = useSocket();
+
+  const loadOlderUnheard = useCallback(async (pageIds: Set<string>) => {
+    setUnheardStatus('loading');
+    try {
+      const unheard = await apiGetUnheardShares(100, groupId);
+      setOlderIds(new Set(unheard.shares.map((s) => s._id).filter((id) => !pageIds.has(id))));
+      setShares((prev) => mergeShares(prev, unheard.shares));
+      setUnheardStatus(unheard.total <= unheard.shares.length ? 'complete' : 'incomplete');
+    } catch (err) {
+      logger.error('Failed to fetch older unheard shares:', err);
+      setUnheardStatus('incomplete');
+    }
+  }, [groupId]);
 
   const fetchFeed = useCallback(async (limit: number = 50, offset: number = 0) => {
     if (!groupId) return;
@@ -29,6 +50,11 @@ export const useGroupFeed = (groupId: string) => {
       const data = await apiGetGroupFeed(groupId, limit, offset);
       setShares(data.shares);
       setTotal(data.total);
+      setOlderIds(new Set());
+      setUnheardStatus('complete');
+      // A backlog is mostly older than the page: fetch the group's unheard
+      // shares in the background, without holding up the feed.
+      if (data.total > data.shares.length) void loadOlderUnheard(new Set(data.shares.map((s) => s._id)));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch group feed';
       // Handle deleted group gracefully (404 errors)
@@ -44,7 +70,7 @@ export const useGroupFeed = (groupId: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [groupId]);
+  }, [groupId, loadOlderUnheard]);
 
   const shareTrack = useCallback(async (spotifyTrackId: string) => {
     try {
@@ -177,7 +203,9 @@ export const useGroupFeed = (groupId: string) => {
 
   return {
     shares,
+    olderIds,
     total,
+    unheardStatus,
     isLoading,
     error,
     shareTrack,

@@ -15,19 +15,29 @@ const groups = [
   group('g2', 'Second Group', [me, friend], 5),
   group('g3', 'Quiet Group', [me, other], 21),
 ];
-// Unheard: two in Sample Group, one in Second Group; the oldest is 5 days old.
-const unheard = [
+// Unheard by default: two in Sample Group, one in Second Group, all this week.
+// With `backlog`, six more older ones (Sample 4, Second 1, Quiet 1), the oldest 400 days old.
+const recent = [
   { n: 1, g: groups[0], by: friend, days: 1 },
   { n: 2, g: groups[1], by: other, days: 3 },
   { n: 3, g: groups[0], by: other, days: 5 },
-].map(({ n, g, by, days }) => ({
+];
+const older = [
+  { n: 4, g: groups[0], by: friend, days: 6 },
+  { n: 5, g: groups[0], by: friend, days: 10 },
+  { n: 6, g: groups[2], by: other, days: 30 },
+  { n: 7, g: groups[0], by: other, days: 90 },
+  { n: 8, g: groups[1], by: friend, days: 200 },
+  { n: 9, g: groups[0], by: friend, days: 400 },
+];
+const toShare = ({ n, g, by, days }: (typeof recent)[number]) => ({
   _id: `sh${n}`, group: { _id: g._id, name: g.name }, sharedBy: by, spotifyTrackId: `t${n}`,
   trackName: `Waiting Track ${n}`, artistName: 'Sample Artist', albumName: 'Sample Album',
   trackImage: null, trackPreviewUrl: null, trackExternalUrl: `https://open.spotify.com/track/t${n}`, durationMs: 200000,
   genres: [], listeners: [], listenCount: 0, likes: [], likeCount: 0, createdAt: ago(days), updatedAt: ago(days),
-}));
+});
 
-export async function openSampleHome(page: Page, opts: { theme: 'light' | 'dark'; caughtUp?: boolean; noGroups?: boolean; unheardFails?: number }) {
+export async function openSampleHome(page: Page, opts: { theme: 'light' | 'dark'; caughtUp?: boolean; noGroups?: boolean; unheardFails?: number; backlog?: boolean }) {
   const token = 'x.' + Buffer.from(JSON.stringify({ id: 'u1', exp: 4102444800 })).toString('base64url') + '.y';
   await page.addInitScript(([t, theme]) => {
     localStorage.setItem('groupify_token', t);
@@ -35,18 +45,23 @@ export async function openSampleHome(page: Page, opts: { theme: 'light' | 'dark'
     localStorage.setItem('groupify_tour_completed', 'true');
   }, [token, opts.theme]);
   let failuresLeft = opts.unheardFails ?? 0;
-  const shares = opts.caughtUp || opts.noGroups ? [] : unheard;
+  const all = opts.caughtUp || opts.noGroups ? [] : [...recent, ...(opts.backlog ? older : [])];
+  const shares = all.map(toShare);
   await page.route('**/api/v1/**', (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const path = url.pathname;
     let json: unknown = { success: true, groups: [], invites: [], notifications: [], devices: [] };
     if (path.endsWith('/shares/unheard') && failuresLeft > 0) {
       failuresLeft -= 1;
       return route.fulfill({ status: 500, json: { success: false, message: 'Server error' } });
     } else if (path.endsWith('/shares/unheard')) {
+      // Counted like the endpoint: over every unheard share, not just the page.
+      const byGroup: Record<string, number> = {};
+      for (const s of all) byGroup[s.g._id] = (byGroup[s.g._id] ?? 0) + 1;
       json = {
-        success: true, shares, total: shares.length,
-        byGroup: shares.length ? { g1: 2, g2: 1 } : {},
-        oldestAt: shares.length ? ago(5) : null,
+        success: true, shares: shares.slice(0, Number(url.searchParams.get('limit') ?? 20)), total: all.length,
+        newThisWeek: all.filter((s) => s.days < 7).length, byGroup,
+        oldestAt: all.length ? ago(Math.max(...all.map((s) => s.days))) : null,
       };
     } else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.noGroups ? [] : groups };

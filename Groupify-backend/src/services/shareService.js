@@ -132,11 +132,14 @@ class ShareService {
    * someone else, with no listen by the user. Newest first.
    * @param {string} userId - User ID
    * @param {number} limit - How many shares to return (the counts cover all)
-   * @returns {Promise<Object>} { shares, total, byGroup, oldestAt }
+   * @param {string} [groupId] - Only this group, if the user is a member of it
+   * @returns {Promise<Object>} { shares, total, newThisWeek, byGroup, oldestAt }
    */
-  static async getUnheardShares(userId, limit = 20) {
-    const groupIds = await Group.find({ members: userId, isActive: true }).distinct('_id');
+  static async getUnheardShares(userId, limit = 20, groupId) {
+    const groups = { members: userId, isActive: true, ...(groupId && { _id: groupId }) };
+    const groupIds = await Group.find(groups).distinct('_id');
     const user = new mongoose.Types.ObjectId(userId);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const match = {
       group: { $in: groupIds },
       sharedBy: { $ne: user },
@@ -153,20 +156,29 @@ class ShareService {
         .limit(parseInt(limit, 10)),
       Share.aggregate([
         { $match: match },
-        { $group: { _id: '$group', count: { $sum: 1 }, oldestAt: { $min: '$createdAt' } } }
+        {
+          $group: {
+            _id: '$group',
+            count: { $sum: 1 },
+            recent: { $sum: { $cond: [{ $gte: ['$createdAt', weekAgo] }, 1, 0] } },
+            oldestAt: { $min: '$createdAt' }
+          }
+        }
       ])
     ]);
 
     const byGroup = {};
     let total = 0;
+    let newThisWeek = 0;
     let oldestAt = null;
     for (const row of perGroup) {
       byGroup[row._id.toString()] = row.count;
       total += row.count;
+      newThisWeek += row.recent;
       if (!oldestAt || row.oldestAt < oldestAt) oldestAt = row.oldestAt;
     }
 
-    return { shares, total, byGroup, oldestAt };
+    return { shares, total, newThisWeek, byGroup, oldestAt };
   }
 
   /**
