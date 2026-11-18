@@ -451,9 +451,11 @@ caps search at 10, and asks for the extra scopes (adr/0003).
     `useGlobalPlaybackTracking.ts:16`, the hook that records listens,
     passes 10000, outside the project's own range. Spotify documents no
     polling interval; these numbers are the project's own.
-15. `Groupify-backend/.env.example` and the default in
-    `src/config/env.js` use `http://localhost:5001/api/v1/auth/callback`
-    as `SPOTIFY_REDIRECT_URI`. Spotify's redirect URI page (section 7)
+15. `Groupify-backend/.env.example` uses
+    `http://localhost:5001/api/v1/auth/callback` as
+    `SPOTIFY_REDIRECT_URI`. (The same value in `src/config/env.js` is a
+    placeholder used only when `NODE_ENV=test`, and never reaches
+    Spotify.) Spotify's redirect URI page (section 7)
     says `localhost` is not allowed; `http://127.0.0.1:5001/...` is.
     Existing apps may still accept a URI registered earlier (not
     confirmed). CONTRIBUTING §4's phone steps use HTTPS tunnel URLs, so
