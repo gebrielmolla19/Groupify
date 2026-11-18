@@ -14,7 +14,8 @@ export default defineConfig({
   // A retry would play music again; a failed run is rerun by hand.
   retries: 0,
   forbidOnly: !!process.env.CI,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // Steps in the log show which checks actually ran.
+  reporter: [['list', { printSteps: true }]],
   use: {
     baseURL: 'http://127.0.0.1:3000',
     // The repo is public, and so are its Actions logs and artifacts. A trace
