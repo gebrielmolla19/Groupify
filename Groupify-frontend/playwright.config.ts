@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright E2E config for Groupify frontend.
- * Run backend (port 5001) and frontend (port 3000) before E2E, or use webServer to start frontend.
+ * The specs stub the backend (`page.route('**\/api/v1/**')`) and, for
+ * playback, the Spotify SDK (e2e/support/fakeSpotify.ts), so only the
+ * frontend dev server is needed; webServer starts it.
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
@@ -11,7 +13,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'html',
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
