@@ -644,10 +644,10 @@ export const getGroupFeed = async (
 };
 
 /**
- * Unheard shares across the signed-in user's groups, newest first
+ * Unheard shares across the signed-in user's groups (or just one), newest first
  */
-export const getUnheardShares = async (limit: number = 20): Promise<UnheardShares> => {
-  const response = await fetchWithAuth(`/shares/unheard?limit=${limit}`);
+export const getUnheardShares = async (limit: number = 20, groupId?: string): Promise<UnheardShares> => {
+  const response = await fetchWithAuth(`/shares/unheard?limit=${limit}${groupId ? `&groupId=${groupId}` : ''}`);
   const data = await response.json();
 
   if (!data.success) {

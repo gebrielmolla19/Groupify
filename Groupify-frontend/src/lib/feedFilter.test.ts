@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countShares, filterShares, isFeedFilter } from './feedFilter';
+import { countShares, filterShares, isFeedFilter, mergeShares } from './feedFilter';
 import type { Share, User } from '../types';
 
 const u = (id: string) => ({ _id: id, id, displayName: id.toUpperCase() }) as User;
@@ -67,5 +67,19 @@ describe('isFeedFilter', () => {
   it('accepts the four filters and nothing else', () => {
     for (const f of ['all', 'unheard', 'yours', 'liked']) expect(isFeedFilter(f)).toBe(true);
     for (const f of ['Unheard', 'mine', '', null]) expect(isFeedFilter(f)).toBe(false);
+  });
+});
+
+describe('mergeShares', () => {
+  const at = (id: string, createdAt: string) => ({ _id: id, createdAt }) as Share;
+  it('adds shares that are not loaded yet, keeping the feed newest first', () => {
+    const loaded = [at('new', '2026-11-10'), at('mid', '2026-10-01')];
+    const extra = [at('mid', '2026-10-01'), at('old', '2025-01-01')];
+    expect(mergeShares(loaded, extra).map((s) => s._id)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('keeps the loaded copy of a share it already has', () => {
+    const loaded = [{ ...at('a', '2026-01-01'), likeCount: 3 } as Share];
+    expect(mergeShares(loaded, [{ ...at('a', '2026-01-01'), likeCount: 0 } as Share])[0].likeCount).toBe(3);
   });
 });

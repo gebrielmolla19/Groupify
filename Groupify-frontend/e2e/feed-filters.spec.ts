@@ -6,7 +6,7 @@ import { openSampleFeed } from './support/sampleFeed';
 const filters = (page: Page) => page.getByRole('radiogroup', { name: 'Filter shares' });
 const chip = (page: Page, name: string) => filters(page).getByRole('radio', { name: new RegExp(`^${name} \\d+$`) });
 const shown = async (page: Page) =>
-  page.getByRole('list', { name: 'Shares' }).getByRole('listitem').evaluateAll((rows) => rows.map((r) => r.textContent?.match(/Sample Track \d/)?.[0]));
+  page.getByRole('list', { name: 'Shares' }).getByRole('listitem').evaluateAll((rows) => rows.map((r) => r.textContent?.match(/(Sample|Older) Track \d/)?.[0]));
 
 test('filters the feed with a count on each chip', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -87,4 +87,20 @@ test('?filter=unheard opens the feed on Unheard', async ({ page }) => {
 
   await page.goto('/groups/g1?filter=nonsense');
   await expect(chip(page, 'All')).toHaveAttribute('aria-checked', 'true');
+});
+
+// The feed loads only its newest page; a backlog lives past it (#117 review).
+test('Unheard includes older unheard shares beyond the loaded page', async ({ page }) => {
+  await openSampleFeed(page, { theme: 'dark', olderUnheard: 2 });
+  await page.goto('/groups/g1?filter=unheard');
+  await expect(chip(page, 'Unheard')).toHaveAccessibleName('Unheard 3');
+  await expect.poll(() => shown(page)).toEqual(['Sample Track 2', 'Older Track 2', 'Older Track 1']);
+  await expect(page.getByText("couldn't be loaded here")).toHaveCount(0);
+});
+
+test('if older unheard shares fail to load, Unheard says so instead of "heard everything"', async ({ page }) => {
+  await openSampleFeed(page, { theme: 'dark', olderUnheard: 2, olderUnheardFails: true });
+  await page.goto('/groups/g1?filter=unheard');
+  await expect(page.getByText("Some older unheard tracks couldn't be loaded here.")).toBeVisible();
+  await expect(page.getByText("You've heard everything")).toHaveCount(0);
 });

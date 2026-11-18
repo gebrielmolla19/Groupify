@@ -5,8 +5,10 @@ import {
   shareSong as apiShareSong,
   markAsListened as apiMarkAsListened,
   toggleLike as apiToggleLike,
-  removeShare as apiRemoveShare
+  removeShare as apiRemoveShare,
+  getUnheardShares as apiGetUnheardShares
 } from '../lib/api';
+import { mergeShares } from '../lib/feedFilter';
 import { toast } from 'sonner';
 import { isSpotifyReauthError } from '../lib/apiError';
 import { logger } from '../utils/logger';
@@ -18,6 +20,8 @@ export const useGroupFeed = (groupId: string) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  // Whether every unheard share in the group is loaded, so the Unheard filter is the whole story.
+  const [unheardComplete, setUnheardComplete] = useState(true);
   const { socket, joinGroup, leaveGroup } = useSocket();
 
   const fetchFeed = useCallback(async (limit: number = 50, offset: number = 0) => {
@@ -29,6 +33,18 @@ export const useGroupFeed = (groupId: string) => {
       const data = await apiGetGroupFeed(groupId, limit, offset);
       setShares(data.shares);
       setTotal(data.total);
+      setUnheardComplete(data.total <= data.shares.length);
+      // The feed loads only the newest shares, and a backlog is mostly older
+      // ones: fetch the group's unheard shares too, so the Unheard filter has them.
+      if (data.total > data.shares.length) {
+        try {
+          const unheard = await apiGetUnheardShares(100, groupId);
+          setShares((prev) => mergeShares(prev, unheard.shares));
+          setUnheardComplete(unheard.total <= unheard.shares.length);
+        } catch (err) {
+          logger.error('Failed to fetch older unheard shares:', err);
+        }
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch group feed';
       // Handle deleted group gracefully (404 errors)
@@ -178,6 +194,7 @@ export const useGroupFeed = (groupId: string) => {
   return {
     shares,
     total,
+    unheardComplete,
     isLoading,
     error,
     shareTrack,

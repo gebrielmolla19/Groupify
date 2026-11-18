@@ -17,12 +17,12 @@ export function waitingHeadline({ total, newThisWeek }: WaitingCounts): string {
   return total === 1 ? '1 track is still waiting for you' : `${total} tracks are still waiting for you`;
 }
 
-/** How long something has waited, gentler the longer it gets: hours, days, months, then years. */
+/**
+ * How long something has waited, gentler the longer it gets: days, months,
+ * then years. Only older-than-a-week shares get an age, so there are no hours.
+ */
 function waitedFor(ms: number): string {
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours < 1) return 'for less than an hour';
-  if (hours < 24) return `for ${plural(hours, 'hour')}`;
-  const days = Math.floor(ms / DAY_MS);
+  const days = Math.max(1, Math.floor(ms / DAY_MS));
   if (days < 60) return `for ${plural(days, 'day')}`;
   if (days < 365) return `for ${Math.floor(days / 30)} months`;
   const years = Math.floor(days / 365);

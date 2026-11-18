@@ -64,7 +64,10 @@ const unheardQuerySchema = Joi.object({
       'number.base': 'Limit must be a number',
       'number.min': 'Limit must be at least 1',
       'number.max': 'Limit cannot exceed 100'
-    })
+    }),
+  groupId: Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .messages({ 'string.pattern.base': 'Invalid group ID format' })
 });
 
 /**

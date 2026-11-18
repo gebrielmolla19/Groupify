@@ -38,7 +38,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, total, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, total, unheardComplete, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -466,7 +466,11 @@ export default function GroupFeedScreen() {
               {!isLoading && shares.length > 0 && (
                 <FeedFilters value={filter} counts={filterCounts} onChange={setFilter} />
               )}
-              {!isLoading && filter !== 'all' && shares.length > 0 && visibleShares.length === 0 && (
+              {/* Some older unheard shares weren't loaded: don't claim the list is complete. */}
+              {!isLoading && filter === 'unheard' && !unheardComplete && (
+                <p className="max-w-4xl pb-2 text-sm text-soft">Some older unheard tracks couldn't be loaded here.</p>
+              )}
+              {!isLoading && filter !== 'all' && shares.length > 0 && visibleShares.length === 0 && (filter !== 'unheard' || unheardComplete) && (
                 <p className="max-w-4xl py-8 text-center text-sm md:text-base text-soft">{EMPTY_FILTER_TEXT[filter]}</p>
               )}
               {!isLoading && visibleShares.length > 0 && (

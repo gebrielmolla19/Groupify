@@ -132,10 +132,12 @@ class ShareService {
    * someone else, with no listen by the user. Newest first.
    * @param {string} userId - User ID
    * @param {number} limit - How many shares to return (the counts cover all)
+   * @param {string} [groupId] - Only this group, if the user is a member of it
    * @returns {Promise<Object>} { shares, total, newThisWeek, byGroup, oldestAt }
    */
-  static async getUnheardShares(userId, limit = 20) {
-    const groupIds = await Group.find({ members: userId, isActive: true }).distinct('_id');
+  static async getUnheardShares(userId, limit = 20, groupId) {
+    const groups = { members: userId, isActive: true, ...(groupId && { _id: groupId }) };
+    const groupIds = await Group.find(groups).distinct('_id');
     const user = new mongoose.Types.ObjectId(userId);
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const match = {

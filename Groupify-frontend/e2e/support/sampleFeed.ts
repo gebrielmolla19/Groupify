@@ -28,7 +28,16 @@ const share = (i: number) => {
   };
 };
 
-export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'; pendingInvite?: boolean; secondGroup?: boolean }) {
+// `olderUnheard` makes the group bigger than the feed's first page: the feed
+// reports that many more shares than it returns, and they are all unheard
+// friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
+const olderShare = (i: number) => ({
+  ...share(1), _id: `old${i}`, spotifyTrackId: `o${i}`, trackName: `Older Track ${i}`,
+  sharedBy: friend, listeners: [], listenCount: 0, likes: [], likeCount: 0,
+  group: { _id: 'g1', name: 'Sample Group' }, createdAt: `2025-0${i}-01T00:00:00.000Z`, updatedAt: at,
+});
+
+export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'; pendingInvite?: boolean; secondGroup?: boolean; olderUnheard?: number; olderUnheardFails?: boolean }) {
   const invites = opts.pendingInvite
     ? [{ _id: 'i1', group: 'g1', invitedBy: me, invitedUser: { _id: 'u3', displayName: 'Invited Person', profileImage: null }, status: 'pending', createdAt: '2026-01-01T00:00:00.000Z' }]
     : [];
@@ -40,8 +49,10 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
     localStorage.setItem('groupify_tour_completed', 'true');
   }, [token, opts.theme]);
   const shares = [1, 2, 3].map(share);
+  const older = Array.from({ length: opts.olderUnheard ?? 0 }, (_, i) => olderShare(i + 1));
   await page.route('**/api/v1/**', (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const path = url.pathname;
     let json: unknown = { success: true, groups: [], invites: [], notifications: [], devices: [] };
     const like = path.match(/\/shares\/(sh\d+)\/like$/);
     if (like) {
@@ -50,7 +61,13 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       s.likes = s.likes.some((l) => l.user === me) ? s.likes.filter((l) => l.user !== me) : [...s.likes, { user: me, likedAt: at }];
       s.likeCount = s.likes.length;
       json = { success: true, share: s };
-    } else if (path.includes('/shares/groups/g1')) json = { success: true, shares, total: shares.length, limit: 50, offset: 0 };
+    } else if (path.includes('/shares/groups/g1')) json = { success: true, shares, total: shares.length + older.length, limit: 50, offset: 0 };
+    else if (path.endsWith('/shares/unheard') && url.searchParams.get('groupId') === 'g1') {
+      if (opts.olderUnheardFails) return route.fulfill({ status: 500, json: { success: false, message: 'Server error' } });
+      // The group's unheard: share 2 from the first page, plus the older ones.
+      const unheard = [shares[1], ...older];
+      json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
+    }
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };

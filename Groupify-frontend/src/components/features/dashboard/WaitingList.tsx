@@ -52,9 +52,10 @@ export default function WaitingList({ shares, total, byGroup, groups }: WaitingL
           );
         })}
       </ul>
-      {more > 0 && perGroup.length > 0 && (
+      {more > 0 && (
         <div className="mt-4 pl-5">
-          <p className="text-sm text-soft">And {more} more. Hear them group by group:</p>
+          <p className="text-sm text-soft">And {more} more.{perGroup.length > 0 && " Hear them group by group:"}</p>
+          {perGroup.length > 0 && (
           <ul aria-label="Unheard by group" className="mt-2 flex flex-wrap gap-2">
             {perGroup.map(({ group, count }) => (
               <li key={group._id} className="min-w-0 max-w-full">
@@ -69,6 +70,7 @@ export default function WaitingList({ shares, total, byGroup, groups }: WaitingL
               </li>
             ))}
           </ul>
+          )}
         </div>
       )}
     </>
