@@ -1,9 +1,10 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { HelpCircle, Home, Music, Plus, ScrollText, UserPlus } from "lucide-react";
+import { Bell, HelpCircle, Home, Music, Plus, ScrollText, UserPlus } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useUser } from "../../contexts/UserContext";
 import { useGroups } from "../../hooks/useGroups";
 import { useChangelogStatus } from "../../hooks/useChangelogStatus";
+import { useNotifications } from "../../hooks/useNotifications";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   DropdownMenu,
@@ -37,6 +38,7 @@ export default function AppRail({ compact, onNavigate, menuSide = "right", onNew
   const { user } = useUser();
   const { groups } = useGroups();
   const { hasUnread } = useChangelogStatus();
+  const { unreadCount } = useNotifications();
 
   const go = (path: string) => {
     navigate(path);
@@ -63,6 +65,14 @@ export default function AppRail({ compact, onNavigate, menuSide = "right", onNew
       <button type="button" className={row(pathname === "/")} aria-current={pathname === "/" ? "page" : undefined} onClick={() => go("/")} title={compact ? "Home" : undefined}>
         <Home className="size-5 shrink-0" aria-hidden="true" />
         {label("Home")}
+      </button>
+      <button type="button" className={row(pathname === "/activity")} aria-current={pathname === "/activity" ? "page" : undefined} aria-label={unreadCount > 0 ? `Activity, ${unreadCount} new` : "Activity"} onClick={() => go("/activity")} title={compact ? "Activity" : undefined}>
+        <span className="relative shrink-0">
+          <Bell className="size-5" aria-hidden="true" />
+          {compact && unreadCount > 0 && <span className="absolute -right-1 -top-1 size-2 rounded-full bg-iris" aria-hidden="true" />}
+        </span>
+        {label("Activity")}
+        {!compact && unreadCount > 0 && <span className="ml-auto font-mono text-xs text-iris" aria-hidden="true">{unreadCount}</span>}
       </button>
 
       <span className={cn("px-3 pb-1.5 pt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-quiet", compact && "sr-only")}>Groups</span>

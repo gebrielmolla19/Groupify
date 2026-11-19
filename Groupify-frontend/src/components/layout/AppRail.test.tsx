@@ -18,6 +18,8 @@ vi.mock('../../hooks/useGroups', () => ({
   }),
 }));
 vi.mock('../../hooks/useChangelogStatus', () => ({ useChangelogStatus: () => ({ hasUnread: false }) }));
+let unreadCount = 0;
+vi.mock('../../hooks/useNotifications', () => ({ useNotifications: () => ({ unreadCount }) }));
 
 const actions = { onNewGroup: vi.fn(), onJoinGroup: vi.fn() };
 
@@ -56,11 +58,21 @@ describe('AppRail', () => {
 
   it('keeps every control named when compact', () => {
     renderRail(true);
-    for (const name of ['Home', /Late Night Rotation/, 'New or join group', 'Take the tour', "What's new", 'You']) {
+    for (const name of ['Home', 'Activity', /Late Night Rotation/, 'New or join group', 'Take the tour', "What's new", 'You']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(screen.getByText('Groupify')).toHaveClass('sr-only');
     expect(screen.getByText('Home')).toHaveClass('sr-only');
+  });
+
+  it('Activity shows its new count and opens the Activity screen', async () => {
+    unreadCount = 3;
+    renderRail(false, '/');
+    const activity = screen.getByRole('button', { name: 'Activity, 3 new' });
+    expect(activity).toHaveTextContent('Activity3');
+    await userEvent.click(activity);
+    expect(screen.getByTestId('path')).toHaveTextContent('/activity');
+    unreadCount = 0;
   });
 
   it('offers new group and join with a code', async () => {

@@ -27,6 +27,7 @@ vi.mock('../../hooks/useGroups', () => ({
   useGroups: () => ({ groups: [], createGroup, joinGroupByCode: vi.fn() }),
 }));
 vi.mock('../../hooks/useChangelogStatus', () => ({ useChangelogStatus: () => ({ hasUnread: false }) }));
+vi.mock('../../hooks/useNotifications', () => ({ useNotifications: () => ({ unreadCount: 0 }) }));
 
 const { TestSidebarProvider } = sidebarModule as unknown as {
   TestSidebarProvider: (props: { isMobile: boolean; children: ReactNode }) => JSX.Element;
@@ -56,7 +57,7 @@ describe('AppSidebar', () => {
   it('shows the tab bar instead of the rail on phones', () => {
     renderSidebar(true);
     const tabs = screen.getByRole('navigation', { name: 'Main' });
-    expect(tabs).toHaveTextContent('HomeGroupsYou');
+    expect(tabs).toHaveTextContent('HomeGroupsActivityYou');
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'New or join group' })).not.toBeInTheDocument();
   });

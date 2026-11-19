@@ -8,6 +8,8 @@ import { groupIdFromPath } from '../../hooks/useLastGroup';
 let groups = [{ _id: 'g1' }, { _id: 'g2' }];
 let isLoading = false;
 vi.mock('../../hooks/useGroups', () => ({ useGroups: () => ({ groups, isLoading }) }));
+let unreadCount = 0;
+vi.mock('../../hooks/useNotifications', () => ({ useNotifications: () => ({ unreadCount }) }));
 
 function Path() {
   return <output data-testid="path">{useLocation().pathname}</output>;
@@ -31,11 +33,12 @@ describe('PhoneTabBar', () => {
     localStorage.clear();
     groups = [{ _id: 'g1' }, { _id: 'g2' }];
     isLoading = false;
+    unreadCount = 0;
   });
 
-  it('shows Home, Groups and You and marks the current tab', () => {
+  it('shows Home, Groups, Activity and You and marks the current tab', () => {
     renderAt('/groups/g2/playlist');
-    expect(screen.getByRole('navigation', { name: 'Main' })).toHaveTextContent('HomeGroupsYou');
+    expect(screen.getByRole('navigation', { name: 'Main' })).toHaveTextContent('HomeGroupsActivityYou');
     expect(tab('Groups')).toHaveAttribute('aria-current', 'page');
     expect(tab('Home')).not.toHaveAttribute('aria-current');
   });
@@ -81,4 +84,14 @@ describe('groupIdFromPath', () => {
     ['/', null],
     ['/profile', null],
   ])('%s → %s', (p, id) => expect(groupIdFromPath(p)).toBe(id));
+
+  it('Activity opens its screen and says how many things are new', async () => {
+    unreadCount = 12;
+    renderAt('/');
+    const activity = screen.getByRole('button', { name: 'Activity, 12 new' });
+    expect(activity).toHaveTextContent('9+');
+    await userEvent.click(activity);
+    expect(path()).toBe('/activity');
+    expect(screen.getByRole('button', { name: 'Activity, 12 new' })).toHaveAttribute('aria-current', 'page');
+  });
 });
