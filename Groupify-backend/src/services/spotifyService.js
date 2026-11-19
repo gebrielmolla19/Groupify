@@ -1128,8 +1128,30 @@ class SpotifyService {
       if (error.response?.status === 429) throw rateLimitError(error);
       if (error.response) {
         const status = error.response.status;
-        // 403 = already paused or restricted — not a real error
-        if (status === 403) return;
+        if (status === 403) {
+          // Spotify's docs give this 403 no meaning or reason code (#124).
+          // Pausing a paused player is reported as 403 "Restriction violated",
+          // and so are real refusals (Premium required, restricted device), so
+          // only Spotify's own state tells "already paused" apart.
+          const reason = error.response.data?.error?.reason;
+          if (reason !== 'PREMIUM_REQUIRED') {
+            let playback;
+            try {
+              playback = await SpotifyService.getCurrentPlayback(accessToken);
+            } catch (stateError) {
+              // 429 and 401 keep their meaning (rate-limit wait, token refresh).
+              if (stateError.statusCode === 429 || stateError.response?.status === 401) throw stateError;
+              // Can't confirm the pause took effect: report Spotify's refusal.
+              logger.warn(`[Spotify] Pause 403 and the state check failed: ${stateError.message}`);
+              playback = { is_playing: true };
+            }
+            if (!playback?.is_playing) return;
+          }
+          logger.warn(`[Spotify] Pause refused: 403, reason ${reason || 'none'}`);
+          const err = new Error('Spotify refused to pause. Spotify Premium is required, and the device must allow remote control.');
+          err.statusCode = 403;
+          throw err;
+        }
         if (status === 404) {
           const err = new Error('No active device found');
           err.statusCode = 404;
