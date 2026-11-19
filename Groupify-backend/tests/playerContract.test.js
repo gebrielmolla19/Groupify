@@ -305,6 +305,53 @@ describe('Player API contract with Spotify', () => {
       expect(res.status).toBe(400);
       expect(axios.put).not.toHaveBeenCalled();
     });
+
+    // #124. Spotify's docs give pause's 403 no meaning or reason code; pausing
+    // a paused player is reported as 403 "Restriction violated" (reason
+    // UNKNOWN), and so is a refusal. Spotify's own state tells them apart.
+    describe('PUT /pause when Spotify answers 403', () => {
+      it('succeeds when nothing is playing (already paused)', async () => {
+        axios.put.mockRejectedValueOnce(spotifyError(403, 'Player command failed: Restriction violated'));
+        axios.get.mockResolvedValueOnce({ data: { is_playing: false, device: { id: 'phone1' } } });
+
+        const res = await send('PUT /pause', { device_id: 'phone1' });
+
+        expect(res.status).toBe(200);
+        expect(axios.get).toHaveBeenCalledWith(`${SPOTIFY}/me/player`, expect.anything());
+      });
+
+      it('succeeds when there is no playback at all', async () => {
+        axios.put.mockRejectedValueOnce(spotifyError(403, 'Player command failed: Restriction violated'));
+        axios.get.mockResolvedValueOnce({ status: 204, data: '' });
+
+        const res = await send('PUT /pause', {});
+
+        expect(res.status).toBe(200);
+      });
+
+      it('passes the 403 through when the account is still playing', async () => {
+        axios.put.mockRejectedValueOnce(spotifyError(403, 'Player command failed: Restriction violated'));
+        axios.get.mockResolvedValueOnce({ data: { is_playing: true, device: { id: 'phone1' } } });
+
+        const res = await send('PUT /pause', { device_id: 'phone1' });
+
+        expect(res.status).toBe(403);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toMatch(/Premium/);
+      });
+
+      it('passes Premium required through without asking for the state', async () => {
+        const err = spotifyError(403, 'Player command failed: Premium required');
+        err.response.data.error.reason = 'PREMIUM_REQUIRED';
+        axios.put.mockRejectedValueOnce(err);
+
+        const res = await send('PUT /pause', {});
+
+        expect(res.status).toBe(403);
+        expect(res.body.message).toMatch(/Premium/);
+        expect(axios.get).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('reading state', () => {

@@ -142,13 +142,22 @@ describe('SpotifyService.pausePlayback', () => {
     expect(axios.put.mock.calls[0][0]).toContain('/me/player/pause?device_id=device-1');
   });
 
-  it('silently ignores 403 (already paused)', async () => {
+  it('treats 403 as success when Spotify reports nothing playing (already paused)', async () => {
     const err403 = new Error('Forbidden');
-    err403.response = { status: 403, data: { error: { message: 'Already paused' } } };
+    err403.response = { status: 403, data: { error: { message: 'Player command failed: Restriction violated', reason: 'UNKNOWN' } } };
     axios.put.mockRejectedValueOnce(err403);
+    axios.get.mockResolvedValueOnce({ data: { is_playing: false } });
 
-    // Should not throw
-    await SpotifyService.pausePlayback('token');
+    await expect(SpotifyService.pausePlayback('token')).resolves.toBeUndefined();
+  });
+
+  it('throws 403 when Spotify refuses and the account is still playing (#124)', async () => {
+    const err403 = new Error('Forbidden');
+    err403.response = { status: 403, data: { error: { message: 'Player command failed: Restriction violated', reason: 'UNKNOWN' } } };
+    axios.put.mockRejectedValueOnce(err403);
+    axios.get.mockResolvedValueOnce({ data: { is_playing: true } });
+
+    await expect(SpotifyService.pausePlayback('token')).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it('throws on 404 (no active device)', async () => {

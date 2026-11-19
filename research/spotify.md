@@ -88,6 +88,8 @@ Source pages (all developer.spotify.com unless noted):
 [blog-2021]: https://developer.spotify.com/blog/2021-05-27-improving-the-developer-and-user-experience-for-third-party-apps
 [terms]: https://developer.spotify.com/terms
 [ts-sdk]: https://raw.githubusercontent.com/spotify/spotify-web-api-ts-sdk/main/src/types.ts
+[forum-403a]: https://community.spotify.com/t5/Spotify-for-Developers/start-resume-and-pause-player-throw-FORBIDDEN/m-p/6702509
+[forum-403b]: https://community.spotify.com/t5/Spotify-for-Developers/SDK-error-on-PUT-request-at-quot-Pause-a-User-s-Playback-quot/m-p/5045516
 
 ---
 
@@ -183,6 +185,14 @@ the [February 2026 changelog][chg-feb26].
   `volume_percent` (nullable). ([ts-sdk]; the SDK repo may lag the API.)
 - Per-endpoint meaning of 404 / 403 on player calls, and anything on
   "no active device": **not found, see Unverified**.
+- Pause, read on the live page 2026-11-18: the responses are **204**
+  "Playback paused", then **401**, **403** and **429** with no
+  description, and no reason codes. The only `reason` value the
+  [api-calls] page documents is `QUOTA_EXCEEDED`. ([pause], [api-calls])
+- Community reports, not Spotify docs: pausing an already-paused player
+  returns 403 "Player command failed: Restriction violated" with reason
+  `UNKNOWN`, not a dedicated "already paused" reason.
+  ([forum-403a], [forum-403b])
 
 ## 3. Rate limits and quota
 
@@ -479,9 +489,10 @@ Could not confirm
 Docs retrieved did not say
 - Per-endpoint status codes for the player endpoints, and what 404 and
   403 mean on each. The repo's readings (404 = device not found or no
-  active device; 403 on pause = already paused; 404 on transfer =
+  active device; 404 on transfer =
   "device activated without playback") are **not confirmed by any
-  source retrieved**.
+  source retrieved**. Pause no longer assumes 403 means "already
+  paused": it checks the playback state instead (#124, section 2).
 - Any "no active device" error name or reason code for the Web API.
 - Whether a Web Playback SDK device must be transferred to before
   `play?device_id=` works.
