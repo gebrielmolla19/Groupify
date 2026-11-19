@@ -8,6 +8,7 @@ import { UserProvider } from "./contexts/UserContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayingGroupProvider } from "./contexts/PlayingGroupContext";
 import { GroupsProvider } from "./contexts/GroupsContext";
+import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { SidebarProvider } from "./components/ui/sidebar";
 import LoginScreen from "./components/features/auth/LoginScreen";
 import DashboardScreen from "./components/features/dashboard/DashboardScreen";
@@ -37,6 +38,9 @@ const ProfileScreen = lazy(
 );
 const GroupSettingsScreen = lazy(
   () => import("./components/features/groups/GroupSettingsScreen")
+);
+const ActivityScreen = lazy(
+  () => import("./components/features/activity/ActivityScreen")
 );
 const PlaylistViewScreen = lazy(
   () => import("./components/features/music/PlaylistViewScreen")
@@ -89,6 +93,7 @@ function AuthenticatedLayoutInner() {
               <Suspense fallback={<LoadingFallback />}>
                 <Routes>
                   <Route path="/" element={<DashboardScreen />} />
+                  <Route path="/activity" element={<ActivityScreen />} />
                   <Route path="/profile" element={<ProfileScreen />} />
                   <Route path="/groups/:groupId" element={<GroupFeedScreen />} />
                   <Route path="/groups/:groupId/settings" element={<GroupSettingsScreen />} />
@@ -157,11 +162,13 @@ export default function App() {
         {/* SocketProvider is inside UserProvider so it can read the auth token */}
         <SocketProvider>
           <GroupsProvider>
+          <NotificationsProvider>
             <AppContent />
             <Toaster />
             <UpdatePrompt />
             <Analytics />
             <SpeedInsights />
+          </NotificationsProvider>
           </GroupsProvider>
         </SocketProvider>
       </UserProvider>

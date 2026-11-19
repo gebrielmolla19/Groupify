@@ -29,6 +29,12 @@ A group's standing code that lets anyone who has it join without an
 invite.
 _Avoid_: Invite code, join link
 
+**Activity**:
+What happened in a member's groups that concerns them: a share, a member
+joining, an invite to them. Each item is new until they open it or mark
+it read. Stored as notifications, which is also how push sends them.
+_Avoid_: Notifications (in the interface), feed (the feed is a group's shares)
+
 ### Music
 
 **Track**:

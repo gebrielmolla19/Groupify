@@ -5,7 +5,6 @@ import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
 import JoinGroupDialog from "../groups/JoinGroupDialog";
-import NotificationsDropdown from "../notifications/NotificationsDropdown";
 import WaitingList from "./WaitingList";
 import HomeGroupCard from "./HomeGroupCard";
 import { useGroups } from "../../../hooks/useGroups";
@@ -60,7 +59,6 @@ export default function DashboardScreen() {
         <header>
           <div className="flex items-center gap-3">
             <p className="flex-1 font-mono text-xs uppercase tracking-[0.2em] text-quiet">Home</p>
-            <NotificationsDropdown />
             <Button
               variant="outline"
               className="min-h-11 shrink-0 px-2 sm:px-4"
