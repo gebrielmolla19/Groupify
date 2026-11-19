@@ -84,19 +84,24 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     );
     try {
       await apiMarkRead(id);
-    } catch {
-      // optimistic update — silently fail
+    } catch (err) {
+      // Optimistic: the item stays read here and comes back as new on the next load.
+      logger.error('Failed to mark notification read:', err);
     }
   }, []);
 
   const markAllRead = useCallback(async () => {
+    const wereNew = new Set(notifications.filter((n) => !n.read).map((n) => n._id));
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
       await apiMarkAllRead();
-    } catch {
-      // silently fail
+    } catch (err) {
+      // Don't claim "all caught up" when the server still has them as new.
+      setNotifications((prev) => prev.map((n) => (wereNew.has(n._id) ? { ...n, read: false } : n)));
+      toast.error("Couldn't mark everything read. Try again.");
+      logger.error('Failed to mark all notifications read:', err);
     }
-  }, []);
+  }, [notifications]);
 
   const acceptInvite = useCallback(async (notification: AppNotification) => {
     const groupId = notification.group?._id;
@@ -105,7 +110,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const group = await apiAcceptInvite(groupId, inviteId);
       removeNotification(notification._id);
-      await apiMarkRead(notification._id).catch(() => {});
+      await apiMarkRead(notification._id).catch((err) => logger.error('Failed to mark notification read:', err));
       toast.success(`Joined ${notification.metadata?.groupName || 'group'}!`);
       return group;
     } catch (err) {
@@ -122,7 +127,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       await apiDeclineInvite(groupId, inviteId);
       removeNotification(notification._id);
-      await apiMarkRead(notification._id).catch(() => {});
+      await apiMarkRead(notification._id).catch((err) => logger.error('Failed to mark notification read:', err));
       toast.success('Invite declined');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to decline invite';
