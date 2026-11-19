@@ -1,0 +1,90 @@
+name: Playback smoke (real Spotify)
+
+# #76 tier 3: real playback on the owner's Premium account. Run by hand from
+# the Actions tab, when nothing is playing on the account; it stops before
+# touching playback if something is. Each play lasts a few seconds and
+# everything is paused at the end. See CONTRIBUTING §4.
+#
+# Needs repository secrets SPOTIFY_TEST_REFRESH_TOKEN, SPOTIFY_TEST_CLIENT_ID
+# and SPOTIFY_TEST_CLIENT_SECRET (scripts/get-spotify-refresh-token.js), and
+# three short track IDs (input below, or the SMOKE_TRACK_IDS variable).
+on:
+  workflow_dispatch:
+    inputs:
+      track_ids:
+        description: Three short Spotify track IDs, comma-separated (defaults to the SMOKE_TRACK_IDS variable)
+        required: false
+
+permissions:
+  contents: read
+
+# One run at a time: two would fight over the account's playback.
+concurrency:
+  group: playback-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      # A throwaway database: the owner's real groups and shares are never touched.
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            Groupify-backend/package-lock.json
+            Groupify-frontend/package-lock.json
+
+      - name: Install
+        run: |
+          (cd Groupify-backend && npm ci)
+          (cd Groupify-frontend && npm ci --legacy-peer-deps)
+
+      - name: Start backend
+        working-directory: Groupify-backend
+        env:
+          NODE_ENV: development
+          PORT: '5001'
+          MONGO_URI: mongodb://127.0.0.1:27017/groupify-smoke
+          JWT_SECRET: smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          FRONTEND_URL: http://127.0.0.1:3000
+          E2E_TEST_LOGIN: 'true'
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_TEST_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_TEST_CLIENT_SECRET }}
+          SPOTIFY_REDIRECT_URI: http://127.0.0.1:5001/api/v1/auth/callback
+          SPOTIFY_TEST_REFRESH_TOKEN: ${{ secrets.SPOTIFY_TEST_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$SPOTIFY_TEST_REFRESH_TOKEN" ] || [ -z "$SPOTIFY_CLIENT_ID" ]; then
+            echo "::error::Set the SPOTIFY_TEST_REFRESH_TOKEN, SPOTIFY_TEST_CLIENT_ID and SPOTIFY_TEST_CLIENT_SECRET secrets first (CONTRIBUTING §4)."
+            exit 1
+          fi
+          # Backend logs stay on the runner: the Actions log is public.
+          nohup node src/server.js > "$RUNNER_TEMP/backend.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:5001/health > /dev/null && exit 0; sleep 2; done
+          echo "::error::The backend didn't start."
+          exit 1
+
+      - name: Chrome
+        run: google-chrome --version
+
+      - name: Smoke test
+        working-directory: Groupify-frontend
+        env:
+          CI: 'true'
+          VITE_API_BASE_URL: http://127.0.0.1:5001/api/v1
+          SMOKE_API_URL: http://127.0.0.1:5001/api/v1
+          SMOKE_TRACK_IDS: ${{ inputs.track_ids || vars.SMOKE_TRACK_IDS }}
+        run: |
+          if [ "$(echo "$SMOKE_TRACK_IDS" | tr ',' '\n' | grep -c .)" -lt 3 ]; then
+            echo "::error::Give three track IDs (the track_ids input or the SMOKE_TRACK_IDS variable)."
+            exit 1
+          fi
+          npx playwright test -c playwright.smoke.config.ts

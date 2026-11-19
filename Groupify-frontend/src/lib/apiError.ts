@@ -4,10 +4,12 @@ export class ApiError extends Error {
   isNetworkError: boolean;
   /** Machine-readable reason from the server's `code` field, if it sent one. */
   code: string | null;
+  /** On a 429: how long Spotify asked us to wait, in ms, if it said. */
+  retryAfterMs: number | null;
 
   constructor(
     message: string,
-    opts: { status?: number; isNetworkError?: boolean; code?: string | null } = {}
+    opts: { status?: number; isNetworkError?: boolean; code?: string | null; retryAfterMs?: number | null } = {}
   ) {
     super(message);
     this.name = 'ApiError';
@@ -15,6 +17,7 @@ export class ApiError extends Error {
     this.statusCode = opts.status ?? 0;
     this.isNetworkError = opts.isNetworkError ?? false;
     this.code = opts.code ?? null;
+    this.retryAfterMs = opts.retryAfterMs ?? null;
     Object.setPrototypeOf(this, ApiError.prototype);
   }
 }

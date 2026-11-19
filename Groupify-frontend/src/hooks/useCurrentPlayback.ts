@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentPlayback } from '../lib/api';
-import { toast } from 'sonner';
+import { isApiError } from '../lib/apiError';
+import { isSpotifyPollingPaused, pauseSpotifyPolling } from '../lib/spotifyRateLimit';
 import { logger } from '../utils/logger';
 
 export interface CurrentPlayback {
@@ -51,7 +52,7 @@ export const useCurrentPlayback = (
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastTrackId, setLastTrackId] = useState<string | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export const useCurrentPlayback = (
     }
 
     const pollPlayback = async () => {
+      if (isSpotifyPollingPaused()) return;
       try {
         setIsLoading(true);
         setError(null);
@@ -83,6 +85,11 @@ export const useCurrentPlayback = (
           setLastTrackId(null);
         }
       } catch (err) {
+        if (isApiError(err) && err.status === 429) {
+          pauseSpotifyPolling(err.retryAfterMs);
+          logger.warn('Spotify rate limit: pausing playback polling', { retryAfterMs: err.retryAfterMs });
+          return;
+        }
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch playback state';
         setError(errorMsg);
         // Don't show toast for 404/204 (no playback) - that's normal

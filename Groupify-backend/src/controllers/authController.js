@@ -255,6 +255,18 @@ class AuthController {
         await user.save();
       }
 
+      // The real-Spotify smoke workflow (#76) passes a refresh token for a
+      // real account. Swap it in for the placeholder once and expire the
+      // access token so the first Spotify call refreshes; after that the
+      // backend refreshes (and may rotate) it like any user's.
+      const realRefreshToken = process.env.SPOTIFY_TEST_REFRESH_TOKEN;
+      if (realRefreshToken && user.spotifyRefreshToken === 'e2e-test-refresh') {
+        user.spotifyRefreshToken = realRefreshToken;
+        user.tokenExpiresAt = new Date(0);
+        await user.save();
+        logger.info('[Auth] E2E test user given the real Spotify refresh token', { userId: user._id?.toString() });
+      }
+
       const authCode = crypto.randomBytes(16).toString('hex');
       authCodes.set(authCode, { userId: user._id.toString(), expiresAt: Date.now() + 30_000 });
 
