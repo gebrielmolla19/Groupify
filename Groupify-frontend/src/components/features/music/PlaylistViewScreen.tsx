@@ -1,26 +1,9 @@
-import { ArrowLeft, Play, Clock, Filter, TrendingUp, Loader2, ExternalLink, Plus, ListMusic } from "lucide-react";
+import { ArrowLeft, Play, TrendingUp, Loader2, ExternalLink, Plus, ListMusic } from "lucide-react";
 import { Button } from "../../ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
-import { Badge } from "../../ui/badge";
-import { Card, CardContent } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../ui/select";
+import { ToggleGroup, ToggleGroupItem } from "../../ui/toggle-group";
 import { Share, Group } from "../../../types";
-import { usePlaylist } from "../../../hooks/usePlaylist";
+import { usePlaylist, type SortOption } from "../../../hooks/usePlaylist";
 import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { exportGroupToPlaylist, followGroupPlaylist } from "../../../lib/api";
@@ -31,7 +14,15 @@ import { useState, useEffect, useMemo } from "react";
 import { logger } from "../../../utils/logger";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
-import { formatTrackTime as formatDuration } from "../../../lib/formatTime";
+import GroupCover from "../groups/GroupCover";
+import PlaylistRow from "./PlaylistRow";
+
+const SORTS: { value: SortOption; label: string }[] = [
+  { value: "most-listened", label: "Most listened" },
+  { value: "recently-added", label: "Newest" },
+  { value: "alphabetical", label: "A–Z" },
+  { value: "shared-by", label: "Shared by" },
+];
 
 export default function PlaylistViewScreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -58,7 +49,7 @@ export default function PlaylistViewScreen() {
     return group.spotifyPlaylistOwnerId === user._id || group.spotifyPlaylistOwnerId === user.id;
   }, [group, user]);
   
-  const { shares, isLoading, error, sortBy, setSortBy, stats } = usePlaylist(groupId || '');
+  const { shares, isLoading, error, sortBy, setSortBy, stats, refetch } = usePlaylist(groupId || '');
   const { playTrack, deviceId, isLoading: isPlayerLoading } = useSpotifyPlayer();
   const { setPlayingGroup, setSortBy: setContextSortBy } = usePlayingGroup();
 
@@ -241,388 +232,174 @@ export default function PlaylistViewScreen() {
     }
   };
 
+  const sharerCount = new Set(shares.map((s) => s.sharedBy._id)).size;
+  const summary = `${stats.totalTracks} ${stats.totalTracks === 1 ? "track" : "tracks"} from ${sharerCount} ${sharerCount === 1 ? "member" : "members"}, ${stats.totalDurationFormatted} to play through.`;
+  const showList = !isLoading && !error && shares.length > 0;
+
   return (
-    <>
-      {/* Header */}
-      <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-4 md:px-6 py-3 md:py-4">
-            <div className="flex items-center gap-2 md:gap-4 flex-wrap">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
-                onClick={() => navigate(`/groups/${groupId}`)}
-                aria-label="Back to group feed"
-              >
-                <ArrowLeft className="w-5 h-5" aria-hidden="true" />
-              </Button>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-base md:text-lg truncate">Group Playlist</h1>
-                <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
-                  {group?.name || "Playlist"} • {stats?.totalTracks || 0} tracks
-                </p>
-              </div>
+    <main className="@container mx-auto w-full max-w-5xl space-y-6 md:space-y-8">
+      <header className="space-y-5 md:space-y-6">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-ml-2 min-h-11 min-w-11 shrink-0"
+            onClick={() => navigate(`/groups/${groupId}`)}
+            aria-label="Back to group feed"
+          >
+            <ArrowLeft className="size-5" aria-hidden="true" />
+          </Button>
+          <p className="flex-1 font-mono text-xs uppercase tracking-[0.2em] text-quiet">Playlist</p>
+          <Button
+            variant="outline"
+            className="min-h-11 shrink-0 px-3"
+            onClick={() => navigate(`/groups/${groupId}/analytics`)}
+            aria-label="View group analytics"
+          >
+            <TrendingUp className="size-4" aria-hidden="true" />
+            <span className="hidden @xl:inline">Analytics</span>
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-4 md:gap-6">
+          {groupId && <GroupCover groupId={groupId} className="size-20 shrink-0 rounded-2xl md:size-28" />}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-display text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">
+              {group?.name || "Group playlist"}
+            </h1>
+            {isLoading ? (
+              <Skeleton className="mt-3 h-4 w-2/3" />
+            ) : (
+              showList && <p className="mt-2 text-soft md:text-lg">{summary}</p>
+            )}
+          </div>
+        </div>
+
+        {showList && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="min-h-11"
+              onClick={handlePlayAll}
+              disabled={!deviceId || isPlayerLoading || isPlaying !== null}
+              aria-label="Play all tracks in playlist"
+            >
+              {isPlaying ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Play className="size-4 fill-current" aria-hidden="true" />}
+              Play all
+            </Button>
+            {/* The owner creates or updates the Spotify copy; other members follow it (adr/0002). */}
+            {group && (!hasCollaborativePlaylist || isPlaylistOwner) && (
               <Button
                 variant="outline"
-                className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
-                onClick={() => navigate(`/groups/${groupId}/analytics`)}
-                aria-label="View group analytics"
+                className="min-h-11"
+                onClick={handleExportToSpotify}
+                disabled={isExporting}
+                aria-label={hasCollaborativePlaylist ? "Update collaborative playlist" : "Create collaborative playlist"}
               >
-                <TrendingUp className="w-4 h-4" aria-hidden="true" />
-                <span className="hidden lg:block ml-2">Analytics</span>
-              </Button>
-              {/* Show Create/Update button for playlist owner, or Create button if no playlist exists */}
-              {group && (!hasCollaborativePlaylist || isPlaylistOwner) && (
-                <Button
-                  variant="outline"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
-                  onClick={handleExportToSpotify}
-                  disabled={isExporting || shares.length === 0}
-                  aria-label={hasCollaborativePlaylist ? "Update collaborative playlist" : "Create collaborative playlist"}
-                >
-                  {isExporting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span className="hidden lg:block ml-2">
-                        {hasCollaborativePlaylist ? 'Updating...' : 'Creating...'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      {hasCollaborativePlaylist ? (
-                        <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                      ) : (
-                        <Plus className="w-4 h-4" aria-hidden="true" />
-                      )}
-                      <span className="hidden lg:block ml-2">
-                        {hasCollaborativePlaylist ? 'Update Collaborative Playlist' : 'Create Collaborative Playlist'}
-                      </span>
-                    </>
-                  )}
-                </Button>
-              )}
-              
-              {/* Show Follow button for non-owners (only if playlist exists and user is not the owner) */}
-              {hasCollaborativePlaylist && group && user && !isPlaylistOwner && (
-                <Button
-                  variant="outline"
-                  className="border-primary/30 hover:bg-primary/10 shrink-0 min-h-[44px] px-2 sm:px-4"
-                  onClick={handleFollowPlaylist}
-                  disabled={isFollowing || !hasCollaborativePlaylist}
-                  aria-label="Follow collaborative playlist"
-                >
-                  {isFollowing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span className="hidden lg:block ml-2">Following...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ListMusic className="w-4 h-4" aria-hidden="true" />
-                      <span className="hidden lg:block ml-2">Follow Collaborative Playlist</span>
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button
-                className="bg-primary hover:bg-primary/90 text-black shrink-0 min-h-[44px]"
-                onClick={handlePlayAll}
-                disabled={shares.length === 0 || !deviceId || isPlayerLoading || isPlaying !== null}
-                aria-label="Play all tracks in playlist"
-              >
-                {isPlaying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" aria-hidden="true" />
-                    <span className="hidden lg:inline">Playing...</span>
-                  </>
+                {isExporting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : hasCollaborativePlaylist ? (
+                  <ExternalLink className="size-4" aria-hidden="true" />
                 ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-current lg:mr-2" aria-hidden="true" />
-                    <span className="hidden lg:inline">Play All</span>
-                  </>
+                  <Plus className="size-4" aria-hidden="true" />
                 )}
+                {hasCollaborativePlaylist ? "Update collaborative playlist" : "Create collaborative playlist"}
               </Button>
-            </div>
+            )}
+            {hasCollaborativePlaylist && group && user && !isPlaylistOwner && (
+              <Button
+                variant="outline"
+                className="min-h-11"
+                onClick={handleFollowPlaylist}
+                disabled={isFollowing}
+                aria-label="Follow collaborative playlist"
+              >
+                {isFollowing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ListMusic className="size-4" aria-hidden="true" />}
+                Follow collaborative playlist
+              </Button>
+            )}
           </div>
-        </header>
+        )}
+      </header>
 
-        {/* Playlist Hero */}
-        <section className="relative px-4 md:px-6 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-primary/5 to-background" aria-labelledby="playlist-title">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 md:gap-6 max-w-6xl">
-            <div className="relative flex-shrink-0" aria-hidden="true">
-              <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 flex items-center justify-center">
-                <Play className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-primary" />
+      {error && !isLoading && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm text-soft">
+          <span className="flex-1">Couldn't load this playlist.</span>
+          <Button variant="outline" size="sm" className="min-h-11" onClick={refetch}>Try again</Button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="space-y-3" aria-hidden="true">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-3 pl-8">
+              <Skeleton className="size-12 rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-1/3" />
               </div>
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
+      )}
 
-        {/* Main Content */}
-        <main className="p-4 md:p-6">
-          {/* Error State */}
-          {error && (
-            <Card className="border-destructive mb-4 md:mb-6">
-              <CardContent className="p-4 md:p-6">
-                <p className="text-sm md:text-base text-destructive">{error}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Playlist Info and Sort Control - Same Row */}
-          {!isLoading && shares.length > 0 && (
-            <div className="flex flex-row items-end justify-between gap-4 mb-4 md:mb-6">
-              {/* Playlist Info - Left Side */}
-              <div className="flex-1 min-w-0">
-                <Badge className="mb-2 md:mb-3 bg-primary/10 text-primary border-primary/30 text-xs" aria-label="Playlist type">
-                  Group Playlist
-                </Badge>
-                <h2 id="playlist-title" className="text-xl sm:text-2xl md:text-3xl mb-1 md:mb-2 truncate">{group?.name || "Group Playlist"}</h2>
-                <p className="text-xs sm:text-sm md:text-base text-muted-foreground mb-2 md:mb-3 line-clamp-2">
-                  {group?.description || "Collaborative playlist"}
-                </p>
-                <div className="flex items-center gap-2 md:gap-4 text-xs sm:text-sm flex-wrap">
-                  <span className="text-primary whitespace-nowrap">{group?.members?.length || 0} members</span>
-                  <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground whitespace-nowrap">
-                    {stats?.totalTracks || 0} songs
-                  </span>
-                  <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground whitespace-nowrap">{stats?.totalDurationFormatted || '0m'}</span>
-                </div>
-              </div>
-              
-              {/* Sort Control - Right Side */}
-              <div className="shrink-0 self-end">
-                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                  <SelectTrigger className="w-32 sm:w-48 border-primary/30 shrink-0 min-h-[44px]" aria-label="Sort playlist">
-                    <Filter className="w-4 h-4 mr-2 hidden sm:inline" aria-hidden="true" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="most-listened">Most Listened</SelectItem>
-                    <SelectItem value="recently-added">Recently Added</SelectItem>
-                    <SelectItem value="alphabetical">Alphabetical</SelectItem>
-                    <SelectItem value="shared-by">Shared By</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="rounded-lg border border-border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border">
-                    <TableHead className="w-10 md:w-12">#</TableHead>
-                    <TableHead className="min-w-[200px]">Title</TableHead>
-                    <TableHead className="hidden md:table-cell min-w-[150px]">Album</TableHead>
-                    <TableHead className="hidden lg:table-cell min-w-[150px]">Shared By</TableHead>
-                    <TableHead className="hidden sm:table-cell w-16">Plays</TableHead>
-                    <TableHead className="w-16 md:w-20 text-right">
-                      <Clock className="w-4 h-4 ml-auto" />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <TableRow key={i} className="border-border">
-                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-32 mb-2" />
-                        <Skeleton className="h-3 w-24" />
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <Skeleton className="h-4 w-20" />
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Skeleton className="h-4 w-8" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-12 ml-auto" />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* Mobile Card Layout */}
-          {!isLoading && shares.length > 0 && (
-            <div className="md:hidden space-y-3">
-              {shares.map((share, index) => {
-                const isTopTrack = share.listenCount > 0 && share.listenCount >= Math.max(...shares.map(s => s.listenCount)) * 0.8;
-                return (
-                  <Card
-                    key={share._id}
-                    className="cursor-pointer hover:bg-primary/5 transition-colors"
-                    onClick={() => handleTrackClick(share)}
-                  >
-                    <CardContent className="p-3 md:p-4">
-                      <div className="flex items-center gap-3">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50 min-w-[44px] min-h-[44px]"
-                          aria-label={`Play ${share.trackName} by ${share.artistName}`}
-                          disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTrackClick(share);
-                          }}
-                        >
-                          {isPlaying === share._id ? (
-                            <Loader2 className="w-5 h-5 text-primary animate-spin" aria-hidden="true" />
-                          ) : (
-                            <Play className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs text-muted-foreground">#{index + 1}</span>
-                            <h4 className="text-sm font-medium truncate">{share.trackName}</h4>
-                            {isTopTrack && (
-                              <TrendingUp className="w-3 h-3 text-primary shrink-0" aria-label="Top track" />
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate mb-1">
-                            {share.artistName}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {share.albumName && (
-                              <span className="truncate">{share.albumName}</span>
-                            )}
-                            <span>•</span>
-                            <span>{formatDuration(share.durationMs || 0)}</span>
-                            {share.listenCount > 0 && (
-                              <>
-                                <span>•</span>
-                                <span>{share.listenCount} plays</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Desktop Table */}
-          {!isLoading && shares.length > 0 && (
-            <div className="hidden md:block rounded-lg border border-border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border">
-                    <TableHead className="w-10 md:w-12" aria-label="Track number">#</TableHead>
-                    <TableHead className="min-w-[200px]">Title</TableHead>
-                    <TableHead className="hidden md:table-cell min-w-[150px]">Album</TableHead>
-                    <TableHead className="hidden lg:table-cell min-w-[150px]">Shared By</TableHead>
-                    <TableHead className="hidden sm:table-cell w-16">Plays</TableHead>
-                    <TableHead className="w-16 md:w-20 text-right">
-                      <Clock className="w-4 h-4 ml-auto" aria-label="Duration" />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shares.map((share, index) => {
-                    const isTopTrack = share.listenCount > 0 && share.listenCount >= Math.max(...shares.map(s => s.listenCount)) * 0.8;
-                    return (
-                      <TableRow
-                        key={share._id}
-                        className="group cursor-pointer hover:bg-primary/5 border-border"
-                        onClick={() => handleTrackClick(share)}
-                      >
-                        <TableCell>
-                          <button
-                            className="flex items-center justify-center w-full h-full disabled:opacity-50 min-h-[44px] min-w-[44px]"
-                            aria-label={`Play ${share.trackName} by ${share.artistName}`}
-                            disabled={!deviceId || isPlayerLoading || isPlaying === share._id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTrackClick(share);
-                            }}
-                          >
-                            {isPlaying === share._id ? (
-                              <Loader2 className="w-4 h-4 text-primary animate-spin" aria-hidden="true" />
-                            ) : (
-                              <>
-                                <span className="group-hover:hidden text-sm">{index + 1}</span>
-                                <Play className="w-4 h-4 hidden group-hover:block text-primary fill-current" aria-hidden="true" />
-                              </>
-                            )}
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 min-w-0">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="truncate text-sm md:text-base">{share.trackName}</span>
-                                {isTopTrack && (
-                                  <TrendingUp className="w-3 h-3 text-primary shrink-0" aria-label="Top track" />
-                                )}
-                              </div>
-                              <p className="text-xs md:text-sm text-muted-foreground truncate">
-                                {share.artistName}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                          <span className="truncate block">{share.albumName}</span>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Avatar className="w-6 h-6 border border-primary/30 shrink-0">
-                              <AvatarImage src={share.sharedBy.profileImage || undefined} alt={`${share.sharedBy.displayName}'s avatar`} />
-                              <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                {share.sharedBy.displayName.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm truncate">{share.sharedBy.displayName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                          {share.listenCount}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground text-sm whitespace-nowrap">
-                          {formatDuration(share.durationMs || 0)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && shares.length === 0 && !error && (
-            <Card className="border-dashed border-2 border-border">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="bg-primary/10 border border-primary/30 p-4 rounded-full mb-4" aria-hidden="true">
-                  <Play className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="mb-2">No Tracks Yet</h3>
-                <p className="text-muted-foreground mb-4 max-w-md">
-                  Start sharing tracks in the group feed to build your playlist!
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(`/groups/${groupId}`)}
-                  className="border-primary/30 hover:bg-primary/10 min-h-[44px]"
+      {showList && (
+        <section aria-labelledby="playlist-tracks-heading" className="space-y-3">
+          <h2 id="playlist-tracks-heading" className="sr-only">Tracks</h2>
+          <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+            <ToggleGroup
+              type="single"
+              value={sortBy}
+              // Radix sends "" when the selected chip is pressed again; keep it selected.
+              onValueChange={(next) => next && setSortBy(next as SortOption)}
+              role="radiogroup"
+              aria-label="Sort playlist"
+              className="gap-1.5 md:gap-2"
+            >
+              {SORTS.map(({ value, label }) => (
+                <ToggleGroupItem
+                  key={value}
+                  value={value}
+                  className="min-h-11 flex-none rounded-xl first:rounded-xl last:rounded-xl border border-line px-2.5 text-foreground hover:bg-raised hover:text-foreground data-[state=on]:border-iris data-[state=on]:bg-selected data-[state=on]:text-foreground md:px-3.5"
                 >
-                  Go to Group Feed
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </main>
-    </>
+                  {label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+          <div className="hidden gap-3 pr-2 font-mono text-[11px] uppercase tracking-[0.15em] text-quiet @2xl:flex" aria-hidden="true">
+            <span className="w-6 text-right">#</span>
+            <span className="flex-1 pl-12">Track</span>
+            <span className="w-40">Shared by</span>
+            <span className="w-24">Listens</span>
+            <span className="w-12 text-right">Time</span>
+          </div>
+          <ol aria-label="Playlist tracks" className="-mx-2 md:mx-0">
+            {shares.map((share, index) => (
+              <PlaylistRow
+                key={share._id}
+                share={share}
+                position={index + 1}
+                viewer={user}
+                isStarting={isPlaying === share._id}
+                playDisabled={!deviceId || isPlayerLoading}
+                onPlay={() => handleTrackClick(share)}
+              />
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {!isLoading && !error && shares.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center">
+          <p className="font-display text-xl font-bold">Nothing to play yet</p>
+          <p className="mx-auto mt-2 max-w-md text-soft">
+            Every track shared in the group feed lands here. Share one to start the playlist.
+          </p>
+          <Button variant="outline" className="mt-5 min-h-11" onClick={() => navigate(`/groups/${groupId}`)}>
+            Go to the group feed
+          </Button>
+        </div>
+      )}
+    </main>
   );
 }

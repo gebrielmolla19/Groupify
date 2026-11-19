@@ -90,6 +90,8 @@ export interface FakeSpotifyOptions {
   /** The first GET /player/playback answers 429 with this retryAfter (seconds), as the backend does for Spotify's rate limit. */
   playbackRateLimit?: number;
   viewport?: { width: number; height: number };
+  /** The screen to open: the group feed (default) or, for example, its playlist. */
+  path?: '/groups/g1' | '/groups/g1/playlist';
 }
 
 export async function openPlayer(page: Page, opts: FakeSpotifyOptions = {}) {
@@ -159,9 +161,11 @@ export async function openPlayer(page: Page, opts: FakeSpotifyOptions = {}) {
     return route.fulfill({ json });
   });
 
-  // Sign-in can settle on the dashboard first; go to the feed until it sticks.
+  // Sign-in can settle on the dashboard first; go to the screen until it sticks.
+  // Both screens label track 1's play button "Play Sample Track 1…".
+  const path = opts.path ?? '/groups/g1';
   await expect(async () => {
-    if (new URL(page.url()).pathname !== '/groups/g1') await page.goto('/groups/g1');
+    if (new URL(page.url()).pathname !== path) await page.goto(path);
     await expect(page.getByRole('button', { name: 'Play Sample Track 1' })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 20000 });
 }
