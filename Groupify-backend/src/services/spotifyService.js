@@ -1135,7 +1135,16 @@ class SpotifyService {
           // only Spotify's own state tells "already paused" apart.
           const reason = error.response.data?.error?.reason;
           if (reason !== 'PREMIUM_REQUIRED') {
-            const playback = await SpotifyService.getCurrentPlayback(accessToken);
+            let playback;
+            try {
+              playback = await SpotifyService.getCurrentPlayback(accessToken);
+            } catch (stateError) {
+              // 429 and 401 keep their meaning (rate-limit wait, token refresh).
+              if (stateError.statusCode === 429 || stateError.response?.status === 401) throw stateError;
+              // Can't confirm the pause took effect: report Spotify's refusal.
+              logger.warn(`[Spotify] Pause 403 and the state check failed: ${stateError.message}`);
+              playback = { is_playing: true };
+            }
             if (!playback?.is_playing) return;
           }
           logger.warn(`[Spotify] Pause refused: 403, reason ${reason || 'none'}`);

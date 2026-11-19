@@ -340,6 +340,16 @@ describe('Player API contract with Spotify', () => {
         expect(res.body.message).toMatch(/Premium/);
       });
 
+      it('passes the 403 through when the state check itself fails', async () => {
+        axios.put.mockRejectedValueOnce(spotifyError(403, 'Player command failed: Restriction violated'));
+        axios.get.mockRejectedValueOnce(spotifyError(502, 'Bad gateway'));
+
+        const res = await send('PUT /pause', {});
+
+        expect(res.status).toBe(403);
+        expect(res.body.message).toMatch(/Premium/);
+      });
+
       it('passes Premium required through without asking for the state', async () => {
         const err = spotifyError(403, 'Player command failed: Premium required');
         err.response.data.error.reason = 'PREMIUM_REQUIRED';
