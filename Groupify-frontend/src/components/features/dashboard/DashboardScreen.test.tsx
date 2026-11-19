@@ -11,7 +11,6 @@ vi.mock('../../../hooks/useGroups', () => ({
 vi.mock('../../../hooks/useUnheardShares', () => ({
   useUnheardShares: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
 }));
-// The notifications menu fetches on mount; it isn't part of this flow.
 
 function renderDashboard() {
   render(

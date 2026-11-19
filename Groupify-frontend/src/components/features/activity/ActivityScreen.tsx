@@ -3,16 +3,12 @@ import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { useNotifications } from "../../../hooks/useNotifications";
+import { useGroups } from "../../../hooks/useGroups";
 import { formatAge } from "../../../lib/formatTime";
 import { cn } from "../../../lib/utils";
 import type { AppNotification } from "../../../types";
 
 const DAY = 86_400_000;
-const BUCKETS = [
-  { label: "Today", maxAge: DAY },
-  { label: "This week", maxAge: 7 * DAY },
-  { label: "Earlier", maxAge: Infinity },
-] as const;
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const groupName = (n: AppNotification) => n.metadata?.groupName ?? n.group?.name ?? "your group";
@@ -44,6 +40,7 @@ function summary(unread: AppNotification[]) {
 export default function ActivityScreen() {
   const navigate = useNavigate();
   const { notifications, unreadCount, loading, error, refetch, markRead, markAllRead, acceptInvite, declineInvite } = useNotifications();
+  const { refetch: refetchGroups } = useGroups();
   const unread = notifications.filter((n) => !n.read);
   const firstLoad = loading && notifications.length === 0;
 
@@ -58,15 +55,21 @@ export default function ActivityScreen() {
   };
   const accept = async (n: AppNotification) => {
     const group = await acceptInvite(n);
-    if (group) navigate(`/groups/${group._id}`);
+    if (!group) return;
+    // Load the joined group into the rail and the group screen before opening it.
+    await refetchGroups();
+    navigate(`/groups/${group._id}`);
   };
 
   const now = Date.now();
   const age = (n: AppNotification) => now - new Date(n.createdAt).getTime();
-  const sections = BUCKETS.map(({ label, maxAge }, i) => ({
-    label,
-    items: notifications.filter((n) => age(n) < maxAge && (i === 0 || age(n) >= BUCKETS[i - 1].maxAge)),
-  })).filter((s) => s.items.length > 0);
+  // Today is the calendar day; this week is the rest of the last seven days.
+  const startOfToday = new Date(now).setHours(0, 0, 0, 0);
+  const bucket = (n: AppNotification) =>
+    new Date(n.createdAt).getTime() >= startOfToday ? "Today" : age(n) < 7 * DAY ? "This week" : "Earlier";
+  const sections = (["Today", "This week", "Earlier"] as const)
+    .map((label) => ({ label, items: notifications.filter((n) => bucket(n) === label) }))
+    .filter((s) => s.items.length > 0);
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 md:space-y-8">

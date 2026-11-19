@@ -34,6 +34,8 @@ test('an invite is accepted in place and opens the group', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/groups\/g3$/);
   expect(stub.requests).toContain('POST /groups/g3/invite/i1/accept');
+  // The joined group is in the rail straight away, without a reload.
+  await expect(page.getByRole('navigation', { name: 'Groups' }).getByRole('button', { name: /Invite Group/ })).toBeVisible();
 });
 
 test('mark all read leaves nothing new, everywhere', async ({ page }) => {
@@ -50,7 +52,7 @@ test('mark all read leaves nothing new, everywhere', async ({ page }) => {
 test('with no activity it says what will show up', async ({ page }) => {
   await openSampleActivity(page, { theme: 'dark', empty: true });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('No activity yet');
-  await expect(page.getByRole('listitem')).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(0);
 });
 
 test('a failed load says so, claims nothing, and can retry', async ({ page }) => {
