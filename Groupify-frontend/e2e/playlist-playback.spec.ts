@@ -11,11 +11,12 @@ const playRequest = (track: string) =>
   `api:PUT /player/play ${JSON.stringify({ device_id: 'web1', track_uri: `spotify:track:${track}` })}`;
 
 /**
- * Give the shares listen counts so "Most listened" (t3, t1, t2) differs from
- * "Newest" (t1, t2, t3), then reload so the playlist and player load them.
+ * Give the shares listen counts so "Most listened" (t3, t2, t1) runs the
+ * other way from "Newest" (t1, t2, t3): from t2, next is t1 in one and t3 in
+ * the other. Then reload so the playlist and player load them.
  */
 async function withListens(page: Page) {
-  const counts: Record<string, number> = { t1: 1, t2: 0, t3: 2 };
+  const counts: Record<string, number> = { t1: 0, t2: 1, t3: 2 };
   await page.route('**/api/v1/shares/groups/g1**', (route) => route.fulfill({
     json: { success: true, shares: shares.map((s) => ({ ...s, listenCount: counts[s.spotifyTrackId] })), total: shares.length, limit: 100, offset: 0 },
   }));
@@ -46,7 +47,7 @@ test("tapping a row plays that row's track", async ({ page }) => {
   expect(await apiCalls(page, 'PUT /player/play')).toEqual([playRequest('t2')]);
 });
 
-test("tapping a row before the player connects says it isn't ready", async ({ page }) => {
+test("tapping a row when the player never connected sends no play and shows the not-ready toast", async ({ page }) => {
   await openPlayer(page, { path: '/groups/g1/playlist', initError: true });
   await page.getByRole('listitem').filter({ hasText: 'Sample Track 2' }).getByText('Sample Track 2').click();
 
@@ -59,18 +60,18 @@ test("next and previous follow the playlist's sort", async ({ page }) => {
   await withListens(page);
   await waitForDevice(page);
 
-  // Most listened (the default): t3, t1, t2.
+  // Most listened (the default): t3, t2, t1.
   await page.getByRole('button', { name: 'Play all tracks in playlist' }).click();
   await expect(player(page)).toContainText('Sample Track 3');
   await player(page).getByRole('button', { name: 'Next track' }).click();
-  await expect(player(page)).toContainText('Sample Track 1');
+  await expect(player(page)).toContainText('Sample Track 2');
 
-  // Newest: t1, t2, t3.
+  // Newest: t1, t2, t3. From t2, next is t3 here but would be t1 under Most listened.
   await page.getByRole('radiogroup', { name: 'Sort playlist' }).getByRole('radio', { name: 'Newest' }).click();
   await player(page).getByRole('button', { name: 'Next track' }).click();
-  await expect(player(page)).toContainText('Sample Track 2');
+  await expect(player(page)).toContainText('Sample Track 3');
   await player(page).getByRole('button', { name: 'Previous track' }).click();
-  await expect(player(page)).toContainText('Sample Track 1');
+  await expect(player(page)).toContainText('Sample Track 2');
 
-  expect(await apiCalls(page, 'PUT /player/play')).toEqual([playRequest('t3'), playRequest('t1'), playRequest('t2'), playRequest('t1')]);
+  expect(await apiCalls(page, 'PUT /player/play')).toEqual([playRequest('t3'), playRequest('t2'), playRequest('t3'), playRequest('t2')]);
 });
