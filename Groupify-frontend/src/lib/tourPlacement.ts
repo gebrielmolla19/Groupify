@@ -23,7 +23,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 /**
  * Where the walkthrough card goes (#57): under its target, else above it,
  * else beside it, always inside the viewport and clear of the bottom inset.
- * With no target, or no room anywhere, it sits at the bottom centre.
+ * With no target on screen, or no room anywhere, it sits at the bottom centre.
  */
 export function placeTourCard({ target, card, viewport, bottomInset }: PlaceTourCardInput): { left: number; top: number } {
   const floor = viewport.height - bottomInset;
@@ -32,6 +32,8 @@ export function placeTourCard({ target, card, viewport, bottomInset }: PlaceTour
 
   const right = target.left + target.width;
   const bottom = target.top + target.height;
+  // Scrolled out of view: the card stays on screen rather than following it.
+  if (bottom < 0 || target.top > floor) return fallback;
   const alignedLeft = clamp(target.left, MARGIN, viewport.width - card.width - MARGIN);
   const besideTop = clamp(target.top, MARGIN, floor - card.height);
 

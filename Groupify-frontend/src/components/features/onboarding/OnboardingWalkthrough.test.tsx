@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import OnboardingWalkthrough, { startTour } from './OnboardingWalkthrough';
@@ -114,12 +114,53 @@ describe('OnboardingWalkthrough', () => {
     hidden.getClientRects = () => [] as unknown as DOMRectList;
     shown.getClientRects = () => [{}] as unknown as DOMRectList;
     shown.scrollIntoView = vi.fn();
-    shown.getBoundingClientRect = () => ({ left: 300, top: 100, width: 600, height: 44 }) as DOMRect;
+    shown.getBoundingClientRect = () => ({ left: 300, top: 100, width: 600, height: 44, right: 900, bottom: 144 }) as DOMRect;
 
     renderTour();
     await tour();
     const spotlight = await screen.findByTestId('tour-spotlight');
     expect(spotlight).toHaveStyle({ left: '294px', top: '94px', width: '612px', height: '56px' });
+  });
+
+  it('steps aside while a modal is open, and Escape is left to the modal', async () => {
+    const user = userEvent.setup();
+    renderTour();
+    await tour();
+    const sheet = document.createElement('div');
+    sheet.setAttribute('role', 'dialog');
+    sheet.dataset.state = 'open';
+    sheet.dataset.tour = 'modal';
+    document.body.append(sheet);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Share a song here' })).not.toBeInTheDocument());
+    await user.keyboard('{Escape}');
+    sheet.remove();
+    expect(await screen.findByRole('dialog', { name: 'Share a song here' })).toBeInTheDocument();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('without a group, points Home to creating or joining one and opens the tour once there is one', async () => {
+    setGroups([]);
+    const user = userEvent.setup();
+    const { rerender } = renderTour('/activity');
+    act(() => startTour());
+    const card = await tour();
+    expect(card).toHaveAccessibleName('Start with a group');
+    expect(screen.getByTestId('path')).toHaveTextContent(/^\/$/);
+    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Got it' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(localStorage.getItem(KEY)).toBeNull();
+
+    setGroups([{ _id: 'g1' }]);
+    rerender(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="*" element={<Where />} />
+        </Routes>
+        <OnboardingWalkthrough />
+      </MemoryRouter>,
+    );
+    expect(await tour()).toHaveAccessibleName('Share a song here');
   });
 
   it('shows the card alone when the step has nothing on screen', async () => {

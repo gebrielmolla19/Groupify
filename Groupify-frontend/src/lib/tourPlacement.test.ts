@@ -27,6 +27,15 @@ describe('placeTourCard', () => {
     expect(placeTourCard({ target: null, card, viewport, bottomInset: 92 })).toEqual({ left: 560, top: 900 - 92 - 200 });
   });
 
+  it('stays on screen at the bottom centre when the target is scrolled out of view', () => {
+    const phone = { width: 390, height: 844 };
+    const narrow = { width: 358, height: 220 };
+    const above = placeTourCard({ target: rect(16, -400, 358, 72), card: narrow, viewport: phone, bottomInset: 145 });
+    expect(above).toEqual({ left: 16, top: 844 - 145 - 220 });
+    const below = placeTourCard({ target: rect(16, 900, 358, 72), card: narrow, viewport: phone, bottomInset: 145 });
+    expect(below).toEqual(above);
+  });
+
   it('narrows to the phone width and stays above the tab bar and player', () => {
     const phone = { width: 390, height: 844 };
     const narrow = { width: 358, height: 220 };

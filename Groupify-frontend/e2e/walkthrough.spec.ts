@@ -114,3 +114,38 @@ test('the tour restarts from Take the tour, and Escape skips it', async ({ page 
   await page.keyboard.press('Escape');
   await expect(tour(page)).toHaveCount(0);
 });
+
+test('phone: opening a song in step 4 hides the tour until the sheet closes, then Done works', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openSampleFeed(page, { theme: 'dark', tour: true });
+  for (let i = 0; i < 3; i++) await tour(page).getByRole('button', { name: 'Next' }).click();
+  await expect(tour(page)).toHaveAccessibleName('Everything about one song');
+
+  await row(page, 3).getByRole('button', { name: 'Show details for Sample Track 3' }).click({ position: { x: 150, y: 20 } });
+  const sheet = page.getByRole('dialog', { name: 'Sample Track 3' });
+  await expect(sheet).toBeVisible();
+  // The sheet owns the page: no tour card or spotlight over or under it.
+  await expect(page.getByRole('dialog', { name: 'Everything about one song' })).toHaveCount(0);
+  await expect(spotlight(page)).toHaveCount(0);
+
+  await page.keyboard.press('Escape'); // closes the sheet, not the tour
+  await expect(sheet).toHaveCount(0);
+  await expect(tour(page)).toHaveAccessibleName('Everything about one song');
+  await tour(page).getByRole('button', { name: 'Done' }).click();
+  await expect(tour(page)).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('groupify_tour_completed'))).toBe('true');
+});
+
+test('the card stays on screen when the target is scrolled out of view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await openSampleFeed(page, { theme: 'dark', tour: true, olderUnheard: 8 });
+  await tour(page).getByRole('button', { name: 'Next' }).click();
+  await expect(tour(page)).toHaveAccessibleName('A dot means unheard');
+  await page.mouse.move(195, 300);
+  for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 400);
+  await expect(async () => {
+    const c = await box(tour(page));
+    expect(c.y).toBeGreaterThanOrEqual(0);
+    expect(c.y + c.height).toBeLessThanOrEqual(600);
+  }).toPass({ timeout: 3000 });
+});
