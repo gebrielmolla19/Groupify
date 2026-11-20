@@ -154,7 +154,8 @@ export default function ProfileScreen() {
   };
   const statTiles = [
     { label: "Tracks shared", value: stats?.tracksShared, yours: true },
-    { label: "Listens", value: stats?.totalListens, yours: false },
+    // Other members' listens to your shares, not your own listening.
+    { label: "Listens to your shares", value: stats?.totalListens, yours: false },
     { label: "Groups", value: stats?.groupsJoined, yours: false },
   ];
 

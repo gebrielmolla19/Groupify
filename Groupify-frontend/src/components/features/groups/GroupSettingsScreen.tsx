@@ -343,7 +343,7 @@ export default function GroupSettingsScreen() {
           {isOwner ? (
             <SettingsSection title="Delete group">
               <p className="text-sm leading-relaxed text-soft">
-                Deletes the group for all {settings.members.length} {settings.members.length === 1 ? "member" : "members"}. Its feed, playlist and Group Dynamics go with it, and this can't be undone.
+                Deletes the group for all {settings.members.length} {settings.members.length === 1 ? "member" : "members"}. Its feed and Group Dynamics go with it, and this can't be undone. A playlist you exported stays in Spotify.
               </p>
               <Button
                 variant="outline"
@@ -474,7 +474,7 @@ export default function GroupSettingsScreen() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Leave Group</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to leave <strong>{settings?.name}</strong>? You can rejoin later using the invite code.
+                  Are you sure you want to leave <strong>{settings?.name}</strong>? You can rejoin later with the join code.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

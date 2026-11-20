@@ -22,7 +22,7 @@ for (const theme of ['dark', 'light'] as const) {
     await expect(page.getByText('Signed in with Spotify as sample.user')).toBeVisible();
     const numbers = section(page, 'Your numbers');
     await expect(numbers).toContainText('12Tracks shared');
-    await expect(numbers).toContainText('48Listens');
+    await expect(numbers).toContainText('48Listens to your shares');
     await expect(numbers).toContainText('2Groups');
     for (const name of ['Account', 'Notifications', 'Appearance', 'Account access']) {
       await expect(section(page, name)).toBeVisible();
