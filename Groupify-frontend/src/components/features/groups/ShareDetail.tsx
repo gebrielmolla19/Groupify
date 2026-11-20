@@ -55,7 +55,7 @@ export default function ShareDetail({
   const listenDelay = (user: User) => share.listeners.find((l) => isUser(l.user, user))?.timeToListen ?? null;
 
   return (
-    <div className={cn("flex flex-col gap-5", compact ? "p-4 pt-6" : "p-5")}>
+    <div data-tour="song-detail" className={cn("flex flex-col gap-5", compact ? "p-4 pt-6" : "p-5")}>
       {onClose && (
         <div className="-mb-2 -mt-2 flex items-center justify-between">
           <span className="font-mono text-xs uppercase tracking-wider text-quiet">Song</span>
