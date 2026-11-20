@@ -75,7 +75,8 @@ describe('OnboardingWalkthrough', () => {
       </MemoryRouter>,
     );
     await tour();
-    expect(screen.getByTestId('path')).toHaveTextContent('/groups/g1');
+    // The tour navigates in an effect after it renders.
+    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/groups/g1'));
   });
 
   it('stays on the group feed that is already open', async () => {
@@ -145,7 +146,7 @@ describe('OnboardingWalkthrough', () => {
     act(() => startTour());
     const card = await tour();
     expect(card).toHaveAccessibleName('Start with a group');
-    expect(screen.getByTestId('path')).toHaveTextContent(/^\/$/);
+    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent(/^\/$/));
     expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Got it' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
