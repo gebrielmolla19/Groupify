@@ -38,7 +38,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, olderIds, total, unheardStatus, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, olderIds, total, unheardStatus, isLoading, error, refetch, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -441,13 +441,19 @@ export default function GroupFeedScreen() {
                 </section>
               )}
 
-              {/* Error State */}
-              {error && (
-                <Card className="border-destructive mb-4 md:mb-6">
-                  <CardContent className="p-4 md:p-6">
-                    <p className="text-sm md:text-base text-destructive">{error}</p>
-                  </CardContent>
-                </Card>
+              {/* Load error: the whole feed when nothing loaded, a row above the songs otherwise. */}
+              {error && !isLoading && shares.length === 0 && (
+                <div role="alert" className="flex max-w-xl flex-col items-start gap-3 py-10">
+                  <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight">This group didn't load</h2>
+                  <p className="text-soft">We couldn't reach Groupify. Your shares are safe. Check your connection, then try again.</p>
+                  <Button onClick={() => void refetch()}>Try again</Button>
+                </div>
+              )}
+              {error && !isLoading && shares.length > 0 && (
+                <div role="alert" className="mb-4 flex max-w-4xl flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm text-soft">
+                  <span className="flex-1">Couldn't refresh this feed.</span>
+                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => void refetch()}>Try again</Button>
+                </div>
               )}
 
               {/* Loading State */}
@@ -496,17 +502,13 @@ export default function GroupFeedScreen() {
 
               {/* Empty State */}
               {!isLoading && shares.length === 0 && !error && (
-                <Card className="border-dashed border-2 border-border">
-                  <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 text-center px-4">
-                    <div className="bg-primary/10 border border-primary/30 p-3 md:p-4 rounded-full mb-3 md:mb-4" aria-hidden="true">
-                      <Music2 className="w-6 h-6 md:w-8 md:h-8 text-primary" />
-                    </div>
-                    <h3 className="text-base md:text-lg mb-2">No Tracks Shared Yet</h3>
-                    <p className="text-sm md:text-base text-muted-foreground mb-4 max-w-md">
-                      Be the first to share a track! Search for a song above and add it to the group.
-                    </p>
-                  </CardContent>
-                </Card>
+                <div className="flex max-w-xl flex-col items-start gap-3 py-10">
+                  <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight">Nothing shared yet</h2>
+                  <p className="text-soft">Search for a song above to start the feed. Everyone in the group sees it in their Activity.</p>
+                  {groupId && (
+                    <Button variant="outline" onClick={() => setIsInviteDialogOpen(true)}>Invite people first</Button>
+                  )}
+                </div>
               )}
             </main>
           </div>
