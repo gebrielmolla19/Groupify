@@ -1,16 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
-import { Mail, Bell, Palette, LogOut, User as UserIcon, Music } from "lucide-react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { LogOut } from "lucide-react";
 import type { NotificationPreferences } from "../../../types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { Switch } from "../../ui/switch";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
-import { Separator } from "../../ui/separator";
-import { Badge } from "../../ui/badge";
 import { ThemeSwitch } from "./ThemeSwitch";
 import MoreLinks from "./MoreLinks";
+import SettingsSection, { eyebrow } from "./SettingsSection";
 import { UserStats } from "../../../types";
 import { useUser } from "../../../contexts/UserContext";
 import { getUserStats, updateUserProfile } from "../../../lib/api";
@@ -19,6 +17,7 @@ import { toast } from "sonner";
 import { Skeleton } from "../../ui/skeleton";
 import { logger } from "../../../utils/logger";
 import { useNavigate } from "react-router-dom";
+import { cn } from "../../../lib/utils";
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
@@ -43,7 +42,10 @@ export default function ProfileScreen() {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
         setPushEnabled(!!sub && Notification.permission === 'granted');
-      } catch { /* ignore */ }
+      } catch (error) {
+        // The switch stays off; turning it on subscribes afresh.
+        logger.warn('Could not read the push subscription:', error);
+      }
     })();
   }, []);
 
@@ -150,310 +152,171 @@ export default function ProfileScreen() {
     toast.success("Logged out successfully");
     navigate('/login');
   };
+  const statTiles = [
+    { label: "Tracks shared", value: stats?.tracksShared, yours: true },
+    { label: "Listens", value: stats?.totalListens, yours: false },
+    { label: "Groups", value: stats?.groupsJoined, yours: false },
+  ];
+
+  const pushHint =
+    pushPermission === 'denied'
+      ? 'Blocked in this browser. Open its site settings, allow notifications for Groupify, then reload.'
+      : 'Lets Groupify notify this device.';
+
   return (
-      <>
-        {/* Header */}
-        <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-base md:text-lg truncate">Profile & Settings</h1>
-                <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
-                  Manage your account and preferences
-                </p>
-              </div>
+    <main className="mx-auto w-full max-w-5xl space-y-8 md:space-y-10">
+      {/* Say it: who you are and how you're signed in. */}
+      <header className="flex items-center gap-4 md:gap-5">
+        <Avatar className="size-16 shrink-0 md:size-20">
+          <AvatarImage src={user?.profileImage || undefined} alt="" className="object-cover" />
+          <AvatarFallback className="bg-iris font-display text-2xl font-extrabold text-on-iris md:text-3xl">
+            {user?.displayName ? getInitials(user.displayName) : 'U'}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className={eyebrow}>Profile and settings</p>
+          <h1 className="mt-1 truncate font-display text-3xl font-extrabold leading-tight tracking-tight md:mt-2 md:text-5xl">
+            {user?.displayName || 'Your profile'}
+          </h1>
+          <p className="mt-1 break-words text-soft md:mt-2 md:text-lg">
+            Signed in with Spotify{user?.spotifyId ? ` as ${user.spotifyId}` : ''}
+          </p>
+        </div>
+      </header>
+
+      {/* Show it: your numbers. Yours is the one in iris. */}
+      <section aria-label="Your numbers" className="grid grid-cols-3 gap-2.5 md:gap-4">
+        {statTiles.map((tile) => (
+          <div key={tile.label} className="flex flex-col gap-1 rounded-2xl border border-hair bg-raised p-3.5 md:p-5">
+            {isLoadingStats ? (
+              <Skeleton className="h-8 w-12 md:h-10" />
+            ) : (
+              <span className={cn("font-display text-2xl font-extrabold tracking-tight md:text-4xl", tile.yours ? "text-iris" : "text-foreground")}>
+                {tile.value ?? '–'}
+              </span>
+            )}
+            <span className="text-xs text-soft md:text-sm">{tile.label}</span>
+          </div>
+        ))}
+      </section>
+
+      <div className="grid items-start gap-8 md:gap-4 lg:grid-cols-2">
+        <SettingsSection title="Account">
+          <div className="space-y-1.5">
+            <Label htmlFor="display-name" className="text-sm font-normal text-soft">Display name</Label>
+            <Input
+              id="display-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Enter your display name"
+            />
+          </div>
+          <dl className="divide-y divide-hair rounded-xl border border-hair">
+            <div className="flex min-h-11 items-center justify-between gap-3 px-3.5">
+              <dt className="shrink-0 text-sm text-soft">Spotify</dt>
+              <dd className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm">{user?.spotifyId || 'Connected'}</span>
+                <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.06em] text-iris">Connected</span>
+              </dd>
             </div>
-          </header>
+            {user?.email && (
+              <div className="flex min-h-11 items-center justify-between gap-3 px-3.5">
+                <dt className="shrink-0 text-sm text-soft">Email</dt>
+                <dd className="min-w-0 truncate text-sm">{user.email}</dd>
+              </div>
+            )}
+          </dl>
+          <p className="text-sm text-quiet">
+            Your name and picture come from Spotify. Change the display name to show something else in your groups.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleSaveChanges} disabled={!hasChanges || isUpdating}>
+              {isUpdating ? 'Saving...' : 'Save changes'}
+            </Button>
+            {hasChanges && (
+              <Button variant="ghost" onClick={handleCancel} disabled={isUpdating}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </SettingsSection>
 
-          {/* Main Content */}
-          <main className="p-4 md:p-6 max-w-4xl">
-            {/* Profile Section */}
-            <Card className="mb-6 border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserIcon className="w-5 h-5 text-primary" />
-                  Profile Information
-                </CardTitle>
-                <CardDescription>
-                  Your Spotify account details
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 md:space-y-6">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
-                  <div className="relative">
-                    <Avatar className="w-16 h-16 md:w-24 md:h-24 border-2 border-primary/30">
-                      <AvatarImage src={user?.profileImage || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-base md:text-xl">
-                        {user?.displayName ? getInitials(user.displayName) : 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                  <div className="flex-1 space-y-4 w-full">
-                    <div>
-                      <Label htmlFor="display-name">Display Name</Label>
-                      <Input
-                        id="display-name"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className="mt-1.5 bg-muted/50 border-border"
-                        placeholder="Enter your display name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="username">Username</Label>
-                      <Input
-                        id="username"
-                        value={`@${user?.spotifyId || 'user'}`}
-                        className="mt-1.5 bg-muted/50 border-border"
-                        disabled
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Your username is synced from Spotify
-                      </p>
-                    </div>
-                  </div>
-                </div>
+        <SettingsSection title="Notifications">
+          <div className="-my-1 divide-y divide-hair">
+            <ToggleRow id="push-toggle" label="Push notifications" hint={pushHint}>
+              {pushPermission === 'denied' ? (
+                <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.06em] text-danger">Blocked</span>
+              ) : (
+                <Switch id="push-toggle" checked={pushEnabled} onCheckedChange={handlePushToggle} disabled={pushToggling} />
+              )}
+            </ToggleRow>
+            <ToggleRow id="new-tracks" label="New tracks" hint="When someone shares to one of your groups">
+              <Switch
+                id="new-tracks"
+                checked={user?.notificationPreferences?.song_shared !== false}
+                onCheckedChange={(v) => handlePreferenceChange('song_shared', v)}
+                disabled={savingPrefs === 'song_shared'}
+              />
+            </ToggleRow>
+            <ToggleRow id="group-invites" label="Group invites" hint="When you're invited to a group">
+              <Switch
+                id="group-invites"
+                checked={user?.notificationPreferences?.group_invite !== false}
+                onCheckedChange={(v) => handlePreferenceChange('group_invite', v)}
+                disabled={savingPrefs === 'group_invite'}
+              />
+            </ToggleRow>
+            <ToggleRow id="member-joined" label="New members" hint="When someone joins one of your groups">
+              <Switch
+                id="member-joined"
+                checked={user?.notificationPreferences?.member_joined !== false}
+                onCheckedChange={(v) => handlePreferenceChange('member_joined', v)}
+                disabled={savingPrefs === 'member_joined'}
+              />
+            </ToggleRow>
+          </div>
+        </SettingsSection>
 
-                <Separator />
+        <SettingsSection title="Appearance">
+          <ThemeSwitch />
+          <p className="text-sm text-quiet">Device follows your phone or computer's setting.</p>
+        </SettingsSection>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Email</Label>
-                    <div className="flex items-center gap-2 mt-1.5 p-3 rounded-lg bg-muted/30 border border-border min-w-0">
-                      <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate">
-                        {user?.email || 'Not provided'}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Spotify Account</Label>
-                    <div className="flex items-center gap-2 mt-1.5 p-3 rounded-lg bg-muted/30 border border-border">
-                      <svg
-                        className="w-4 h-4 text-primary shrink-0"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                      </svg>
-                      <span className="text-sm">Connected</span>
-                      <Badge className="ml-auto bg-primary/10 text-primary border-primary/30 text-xs shrink-0">
-                        Premium
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+        <SettingsSection title="Account access">
+          <Button variant="outline" className="self-start" onClick={handleLogout}>
+            <LogOut aria-hidden="true" />
+            Sign out
+          </Button>
+          <p className="text-sm text-soft">
+            To remove Groupify's access to your Spotify account, go to{" "}
+            <a
+              href="https://www.spotify.com/account/apps/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline underline-offset-2 hover:text-iris"
+            >
+              Apps in your Spotify account settings
+            </a>
+            .
+          </p>
+        </SettingsSection>
+      </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="border-primary/30 hover:bg-primary/10 min-h-[44px] w-full sm:w-auto"
-                    onClick={handleSaveChanges}
-                    disabled={!hasChanges || isUpdating}
-                  >
-                    {isUpdating ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                  <Button 
-                    variant="ghost"
-                    onClick={handleCancel}
-                    disabled={!hasChanges || isUpdating}
-                    className="min-h-[44px] w-full sm:w-auto"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Phones only; desktop has these in the rail. */}
+      <MoreLinks className="md:hidden" />
+    </main>
+  );
+}
 
-            {/* Stats Card */}
-            <Card className="mb-6 border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Music className="w-5 h-5 text-primary shrink-0" />
-                  Your Stats
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingStats ? (
-                  <div className="grid grid-cols-3 gap-2 md:gap-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="text-center p-3 md:p-4 rounded-lg bg-muted/30 border border-border">
-                        <Skeleton className="h-8 md:h-10 w-16 mx-auto mb-2" />
-                        <Skeleton className="h-4 w-20 mx-auto" />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2 md:gap-4">
-                    <div className="text-center p-3 md:p-4 rounded-lg bg-muted/30 border border-border">
-                      <p className="text-2xl md:text-3xl text-primary mb-1">
-                        {stats?.tracksShared || 0}
-                      </p>
-                      <p className="text-xs md:text-sm text-muted-foreground">Tracks Shared</p>
-                    </div>
-                    <div className="text-center p-3 md:p-4 rounded-lg bg-muted/30 border border-border">
-                      <p className="text-2xl md:text-3xl text-primary mb-1">
-                        {stats?.groupsJoined || 0}
-                      </p>
-                      <p className="text-xs md:text-sm text-muted-foreground">Groups Joined</p>
-                    </div>
-                    <div className="text-center p-3 md:p-4 rounded-lg bg-muted/30 border border-border">
-                      <p className="text-2xl md:text-3xl text-primary mb-1">
-                        {stats?.totalListens || 0}
-                      </p>
-                      <p className="text-xs md:text-sm text-muted-foreground">Total Listens</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Notifications */}
-            <Card className="mb-6 border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-primary" />
-                  Notifications
-                </CardTitle>
-                <CardDescription>
-                  Manage how you receive updates
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-3 gap-4">
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <Label htmlFor="push-toggle" className="text-sm md:text-base">Push Notifications</Label>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      {pushPermission === 'denied'
-                        ? 'Notifications are blocked. To enable: open your browser settings, go to Site Settings → Notifications, find this site and set it to Allow, then reload.'
-                        : pushEnabled
-                        ? 'You\'ll be notified when friends share songs or invite you to groups.'
-                        : 'Get notified when friends share songs or invite you to groups.'}
-                    </p>
-                  </div>
-                  {pushPermission === 'denied' ? (
-                    <Badge variant="destructive" className="shrink-0">Blocked</Badge>
-                  ) : (
-                    <Switch
-                      id="push-toggle"
-                      checked={pushEnabled}
-                      onCheckedChange={handlePushToggle}
-                      disabled={pushToggling}
-                      className="shrink-0"
-                    />
-                  )}
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between py-3 gap-4">
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <Label htmlFor="new-tracks" className="text-sm md:text-base">New Track Shares</Label>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Receive push notifications when someone shares a new track
-                    </p>
-                  </div>
-                  <Switch
-                    id="new-tracks"
-                    checked={user?.notificationPreferences?.song_shared !== false}
-                    onCheckedChange={(v) => handlePreferenceChange('song_shared', v)}
-                    disabled={savingPrefs === 'song_shared'}
-                    className="shrink-0"
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between py-3 gap-4">
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <Label htmlFor="group-invites" className="text-sm md:text-base">Group Invites</Label>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Receive push notifications for new group invitations
-                    </p>
-                  </div>
-                  <Switch
-                    id="group-invites"
-                    checked={user?.notificationPreferences?.group_invite !== false}
-                    onCheckedChange={(v) => handlePreferenceChange('group_invite', v)}
-                    disabled={savingPrefs === 'group_invite'}
-                    className="shrink-0"
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between py-3 gap-4">
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <Label htmlFor="member-joined" className="text-sm md:text-base">Member Joined</Label>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Receive push notifications when someone joins your groups
-                    </p>
-                  </div>
-                  <Switch
-                    id="member-joined"
-                    checked={user?.notificationPreferences?.member_joined !== false}
-                    onCheckedChange={(v) => handlePreferenceChange('member_joined', v)}
-                    disabled={savingPrefs === 'member_joined'}
-                    className="shrink-0"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Appearance */}
-            <Card className="mb-6 border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="w-5 h-5 text-primary" />
-                  Appearance
-                </CardTitle>
-                <CardDescription>
-                  Customize the look and feel
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-4 py-3">
-                  <div className="space-y-0.5">
-                    <Label>Theme</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Dark, light, or match your device
-                    </p>
-                  </div>
-                  <ThemeSwitch />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Phones only; desktop has these in the rail. */}
-            <MoreLinks className="mb-6 md:hidden" />
-
-            <Card className="border-destructive/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-danger">
-                  <LogOut className="w-5 h-5" />
-                  Account Actions
-                </CardTitle>
-                <CardDescription>
-                  Manage your account access
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full border-destructive/30 hover:bg-destructive/10 text-danger min-h-[44px]"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
-                <p className="text-sm text-muted-foreground">
-                  To remove Groupify's access to your Spotify account, go to{" "}
-                  <a
-                    href="https://www.spotify.com/account/apps/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline underline-offset-2 hover:text-foreground"
-                  >
-                    Apps in your Spotify account settings
-                  </a>
-                  .
-                </p>
-              </CardContent>
-            </Card>
-          </main>
-      </>
+/** A labelled switch with a line saying what it does. The label is the touch target. */
+function ToggleRow({ id, label, hint, children }: { id: string; label: string; hint: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-14 items-center justify-between gap-4 py-2">
+      <Label htmlFor={id} className="min-w-0 flex-1 cursor-pointer flex-col items-start justify-center gap-0.5 self-stretch leading-snug">
+        <span className="text-[15px] font-semibold text-foreground">{label}</span>
+        <span className="text-sm font-normal text-soft">{hint}</span>
+      </Label>
+      <span className="shrink-0">{children}</span>
+    </div>
   );
 }
