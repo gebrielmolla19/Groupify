@@ -48,8 +48,11 @@ test('says when you are all caught up', async ({ page }) => {
 
 test('without groups it asks you to start one', async ({ page }) => {
   await openSampleHome(page, { theme: 'dark', noGroups: true });
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Start a group');
-  await expect(page.getByRole('button', { name: 'Create your first group' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Start your first group');
+  await expect(page.getByRole('button', { name: 'Start a group' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Join with a code' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start a group' }).click();
+  await expect(page.getByRole('dialog', { name: 'Start a group' })).toBeVisible();
 });
 
 test('a failed load says so, claims nothing, and can retry', async ({ page }) => {
