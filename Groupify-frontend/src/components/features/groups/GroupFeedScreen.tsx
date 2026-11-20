@@ -24,6 +24,7 @@ import DetailPane from "../../layout/DetailPane";
 import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import FeedFilters, { EMPTY_FILTER_TEXT } from "./FeedFilters";
+import FeedStatus from "./FeedStatus";
 import { countShares, filterShares, isFeedFilter, type FeedFilter } from "../../../lib/feedFilter";
 import { isUser } from "../../../lib/heardStack";
 import { logger } from "../../../utils/logger";
@@ -441,19 +442,9 @@ export default function GroupFeedScreen() {
                 </section>
               )}
 
-              {/* Load error: the whole feed when nothing loaded, a row above the songs otherwise. */}
-              {error && !isLoading && shares.length === 0 && (
-                <div role="alert" className="flex max-w-xl flex-col items-start gap-3 py-10">
-                  <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight">This group didn't load</h2>
-                  <p className="text-soft">We couldn't reach Groupify. Your shares are safe. Check your connection, then try again.</p>
-                  <Button onClick={() => void refetch()}>Try again</Button>
-                </div>
-              )}
-              {error && !isLoading && shares.length > 0 && (
-                <div role="alert" className="mb-4 flex max-w-4xl flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm text-soft">
-                  <span className="flex-1">Couldn't refresh this feed.</span>
-                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => void refetch()}>Try again</Button>
-                </div>
+              {/* Load error above the songs; the whole feed when nothing loaded. */}
+              {(error || shares.length > 0) && (
+                <FeedStatus error={error} isLoading={isLoading} shareCount={shares.length} onRetry={() => void refetch()} />
               )}
 
               {/* Loading State */}
@@ -501,14 +492,14 @@ export default function GroupFeedScreen() {
               )}
 
               {/* Empty State */}
-              {!isLoading && shares.length === 0 && !error && (
-                <div className="flex max-w-xl flex-col items-start gap-3 py-10">
-                  <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight">Nothing shared yet</h2>
-                  <p className="text-soft">Search for a song above to start the feed. Everyone in the group sees it in their Activity.</p>
-                  {groupId && (
-                    <Button variant="outline" onClick={() => setIsInviteDialogOpen(true)}>Invite people first</Button>
-                  )}
-                </div>
+              {!error && shares.length === 0 && (
+                <FeedStatus
+                  error={null}
+                  isLoading={isLoading}
+                  shareCount={0}
+                  onRetry={() => void refetch()}
+                  onInvite={groupId ? () => setIsInviteDialogOpen(true) : undefined}
+                />
               )}
             </main>
           </div>

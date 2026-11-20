@@ -111,7 +111,7 @@ export default function CreateGroupDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Start a group</DialogTitle>
-          <DialogDescription>Name it, then invite people with a code.</DialogDescription>
+          <DialogDescription>Name it, then invite people or share its join code.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
