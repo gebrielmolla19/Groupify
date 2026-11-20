@@ -39,7 +39,7 @@ export default function InviteFriendDialog({
 
     // Validate input
     if (!spotifyId.trim()) {
-      setError('Spotify User ID is required');
+      setError('Spotify user ID is required');
       return;
     }
 
@@ -76,62 +76,48 @@ export default function InviteFriendDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite a Friend</DialogTitle>
-          <DialogDescription>
-            Enter your friend's Spotify User ID to invite them to this group.
-          </DialogDescription>
+          <DialogTitle>Invite a friend</DialogTitle>
+          <DialogDescription>Send an invite to someone already on Groupify. It shows up in their Activity.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {/* Spotify User ID Input */}
-            <div className="space-y-2">
-              <Label htmlFor="spotify-user-id">
-                Spotify User ID <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="spotify-user-id"
-                placeholder="Enter Spotify User ID"
-                value={spotifyId}
-                onChange={(e) => handleSpotifyIdChange(e.target.value)}
-                disabled={isSubmitting}
-                className={error ? 'border-destructive' : ''}
-                aria-invalid={!!error}
-                aria-describedby={error ? 'spotify-id-error' : undefined}
-              />
-              {error && (
-                <p id="spotify-id-error" className="text-sm text-destructive">
-                  {error}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                You can find a user's Spotify ID in their profile URL or by asking them.
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1.5">
+            <Label htmlFor="spotify-user-id" className="text-soft">Spotify user ID</Label>
+            <Input
+              id="spotify-user-id"
+              placeholder="e.g. 31abcxyz…"
+              value={spotifyId}
+              onChange={(e) => handleSpotifyIdChange(e.target.value)}
+              disabled={isSubmitting}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              aria-invalid={!!error}
+              aria-describedby={error ? 'spotify-id-error spotify-id-hint' : 'spotify-id-hint'}
+            />
+            {error && (
+              <p id="spotify-id-error" className="text-sm text-danger">
+                {error}
               </p>
-            </div>
+            )}
+            <p id="spotify-id-hint" className="text-xs text-quiet">
+              It's in their Spotify profile link, after /user/.
+            </p>
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
+          <DialogFooter className="items-stretch sm:items-center">
+            <Button type="button" variant="ghost" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90 text-black w-full sm:w-auto min-h-[44px]"
-              disabled={isSubmitting || !spotifyId.trim()}
-            >
+            <Button type="submit" disabled={isSubmitting || !spotifyId.trim()}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  Sending…
                 </>
               ) : (
-                'Send Invite'
+                'Send invite'
               )}
             </Button>
           </DialogFooter>
@@ -140,4 +126,3 @@ export default function InviteFriendDialog({
     </Dialog>
   );
 }
-
