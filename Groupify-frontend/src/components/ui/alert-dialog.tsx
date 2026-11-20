@@ -5,6 +5,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "../../lib/utils";
 import { buttonVariants } from "./button";
+import { DIALOG_SURFACE_CLASS } from "./dialog-surface";
 
 function AlertDialog({
   ...props
@@ -53,7 +54,7 @@ const AlertDialogContent = React.forwardRef<
     overlayStyle?: React.CSSProperties;
   }
 >(({ className, overlayStyle, ...props }, ref) => {
-  // Same surface and width rule as DialogContent: centred, at most 440px.
+  // Same surface as DialogContent: a bottom sheet on phones, centred and at most 440px above.
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay style={overlayStyle} />
@@ -61,7 +62,7 @@ const AlertDialogContent = React.forwardRef<
         ref={ref}
         data-slot="alert-dialog-content"
         className={cn(
-          "bg-popover text-popover-foreground border-hair data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[20px] border p-6 duration-200",
+          DIALOG_SURFACE_CLASS,
           className,
         )}
         {...props}
@@ -78,7 +79,7 @@ function AlertDialogHeader({
   return (
     <div
       data-slot="alert-dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      className={cn("flex flex-col gap-2 text-left", className)}
       {...props}
     />
   );
@@ -91,7 +92,7 @@ function AlertDialogFooter({
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn("flex flex-row justify-center gap-2", className)}
+      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
       {...props}
     />
   );
