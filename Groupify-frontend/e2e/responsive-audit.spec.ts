@@ -127,11 +127,6 @@ const screens: Record<string, Open> = {
   },
 };
 
-// These screens still use hard-coded colours that another PR is replacing
-// with tokens; their text contrast is reported (AUDIT_DIR) but not asserted
-// until then. Remove each name once its screen uses tokens.
-const colourLiteralsPending = new Set(['analytics', 'changelog']);
-
 const viewports = { phone: { width: 390, height: 844 }, desktop: { width: 1280, height: 800 } };
 
 for (const [name, open] of Object.entries(screens)) {
@@ -162,8 +157,7 @@ for (const [name, open] of Object.entries(screens)) {
           await page.screenshot({ path: join(dir, `${file}.png`) });
           writeFileSync(join(dir, `${file}.json`), JSON.stringify({ name, width: size.width, theme, findings }, null, 1));
         }
-        const asserted = colourLiteralsPending.has(name) ? findings.filter((f) => f.check !== 'text-contrast') : findings;
-        expect(asserted).toEqual([]);
+        expect(findings).toEqual([]);
       });
     }
   }
