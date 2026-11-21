@@ -21,8 +21,9 @@ export function ThemeSwitch() {
       // Radix sends "" when the active item is pressed again; keep the choice.
       onValueChange={(value) => value && setTheme(value)}
       aria-label="Theme"
-      // Options are 44px on touch and tighten to 36px from md, like Button sm.
-      className="gap-1 rounded-lg border border-hair p-1"
+      // Full width with equal options on phones; options are 44px on touch
+      // and tighten to 36px from md, like Button sm.
+      className="w-full gap-1 rounded-xl border border-hair p-1 md:w-fit"
     >
       {OPTIONS.map((option) => (
         <ToggleGroupItem

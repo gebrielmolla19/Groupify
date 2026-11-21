@@ -1,14 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { Settings, Trash2, LogOut, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Copy } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Label } from "../../ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Skeleton } from "../../ui/skeleton";
-import { Separator } from "../../ui/separator";
-import { Badge } from "../../ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +30,10 @@ import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import { useGroups } from "../../../hooks/useGroups";
 import { logger } from "../../../utils/logger";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { cn } from "../../../lib/utils";
+import GroupCover from "./GroupCover";
+import SettingsSection, { eyebrow } from "../profile/SettingsSection";
 
 export default function GroupSettingsScreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -58,6 +59,7 @@ export default function GroupSettingsScreen() {
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Load settings on mount
   useEffect(() => {
@@ -165,235 +167,210 @@ export default function GroupSettingsScreen() {
       .slice(0, 2);
   };
 
+  const joinCode = group?.inviteCode;
+  const copyJoinCode = async () => {
+    if (!joinCode) return;
+    try {
+      await navigator.clipboard.writeText(joinCode);
+      setCopied(true);
+      toast.success("Join code copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      logger.error("Failed to copy join code:", err);
+      toast.error("Couldn't copy the join code");
+    }
+  };
+
+  const title = settings?.name || group?.name || "Group settings";
+  const memberCount = settings?.members.length ?? group?.members?.length;
+  const ownerName = settings?.members.find((m) => m.id === ownerId)?.displayName ?? group?.createdBy?.displayName;
+  const sentence = [
+    memberCount !== undefined && `${memberCount} ${memberCount === 1 ? "member" : "members"}`,
+    isOwner ? "You own this group" : ownerName && `${ownerName} owns this group`,
+  ].filter(Boolean).join(" · ");
+
+  const linkRow =
+    "flex min-h-[52px] w-full items-center gap-3 border-b border-hair text-left text-base font-semibold text-foreground last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
   return (
-    <>
-      {/* Header */}
-      <header className="sticky top-0 z-10 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
+    <main className="mx-auto w-full max-w-5xl space-y-8 md:space-y-10">
+      <header className="space-y-4 md:space-y-6">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-primary/10 shrink-0 min-w-[44px] min-h-[44px]"
+            className="-ml-2 min-h-11 min-w-11 shrink-0"
             onClick={() => navigate(`/groups/${groupId}`)}
             aria-label="Back to group feed"
           >
-            <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+            <ArrowLeft className="size-5" aria-hidden="true" />
           </Button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-base md:text-lg truncate">Group Settings</h1>
-            <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
-              Manage group name, description, and members
-            </p>
+          <p className={eyebrow}>Group settings</p>
+        </div>
+
+        <div className="flex items-center gap-4 md:gap-6">
+          {groupId && <GroupCover groupId={groupId} className="size-16 shrink-0 rounded-xl md:size-24 md:rounded-2xl" />}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-display text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{title}</h1>
+            {isLoading && !settings ? (
+              <Skeleton className="mt-3 h-4 w-1/2" />
+            ) : (
+              sentence && <p className="mt-1 text-soft md:mt-2 md:text-lg">{sentence}</p>
+            )}
           </div>
         </div>
       </header>
 
-        {/* Main Content */}
-        <main className="p-4 md:p-6 max-w-4xl">
-          {/* Error State */}
-          {error && (
-            <Card className="border-destructive mb-4 md:mb-6">
-              <CardContent className="p-4 md:p-6">
-                <p className="text-sm md:text-base text-destructive mb-4">{error}</p>
-                <Button onClick={() => fetchSettings()} variant="outline" className="min-h-[44px]">
-                  Retry
+      {/* Phones have no room for the feed header's buttons, so the group's
+          other screens are listed here too (#57 phone group menu). */}
+      <nav aria-label="Group" className="md:hidden">
+        <button type="button" className={linkRow} onClick={() => navigate(`/groups/${groupId}/playlist`)}>
+          <span className="flex-1">Playlist</span>
+          <ChevronRight className="size-4 text-quiet" aria-hidden="true" />
+        </button>
+        <button type="button" className={linkRow} onClick={() => navigate(`/groups/${groupId}/analytics`)}>
+          <span className="flex-1">Group Dynamics</span>
+          <ChevronRight className="size-4 text-quiet" aria-hidden="true" />
+        </button>
+      </nav>
+
+      {error && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm text-soft">
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" size="sm" className="min-h-11" onClick={() => fetchSettings()}>Try again</Button>
+        </div>
+      )}
+
+      {isLoading && !settings && (
+        <div className="grid items-start gap-4 lg:grid-cols-2" aria-hidden="true">
+          {[1, 2].map((i) => (
+            <div key={i} className="space-y-4 rounded-2xl border border-hair bg-raised p-5">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {settings && (
+        <div className="grid items-start gap-8 md:gap-4 lg:grid-cols-2">
+          <SettingsSection title="Details">
+            <div className="space-y-1.5">
+              <Label htmlFor="group-name" className="text-sm font-normal text-soft">Name</Label>
+              <Input
+                id="group-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={100}
+                placeholder="Enter group name"
+              />
+              <p className="text-right font-mono text-[11px] text-quiet">{name.length}/100</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="group-description" className="text-sm font-normal text-soft">Description</Label>
+              <Textarea
+                id="group-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={500}
+                placeholder="What is this group for? (optional)"
+                rows={3}
+                // The textarea primitive hasn't had the #57 restyle; match Input here.
+                className="rounded-lg px-3.5 py-2.5 dark:bg-input-background"
+              />
+              <p className="text-right font-mono text-[11px] text-quiet">{description.length}/500</p>
+            </div>
+            <Button variant="outline" className="self-start" onClick={handleSave} disabled={!hasChanges || isSaving}>
+              {isSaving ? 'Saving...' : 'Save changes'}
+            </Button>
+          </SettingsSection>
+
+          <SettingsSection title="Members">
+            <ul className="-my-1">
+              {settings.members.map((member) => {
+                const isMemberOwner = ownerId === member.id;
+                const isCurrentUser = user?._id === member.id;
+                return (
+                  <li key={member.id} className="flex min-h-12 items-center gap-3 py-1">
+                    <Avatar className="size-9 shrink-0" aria-hidden="true">
+                      <AvatarImage src={member.profileImage || undefined} alt="" className="object-cover" />
+                      <AvatarFallback className={cn("text-xs font-bold", isCurrentUser ? "bg-iris text-on-iris" : "bg-selected text-foreground")}>
+                        {getInitials(member.displayName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                      {member.displayName}
+                      {isCurrentUser && <span className="font-normal text-soft"> (you)</span>}
+                    </span>
+                    {isMemberOwner && (
+                      <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.06em] text-quiet">Owner</span>
+                    )}
+                    {/* Only the owner removes members, and never themselves. */}
+                    {isOwner && !isMemberOwner && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-11 shrink-0 text-soft hover:text-danger"
+                        onClick={() => {
+                          setMemberToRemove(member.id);
+                          setIsRemoveDialogOpen(true);
+                        }}
+                        aria-label={`Remove ${member.displayName} from group`}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </SettingsSection>
+
+          {joinCode && (
+            <SettingsSection title="Join code">
+              <div className="flex min-h-[52px] items-center justify-between gap-2 rounded-xl border border-hair bg-background pl-4 pr-1">
+                <span className="min-w-0 truncate font-mono text-[15px] tracking-[0.06em]">{joinCode}</span>
+                <Button variant="ghost" className="shrink-0 text-iris hover:text-iris" onClick={copyJoinCode} aria-label="Copy join code">
+                  {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                  {copied ? "Copied" : "Copy"}
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+              <p className="text-sm text-quiet">Anyone with this code can join the group.</p>
+            </SettingsSection>
           )}
 
-          {/* Loading State */}
-          {isLoading && !settings && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-32" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-24 w-full" />
-                  </div>
-                  <Skeleton className="h-10 w-24" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-32" />
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          {isOwner ? (
+            <SettingsSection title="Delete group">
+              <p className="text-sm leading-relaxed text-soft">
+                Deletes the group for all {settings.members.length} {settings.members.length === 1 ? "member" : "members"}. Its feed and Group Dynamics go with it, and this can't be undone. A playlist you exported stays in Spotify.
+              </p>
+              <Button
+                variant="outline"
+                className="self-start border-danger text-danger hover:bg-danger/10 hover:text-danger"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                disabled={isLoading}
+              >
+                Delete group
+              </Button>
+            </SettingsSection>
+          ) : (
+            <SettingsSection title="Leave group">
+              <p className="text-sm leading-relaxed text-soft">
+                Only the owner can delete the group. You can leave it and rejoin later with the join code.
+              </p>
+              <Button
+                variant="outline"
+                className="self-start border-danger text-danger hover:bg-danger/10 hover:text-danger"
+                onClick={() => setIsLeaveDialogOpen(true)}
+                disabled={isLoading}
+              >
+                Leave group
+              </Button>
+            </SettingsSection>
           )}
-
-          {/* Settings Form */}
-          {settings && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="w-5 h-5" aria-hidden="true" />
-                    Group Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="group-name">Group Name</Label>
-                    <Input
-                      id="group-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      maxLength={100}
-                      placeholder="Enter group name"
-                      aria-label="Group name"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {name.length}/100 characters
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="group-description">Description</Label>
-                    <Textarea
-                      id="group-description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      maxLength={500}
-                      placeholder="Enter group description (optional)"
-                      rows={4}
-                      aria-label="Group description"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {description.length}/500 characters
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={handleSave}
-                    disabled={!hasChanges || isSaving}
-                    className="w-full sm:w-auto min-h-[44px]"
-                  >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Members List */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Members</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {settings.members.map((member, index) => {
-                      const isMemberOwner = ownerId === member.id;
-                      const isCurrentUser = user?._id === member.id;
-
-                      return (
-                        <div key={member.id}>
-                          <div className="flex items-center justify-between py-2">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <Avatar className="border border-border shrink-0">
-                                <AvatarImage src={member.profileImage || undefined} />
-                                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                  {getInitials(member.displayName)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium truncate">
-                                    {member.displayName}
-                                  </p>
-                                  {isCurrentUser && (
-                                    <span className="text-xs text-muted-foreground">(You)</span>
-                                  )}
-                                  {isMemberOwner && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Owner
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Remove button - only show for owner, not for owner themselves */}
-                            {isOwner && !isMemberOwner && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 min-w-[44px] min-h-[44px]"
-                                onClick={() => {
-                                  setMemberToRemove(member.id);
-                                  setIsRemoveDialogOpen(true);
-                                }}
-                                aria-label={`Remove ${member.displayName} from group`}
-                              >
-                                <Trash2 className="w-4 h-4" aria-hidden="true" />
-                              </Button>
-                            )}
-                          </div>
-                          {index < settings.members.length - 1 && <Separator />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-destructive/50">
-                <CardHeader>
-                  <CardTitle className="text-destructive">Group Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isOwner ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        As the group owner, you can permanently delete this group. This action cannot be undone and will remove all members from the group.
-                      </p>
-                      <Button
-                        variant="destructive"
-                        onClick={() => {
-                          setIsDeleteDialogOpen(true);
-                        }}
-                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all min-h-[44px]"
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                        Delete Group
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Only the group owner can delete this group. As a member, you can leave the group and rejoin later using the invite code.
-                      </p>
-                      <Button
-                        variant="destructive"
-                        onClick={() => {
-                          setIsLeaveDialogOpen(true);
-                        }}
-                        className="w-full sm:w-auto bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium shadow-sm hover:shadow-md transition-all min-h-[44px]"
-                        disabled={isLoading}
-                      >
-                        <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
-                        Leave Group
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+        </div>
+      )}
 
           {/* Remove Member Dialog - Single instance outside the map */}
           {settings && (
@@ -497,7 +474,7 @@ export default function GroupSettingsScreen() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Leave Group</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to leave <strong>{settings?.name}</strong>? You can rejoin later using the invite code.
+                  Are you sure you want to leave <strong>{settings?.name}</strong>? You can rejoin later with the join code.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -526,7 +503,6 @@ export default function GroupSettingsScreen() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </main>
-    </>
+    </main>
   );
 }
