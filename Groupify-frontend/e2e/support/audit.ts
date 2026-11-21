@@ -20,7 +20,8 @@ export async function pageOverflow(page: Page): Promise<Finding[]> {
 }
 
 /**
- * Every visible control must be at least 44px tall on a phone. Inline text
+ * Every visible control must be at least 44px in both directions on a phone
+ * (CONTRIBUTING §2.4). Inline text
  * links are exempt (WCAG 2.5.8 inline exception), as are controls the
  * accessibility tree hides (behind an open dialog, or decorative).
  */
@@ -40,9 +41,9 @@ export async function smallTapTargets(page: Page): Promise<Finding[]> {
       const box = el.getBoundingClientRect();
       // Visually hidden (sr-only) and off-screen controls are not tap targets.
       if (box.width <= 1 || box.height <= 1 || box.right <= 0 || box.left >= window.innerWidth) continue;
-      if (box.height < 43.5) {
+      if (Math.min(box.width, box.height) < 43.5) {
         const name = el.getAttribute('aria-label') || el.textContent?.trim().replace(/\s+/g, ' ').slice(0, 40) || el.getAttribute('placeholder') || el.tagName.toLowerCase();
-        out.push(`${name} (${Math.round(box.height)}px)`);
+        out.push(`${name} (${Math.round(box.width)}×${Math.round(box.height)}px)`);
       }
     }
     return out;

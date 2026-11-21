@@ -242,7 +242,7 @@ export default function VibeRadar({ data, isLoading, isVibesLoading = false, vib
                                         onClick={() => changeVibesRange(range.value)}
                                         disabled={isVibesLoading}
                                         className={cn(
-                                            "text-xs h-7 px-3 min-h-[44px] sm:min-h-0",
+                                            "text-xs h-7 px-3 min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0",
                                             vibesRange === range.value 
                                                 ? "bg-primary hover:bg-primary/90 text-black" 
                                                 : "border-primary/30 hover:bg-primary/10"
@@ -261,7 +261,7 @@ export default function VibeRadar({ data, isLoading, isVibesLoading = false, vib
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs h-7 min-h-[44px] sm:min-h-0 px-2.5 gap-1.5 bg-background/80 backdrop-blur-sm border-white/10 shrink-0"
+                                className="text-xs h-7 min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 px-2.5 gap-1.5 bg-background/80 backdrop-blur-sm border-white/10 shrink-0"
                             >
                                 <Filter className="w-3 h-3" />
                                 <span className="hidden sm:inline">Filters</span>
