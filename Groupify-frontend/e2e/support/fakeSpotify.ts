@@ -34,7 +34,7 @@ export const remotePlayback = {
 };
 
 // Runs in the page instead of https://sdk.scdn.co/spotify-player.js.
-const FAKE_SDK = `(() => {
+export const FAKE_SDK = `(() => {
   const log = window.__log;
   const cfg = window.__fakeSpotifyConfig || {};
   const listeners = {};

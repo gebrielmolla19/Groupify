@@ -97,7 +97,7 @@ export default function ChangelogScreen() {
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
-                className="flex items-center gap-1.5 whitespace-nowrap transition-colors shrink-0"
+                className="flex min-h-11 items-center gap-1.5 whitespace-nowrap transition-colors shrink-0"
                 style={{
                   padding: '0.5rem 0.875rem',
                   borderRadius: '9999px',
@@ -124,7 +124,7 @@ export default function ChangelogScreen() {
               {/* Month Header */}
               <button
                 onClick={() => toggleMonth(month)}
-                className="flex items-center cursor-pointer group"
+                className="flex min-h-11 items-center cursor-pointer group"
                 style={{ gap: '0.625rem', marginBottom: '1.5rem' }}
               >
                 <h3 className="text-xl md:text-2xl font-bold tracking-tight">{month}</h3>

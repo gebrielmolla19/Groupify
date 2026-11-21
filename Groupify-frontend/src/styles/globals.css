@@ -45,6 +45,9 @@
  * component uses comes from here. Light values live on :root, dark on .dark;
  * next-themes toggles the class. The shadcn names (--primary, --card, ...)
  * are mapped onto the design roles so existing components pick them up.
+ * The text roles (text, text-soft, text-quiet, iris, danger) reach 4.5:1 on
+ * ground, pane, raised and selected in both modes; e2e/responsive-audit.spec.ts
+ * checks the screens.
  */
 :root {
   --font-size: 16px;
@@ -60,8 +63,8 @@
   --dim: #9aa2b3;
   --text: #12141a;
   --text-soft: #4d5361;
-  --text-quiet: #687080;
-  --iris: #4b57e8;
+  --text-quiet: #5f6675;
+  --iris: #4954e1;
   --on-iris: #ffffff;
   --danger: #b42318;
 
@@ -117,8 +120,8 @@
   --dim: #5a6078;
   --text: #f3f5fb;
   --text-soft: #adb3c4;
-  --text-quiet: #868da1;
-  --iris: #6f7dff;
+  --text-quiet: #8990a3;
+  --iris: #7684ff;
   --on-iris: #05071c;
   --danger: #ff8a7a;
   color-scheme: dark;

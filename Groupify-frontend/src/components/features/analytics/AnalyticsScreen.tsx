@@ -165,8 +165,8 @@ export default function AnalyticsScreen() {
                   onClick={() => changeTimeRange(range.value)}
                   className={
                     activityRange === range.value
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
-                      : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
+                      : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
                   }
                 >
                   {range.label}
@@ -185,8 +185,8 @@ export default function AnalyticsScreen() {
                   disabled={isActivityLoading}
                   className={
                     activityMode === 'shares'
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
+                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
                   }
                 >
                   Shares Posted
@@ -198,8 +198,8 @@ export default function AnalyticsScreen() {
                   disabled={isActivityLoading}
                   className={
                     activityMode === 'engagement'
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
+                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
                   }
                 >
                   Engagement
@@ -243,8 +243,8 @@ export default function AnalyticsScreen() {
                     onClick={() => setReflexRange(r.value)}
                     className={
                       reflexRange === r.value
-                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
-                        : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
+                        : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
                     }
                   >
                     {r.label}
@@ -262,8 +262,8 @@ export default function AnalyticsScreen() {
                     onClick={() => setReflexMode('received')}
                     className={
                       reflexMode === 'received'
-                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
+                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
                     }
                   >
                     Received
@@ -274,8 +274,8 @@ export default function AnalyticsScreen() {
                     onClick={() => setReflexMode('shared')}
                     className={
                       reflexMode === 'shared'
-                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
+                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
                     }
                   >
                     Shared
@@ -286,7 +286,7 @@ export default function AnalyticsScreen() {
                   variant={reflexCompare ? 'default' : 'outline'}
                   onClick={() => setReflexCompare(!reflexCompare)}
                   className={cn(
-                    'h-8 sm:h-7 px-3 text-xs flex items-center gap-1.5 min-h-[44px] sm:min-h-0 shrink-0',
+                    'h-8 sm:h-7 px-3 text-xs flex items-center gap-1.5 min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0',
                     reflexCompare
                       ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
                       : 'border-primary/30 hover:bg-primary/10'
@@ -326,7 +326,7 @@ export default function AnalyticsScreen() {
                   variant={tasteGravityRange === range.value ? 'default' : 'outline'}
                   onClick={() => setTasteGravityRange(range.value)}
                   className={cn(
-                    'h-8 px-3 text-xs',
+                    'h-8 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0',
                     tasteGravityRange === range.value
                       ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
                       : 'border-primary/30 hover:bg-primary/10'
