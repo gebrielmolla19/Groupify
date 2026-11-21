@@ -53,7 +53,6 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
     const isMobile = useIsMobile();
-    const gradientId = useMemo(() => `wave-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
 
     const chartData = useMemo(() => {
         if (!Array.isArray(data)) return [];
@@ -162,23 +161,23 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                     <div>
                         <ResponsiveContainer width="100%" height={180}>
                             <BarChart data={mobileChartData} margin={{ top: 8, right: 8, bottom: 24, left: 0 }} barCategoryGap="30%">
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" vertical={false} />
                                 <XAxis
                                     dataKey="label"
-                                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                                    stroke="rgba(255,255,255,0.1)"
+                                    tick={{ fill: 'var(--text-quiet)', fontSize: 10 }}
+                                    stroke="var(--line)"
                                     interval="preserveStartEnd"
                                 />
                                 <YAxis hide />
                                 <Tooltip
                                     content={<CustomTooltip />}
-                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    cursor={{ fill: 'var(--selected)' }}
                                 />
                                 <Bar dataKey="activity" radius={[3, 3, 0, 0]}>
                                     {mobileChartData.map((entry, index) => (
                                         <Cell
                                             key={index}
-                                            fill={entry.activity === mobileMaxActivity ? '#00FF88' : 'rgba(0,255,136,0.45)'}
+                                            fill={entry.activity === mobileMaxActivity ? 'var(--text)' : 'var(--text-quiet)'}
                                         />
                                     ))}
                                 </Bar>
@@ -190,15 +189,9 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                 <div className="w-full" style={{ minHeight: '200px' }}>
                     <ResponsiveContainer width="100%" height={220}>
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
-                            <defs>
-                                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#00FF88" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#00FF88" stopOpacity={0.05} />
-                                </linearGradient>
-                            </defs>
                             <CartesianGrid
                                 strokeDasharray="3 3"
-                                stroke="rgba(255,255,255,0.08)"
+                                stroke="var(--hair)"
                                 vertical={false}
                             />
                             <XAxis
@@ -206,35 +199,36 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 type="number"
                                 scale="time"
                                 domain={['dataMin', 'dataMax']}
-                                tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }}
+                                tick={{ fill: 'var(--text-quiet)', fontSize: 11 }}
                                 tickFormatter={(ts) => formatDateUTC(new Date(ts), 'MMM d')}
-                                stroke="rgba(255,255,255,0.15)"
+                                stroke="var(--line)"
                                 axisLine={{ strokeWidth: 1 }}
                                 tickCount={6}
                                 minTickGap={50}
                             />
                             <YAxis
                                 domain={[0, Math.max(5, maxActivity + 2)]}
-                                tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }}
-                                stroke="rgba(255,255,255,0.15)"
+                                tick={{ fill: 'var(--text-quiet)', fontSize: 11 }}
+                                stroke="var(--line)"
                                 axisLine={{ strokeWidth: 1 }}
                                 width={30}
                             />
                             <Tooltip
                                 content={<CustomTooltip />}
-                                cursor={{ stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }}
+                                cursor={{ stroke: 'var(--line)', strokeWidth: 1 }}
                             />
                             <Area
                                 type="monotone"
                                 dataKey="activity"
-                                stroke="#00FF88"
-                                fill={`url(#${gradientId})`}
+                                stroke="var(--text)"
+                                fill="var(--text)"
+                                fillOpacity={0.08}
                                 strokeWidth={3}
                                 dot={false}
                                 activeDot={{
                                     r: 5,
-                                    fill: '#00FF88',
-                                    stroke: '#FFFFFF',
+                                    fill: 'var(--text)',
+                                    stroke: 'var(--pane)',
                                     strokeWidth: 2
                                 }}
                                 animationDuration={1200}
@@ -244,19 +238,19 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                 </div>
                 )}
                 {/* Stats — horizontal row below the chart */}
-                <div className="flex items-stretch border-t border-white/10 pt-4">
+                <div className="flex items-stretch border-t border-hair pt-4">
                     <div className="flex-1 flex flex-col items-center gap-1">
                         <span className="text-[11px] text-muted-foreground">Shares</span>
                         <span className="text-2xl font-bold">{totalShares}</span>
                     </div>
-                    <div className="w-px bg-white/10 mx-2" />
+                    <div className="w-px bg-hair mx-2" />
                     <div className="flex-1 flex flex-col items-center gap-1">
                         <span className="text-[11px] text-muted-foreground">Noise</span>
                         <span className="text-2xl font-bold text-primary">{totalNoise}</span>
                     </div>
                     {peakDay && peakDay.activity > 0 && (
                         <>
-                            <div className="w-px bg-white/10 mx-2" />
+                            <div className="w-px bg-hair mx-2" />
                             <div className="flex-1 flex flex-col items-center gap-1">
                                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                                     <Trophy className="w-3 h-3 text-primary" /> Peak

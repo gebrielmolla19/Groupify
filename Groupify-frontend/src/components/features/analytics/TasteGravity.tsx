@@ -36,28 +36,13 @@ import type { TasteGravityNode, TasteGravityLink } from '../../../types/analytic
  * - Node/link rendering core logic
  */
 
-// Vibrant Magenta + Electric Cyan color palette (unique to Taste Gravity)
-const palette = {
-  nodeMagenta: '#E879F9', // Bright magenta for nodes
-  nodeMagentaRgba: 'rgba(232, 121, 249, 0.3)',
-  linkCyan: 'rgba(6, 182, 212, 0.4)', // Much brighter cyan for links (was 0.14)
-  linkCyanHover: 'rgba(6, 182, 212, 0.7)', // Brighter on hover
-  linkCyanStrong: 'rgba(6, 182, 212, 0.8)', // Very bright for strong connections
-  selectedPink: '#F472B6', // Keep pink for selection
-  selectedPinkRgba: 'rgba(244, 114, 182, 0.5)',
-  hoverCyan: 'rgba(6, 182, 212, 0.9)', // Bright cyan on hover
-  text: '#E5E7EB',
-  textMuted: 'rgba(229, 231, 235, 0.7)',
-  nodeRing: 'rgba(232, 121, 249, 0.7)', // Brighter magenta ring
-};
-
 interface TasteGravityProps {
   groupId: string;
   timeRange: TimeRange;
   onTimeRangeChange?: (range: TimeRange) => void;
 }
 
-export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: TasteGravityProps) {
+export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) {
   const { data, isLoading, error } = useTasteGravity(groupId, timeRange);
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<TasteGravityNode, undefined> | null>(null);
@@ -164,8 +149,8 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
     defaultShadowFilter
       .append('feFlood')
-      .attr('flood-color', 'rgba(0,0,0,0.6)')
-      .attr('flood-opacity', '1')
+      .attr('flood-color', 'var(--ground)')
+      .attr('flood-opacity', '0.6')
       .attr('result', 'flood');
 
     defaultShadowFilter
@@ -195,8 +180,8 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
     selectedGlowFilter
       .append('feFlood')
-      .attr('flood-color', 'rgba(56,189,248,0.45)')
-      .attr('flood-opacity', '1')
+      .attr('flood-color', 'var(--text)')
+      .attr('flood-opacity', '0.35')
       .attr('result', 'flood');
 
     selectedGlowFilter
@@ -226,8 +211,8 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
     hoverGlowFilter
       .append('feFlood')
-      .attr('flood-color', 'rgba(34,211,238,0.30)')
-      .attr('flood-opacity', '1')
+      .attr('flood-color', 'var(--text)')
+      .attr('flood-opacity', '0.2')
       .attr('result', 'flood');
 
     hoverGlowFilter
@@ -252,10 +237,10 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
       .attr('stroke', (d) => {
         // For very strong links (gravity > 0.7), blend toward violet with higher opacity
         if (d.gravity > 0.7) {
-          return 'rgba(167,139,250,0.75)';
+          return 'var(--text-soft)';
         }
         // Base electric cyan for links - increased opacity for better visibility
-        return 'rgba(56,189,248,0.55)';
+        return 'var(--text-quiet)';
       })
       .attr('stroke-width', (d) => {
         // Encode gravity using thickness: increased base (1.0) + gravity * 2.5 for more visibility
@@ -319,7 +304,7 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
         event.stopPropagation();
         setFocusedNodeId(focusedNodeId === d.id ? null : d.id);
       })
-      .on('mouseenter', (event, d) => {
+      .on('mouseenter', (_event, d) => {
         setHoveredNodeId(d.id);
         // Convert SVG coordinates to screen coordinates
         if (d.x !== undefined && d.y !== undefined && svgRef.current) {
@@ -336,7 +321,7 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
         setHoveredNodeId(null);
         setTooltipPosition(null);
       })
-      .on('mousemove', (event, d) => {
+      .on('mousemove', (_event, d) => {
         // Update tooltip position as mouse moves
         if (d.x !== undefined && d.y !== undefined && svgRef.current) {
           const svgRect = svgRef.current.getBoundingClientRect();
@@ -351,12 +336,12 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
     // Add background circles for nodes (transparent fill, just for clipping/outline)
     // These will be behind avatars and only show outline rings
-    const nodeCircles = nodeElements
+    nodeElements
       .append('circle')
       .attr('r', (d) => 20 + d.mass * 15) // Increased base radius
       .attr('fill', (d) => {
         // If no image, fill with primary/10 to match AvatarFallback
-        return !d.img ? 'rgba(56, 189, 248, 0.1)' : 'transparent';
+        return !d.img ? 'var(--selected)' : 'transparent';
       })
       .attr('filter', (d) => {
         // Subtle shadow for default nodes
@@ -420,21 +405,21 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
       });
 
     // Add outline rings for all nodes
-    const nodeRings = nodeElements
+    nodeElements
       .append('circle')
       .attr('r', (d) => 20 + d.mass * 15)
       .attr('fill', 'none')
       .attr('stroke', (d) => {
         if (d.id === focusedNodeId) {
-          return '#38BDF8'; // Electric cyan for selected
+          return 'var(--text)'; // Selected
         }
         if (d.id === hoveredNodeId && !focusedNodeId) {
-          return 'rgba(34,211,238,0.85)'; // Cyan for hover
+          return 'var(--text-soft)'; // Hover
         }
         // If no image (fallback), add a subtle border
-        if (!d.img) return 'rgba(56, 189, 248, 0.3)';
+        if (!d.img) return 'var(--line)';
 
-        return 'rgba(255,255,255,0.14)'; // Subtle neutral for default
+        return 'var(--line)'; // Default
       })
       .attr('stroke-width', (d) => {
         if (d.id === focusedNodeId) {
@@ -471,12 +456,12 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
       });
 
     // Add inner ring for selected nodes (polish detail)
-    const selectedInnerRings = nodeElements
+    nodeElements
       .filter((d) => d.id === focusedNodeId)
       .append('circle')
       .attr('r', (d) => 20 + d.mass * 15 - 2)
       .attr('fill', 'none')
-      .attr('stroke', 'rgba(255,255,255,0.25)')
+      .attr('stroke', 'var(--line)')
       .attr('stroke-width', 1)
       .attr('opacity', 1);
 
@@ -493,14 +478,14 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
         // Get initials
         return d.name
           .split(' ')
-          .map(n => n[0])
+          .map((n: string) => n[0])
           .join('')
           .toUpperCase()
           .slice(0, 2);
       })
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'middle')
-      .attr('fill', '#38BDF8') // Primary color (Electric Cyan/Blue)
+      .attr('fill', 'var(--text-soft)')
       .attr('font-size', (d) => {
         const radius = 20 + d.mass * 15;
         return Math.max(14, radius * 0.6) + 'px';
@@ -529,10 +514,11 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
       .text((d) => d.name)
       .attr('text-anchor', 'middle')
       .attr('dy', (d) => 20 + d.mass * 6)
-      .attr('fill', palette.text)
+      .attr('fill', 'var(--text)')
       .attr('font-size', '12px')
       .attr('font-weight', '500')
-      .attr('style', 'text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);')
+      // A halo in the card colour keeps the name readable over links, in both themes
+      .attr('style', 'paint-order: stroke; stroke: var(--pane); stroke-width: 3px; stroke-linejoin: round;')
       .attr('opacity', (d) => {
         if (focusedNodeId) {
           const isFocused = d.id === focusedNodeId;
@@ -695,6 +681,8 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
       const selectedNode = nodesData.find((n: any) => n.id === focusedNodeId);
       if (!selectedNode || selectedNode.x === undefined || selectedNode.y === undefined) return;
+      const selectedX: number = selectedNode.x;
+      const selectedY: number = selectedNode.y;
 
       const offsetDistance = 16; // Increased from 10px to 16px for stronger separation
       const connectedNodeIds = new Set<string>();
@@ -732,8 +720,8 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
           }
 
           if (connectedNodeIds.has(d.id)) {
-            const dx = d.x - selectedNode.x;
-            const dy = d.y - selectedNode.y;
+            const dx = d.x - selectedX;
+            const dy = d.y - selectedY;
             const length = Math.sqrt(dx * dx + dy * dy);
             
             let normalizedDx: number;
@@ -774,10 +762,10 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
       .attr('stroke', (d) => {
         // For very strong links (gravity > 0.7), blend toward violet with higher opacity
         if (d.gravity > 0.7) {
-          return 'rgba(167,139,250,0.75)';
+          return 'var(--text-soft)';
         }
         // Base electric cyan for links - increased opacity for better visibility
-        return 'rgba(56,189,248,0.55)';
+        return 'var(--text-quiet)';
       })
       .attr('stroke-width', (d) => {
         // Encode gravity using thickness: increased base (1.0) + gravity * 2.5 for more visibility
@@ -819,15 +807,15 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
         ringSelection
           .attr('stroke', () => {
             if (nodeId === focusedNodeId) {
-              return '#38BDF8'; // Electric cyan for selected
+              return 'var(--text)'; // Selected
             }
             if (nodeId === hoveredNodeId && !focusedNodeId) {
-              return 'rgba(34,211,238,0.85)'; // Cyan for hover (only when nothing selected)
+              return 'var(--text-soft)'; // Hover (only when nothing selected)
             }
             // If no image (fallback), add a subtle border
-            if (!d.img) return 'rgba(56, 189, 248, 0.3)';
+            if (!d.img) return 'var(--line)';
 
-            return 'rgba(255,255,255,0.14)'; // Subtle neutral for default
+            return 'var(--line)'; // Default
           })
           .attr('stroke-width', () => {
             if (nodeId === focusedNodeId) {
@@ -1140,7 +1128,7 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
   if (isLoading) {
     return (
-      <Card className="bg-black/40 border-white/5">
+      <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
             Taste Gravity
@@ -1155,7 +1143,7 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
   if (error) {
     return (
-      <Card className="bg-black/40 border-white/5 border-destructive">
+      <Card className="border-destructive">
         <CardContent className="p-6">
           <p className="text-destructive">{error}</p>
           <Button onClick={() => window.location.reload()} className="mt-4">
@@ -1168,7 +1156,7 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
 
   if (!data || data.nodes.length === 0) {
     return (
-      <Card className="bg-black/40 border-white/5">
+      <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
             Taste Gravity
@@ -1184,7 +1172,7 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
   }
 
   return (
-    <Card className="bg-black/40 border-white/5 relative group">
+    <Card className="relative group">
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
       <CardHeader className="relative z-10">
         <div className="flex items-center justify-between">
@@ -1261,8 +1249,8 @@ export default function TasteGravity({ groupId, timeRange, onTimeRangeChange }: 
         </div>
         {/* Focus Card below SVG */}
         {focusedNodeId && focusCardData && (
-          <div className="p-4 border-t border-white/5">
-            <Card className="bg-black/95 backdrop-blur-md border border-white/20 shadow-2xl">
+          <div className="p-4 border-t border-hair">
+            <Card className="bg-raised border border-line shadow-2xl">
               <CardContent className="p-3.5">
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5">

@@ -59,7 +59,7 @@ function CustomAxisTick({ x = 0, y = 0, cx = 0, cy = 0, payload }: CustomTickPro
         height={ICON_SIZE}
         viewBox="0 0 24 24"
         fill="none"
-        stroke="rgba(255,255,255,0.85)"
+        stroke="var(--text)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -96,15 +96,13 @@ const AXIS_CONFIG = [
   { key: 'burstiness', label: 'Burstiness', description: 'Reacts in streaks' },
 ];
 
-// Color scheme: cyan, violet, blue variants (not green)
+// Series colours come from the theme's chart tokens
 export const RADAR_CHART_COLORS = [
-  '#00D9FF', // Cyan
-  '#A855F7', // Violet
-  '#3B82F6', // Blue
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
 ];
 
-// Legacy alias for backward compatibility
-const COLORS = RADAR_CHART_COLORS;
 
 // Create custom tooltip component
 const createCustomTooltip = (profiles: RadarProfile[]) => {
@@ -127,7 +125,7 @@ const createCustomTooltip = (profiles: RadarProfile[]) => {
           if (!profile) return null;
 
           const color = item.dataKey === 'groupMedian' 
-            ? '#9CA3AF' // Gray for group median
+            ? 'var(--text-quiet)' // Grey for group median
             : RADAR_CHART_COLORS[index % RADAR_CHART_COLORS.length];
 
           return (
@@ -205,7 +203,7 @@ export default function ListenerReflexRadarChart({
 
   if (chartData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[400px] text-muted-foreground border border-dashed border-white/20 rounded-lg">
+      <div className="flex items-center justify-center h-[400px] text-muted-foreground border border-dashed border-line rounded-lg">
         <div className="text-center">
           <p className="text-sm">Select members to compare</p>
           <p className="text-xs text-muted-foreground mt-2">
@@ -226,7 +224,7 @@ export default function ListenerReflexRadarChart({
 
   if (!hasValidData) {
     return (
-      <div className="flex items-center justify-center h-[400px] text-muted-foreground border border-dashed border-white/20 rounded-lg">
+      <div className="flex items-center justify-center h-[400px] text-muted-foreground border border-dashed border-line rounded-lg">
         <div className="text-center">
           <p className="text-sm">No valid data to display</p>
           <p className="text-xs text-muted-foreground mt-2">
@@ -238,7 +236,7 @@ export default function ListenerReflexRadarChart({
   }
 
   return (
-    <div className="flex-1 w-full min-h-[400px] rounded-lg relative bg-black/20 border border-white/5 transition-opacity duration-300">
+    <div className="flex-1 w-full min-h-[400px] rounded-lg relative bg-pane border border-hair transition-opacity duration-300">
       <div style={{ width: '100%', height: '400px', position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart
@@ -249,7 +247,7 @@ export default function ListenerReflexRadarChart({
             margin={{ top: 36, right: 56, bottom: 36, left: 56 }}
           >
           <PolarGrid
-            stroke="rgba(255,255,255,0.3)"
+            stroke="var(--line)"
             strokeWidth={1.5}
           />
           <PolarAngleAxis
@@ -259,8 +257,8 @@ export default function ListenerReflexRadarChart({
           <PolarRadiusAxis
             angle={30}
             domain={[0, 100]}
-            tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }}
-            axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
+            tick={{ fill: 'var(--text-quiet)', fontSize: 11 }}
+            axisLine={{ stroke: 'var(--line)' }}
           />
           {selectedMemberIds.map((memberId, index) => {
             const profile = profiles.find(p => String(p.userId) === String(memberId));
@@ -295,8 +293,8 @@ export default function ListenerReflexRadarChart({
             <Radar
               name="Group Median"
               dataKey="groupMedian"
-              stroke="#9CA3AF"
-              fill="#9CA3AF"
+              stroke="var(--text-quiet)"
+              fill="var(--text-quiet)"
               fillOpacity={0.1}
               strokeWidth={2}
               strokeDasharray="5 5"

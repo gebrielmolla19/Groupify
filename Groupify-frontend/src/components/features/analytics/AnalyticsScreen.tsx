@@ -98,7 +98,7 @@ export default function AnalyticsScreen() {
               </p>
               <Button
                 onClick={() => navigate("/")}
-                className="bg-primary hover:bg-primary/90 text-black"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Go to Dashboard
               </Button>
@@ -165,7 +165,7 @@ export default function AnalyticsScreen() {
                   onClick={() => changeTimeRange(range.value)}
                   className={
                     activityRange === range.value
-                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
                       : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
                   }
                 >
@@ -177,7 +177,7 @@ export default function AnalyticsScreen() {
             {/* Mode Toggle */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">View:</span>
-              <div className="flex gap-1 border border-white/10 rounded-md p-0.5">
+              <div className="flex gap-1 border border-hair rounded-md p-0.5">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -185,8 +185,8 @@ export default function AnalyticsScreen() {
                   disabled={isActivityLoading}
                   className={
                     activityMode === 'shares'
-                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
                   }
                 >
                   Shares Posted
@@ -198,8 +198,8 @@ export default function AnalyticsScreen() {
                   disabled={isActivityLoading}
                   className={
                     activityMode === 'engagement'
-                      ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                      : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
                   }
                 >
                   Engagement
@@ -207,9 +207,9 @@ export default function AnalyticsScreen() {
               </div>
             </div>
           </div>
-          <Card className="bg-black/20 border-white/5 overflow-hidden flex flex-col relative">
+          <Card className="overflow-hidden flex flex-col relative">
             {isActivityLoading && !isLoading && (
-              <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-20 flex items-center justify-center">
+              <div className="absolute inset-0 bg-pane/70 backdrop-blur-[2px] z-20 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
               </div>
             )}
@@ -243,7 +243,7 @@ export default function AnalyticsScreen() {
                     onClick={() => setReflexRange(r.value)}
                     className={
                       reflexRange === r.value
-                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
                         : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0 shrink-0'
                     }
                   >
@@ -255,15 +255,15 @@ export default function AnalyticsScreen() {
               {/* Mode Toggle + Compare */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">View:</span>
-                <div className="flex gap-1 border border-white/10 rounded-md p-0.5">
+                <div className="flex gap-1 border border-hair rounded-md p-0.5">
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setReflexMode('received')}
                     className={
                       reflexMode === 'received'
-                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
                     }
                   >
                     Received
@@ -274,8 +274,8 @@ export default function AnalyticsScreen() {
                     onClick={() => setReflexMode('shared')}
                     className={
                       reflexMode === 'shared'
-                        ? 'bg-primary hover:bg-primary/90 text-black h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
-                        : 'hover:bg-white/5 h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] sm:min-h-0'
+                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] sm:min-h-0'
                     }
                   >
                     Shared
@@ -288,7 +288,7 @@ export default function AnalyticsScreen() {
                   className={cn(
                     'h-8 sm:h-7 px-3 text-xs flex items-center gap-1.5 min-h-[44px] sm:min-h-0 shrink-0',
                     reflexCompare
-                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
                       : 'border-primary/30 hover:bg-primary/10'
                   )}
                 >
@@ -328,7 +328,7 @@ export default function AnalyticsScreen() {
                   className={cn(
                     'h-8 px-3 text-xs',
                     tasteGravityRange === range.value
-                      ? 'bg-primary hover:bg-primary/90 text-black'
+                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
                       : 'border-primary/30 hover:bg-primary/10'
                   )}
                 >

@@ -12,9 +12,6 @@ export interface ListeningStyleLabel {
   description: string;
   badge: {
     icon: LucideIcon;
-    color: string;
-    bgColor: string;
-    borderColor: string;
   };
 }
 
@@ -30,9 +27,6 @@ interface UserScores {
 
 interface BadgeDefinition {
   icon: LucideIcon;
-  color: string;
-  bgColor: string;
-  borderColor: string;
 }
 
 interface Archetype {
@@ -263,9 +257,6 @@ const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
     ],
     badge: {
       icon: Moon,
-      color: 'text-indigo-400',
-      bgColor: 'bg-indigo-500/20',
-      borderColor: 'border-indigo-500/30'
     },
     matches: (user) => user.listens === 0
   },
@@ -279,9 +270,6 @@ const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
     ],
     badge: {
       icon: Ghost,
-      color: 'text-slate-400',
-      bgColor: 'bg-slate-500/20',
-      borderColor: 'border-slate-500/30'
     },
     matches: (user) => user.listens > 0 && user.listens <= 2 && user.listenRatio < 0.15
   },
@@ -295,9 +283,6 @@ const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
     ],
     badge: {
       icon: Hourglass,
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-500/20',
-      borderColor: 'border-orange-500/30'
     },
     matches: (user, _points, groupMedianMs) =>
       user.listens >= 3 && user.medianMs !== null && groupMedianMs > 0 && user.medianMs > groupMedianMs * 3
@@ -312,9 +297,6 @@ const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
     ],
     badge: {
       icon: FastForward,
-      color: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/20',
-      borderColor: 'border-cyan-500/30'
     },
     matches: (user, points, _groupMedianMs, windowDurationMs) =>
       user.listens >= 3 && isCatchUpSprinter(points, windowDurationMs)
@@ -329,9 +311,6 @@ const ENGAGEMENT_ARCHETYPES: EngagementArchetype[] = [
     ],
     badge: {
       icon: Filter,
-      color: 'text-amber-400',
-      bgColor: 'bg-amber-500/20',
-      borderColor: 'border-amber-500/30'
     },
     matches: (user, _points, groupMedianMs) =>
       user.listens >= 3 &&
@@ -354,9 +333,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Heart,
-      color: 'text-primary',
-      bgColor: 'bg-primary/20',
-      borderColor: 'border-primary/30'
     },
     matches: (s) => s.volumeCategory === 'high_freq' && s.speedCategory === 'instant'
   },
@@ -370,9 +346,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Music,
-      color: 'text-pink-400',
-      bgColor: 'bg-pink-500/20',
-      borderColor: 'border-pink-500/30'
     },
     matches: (s) => s.volumeCategory === 'high_freq' && s.speedCategory === 'steady'
   },
@@ -386,9 +359,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Target,
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/20',
-      borderColor: 'border-red-500/30'
     },
     matches: (s) => s.volumeCategory === 'selective' && s.speedCategory === 'fast'
   },
@@ -404,9 +374,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Zap,
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-500/20',
-      borderColor: 'border-yellow-500/30'
     },
     matches: (s) => s.speedCategory === 'instant' && s.habitCategory === 'batcher'
   },
@@ -420,9 +387,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Flame,
-      color: 'text-primary',
-      bgColor: 'bg-primary/20',
-      borderColor: 'border-primary/30'
     },
     matches: (s) => s.speedCategory === 'instant' && s.habitCategory === 'ritualist'
   },
@@ -436,9 +400,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Sparkles,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/20',
-      borderColor: 'border-purple-500/30'
     },
     matches: (s) => s.speedCategory === 'instant' && s.habitCategory === 'erratic'
   },
@@ -452,9 +413,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Archive,
-      color: 'text-amber-400',
-      bgColor: 'bg-amber-500/20',
-      borderColor: 'border-amber-500/30'
     },
     matches: (s) => s.speedCategory === 'fast' && s.habitCategory === 'batcher'
   },
@@ -468,9 +426,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Clock,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-500/20',
-      borderColor: 'border-blue-500/30'
     },
     matches: (s) => s.speedCategory === 'fast' && s.habitCategory === 'ritualist'
   },
@@ -484,9 +439,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Eye,
-      color: 'text-indigo-400',
-      bgColor: 'bg-indigo-500/20',
-      borderColor: 'border-indigo-500/30'
     },
     matches: (s) => s.speedCategory === 'fast' && s.habitCategory === 'erratic'
   },
@@ -500,9 +452,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: BookOpen,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/20',
-      borderColor: 'border-purple-500/30'
     },
     matches: (s) => s.speedCategory === 'steady' && s.habitCategory === 'batcher'
   },
@@ -516,9 +465,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Radio,
-      color: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/20',
-      borderColor: 'border-cyan-500/30'
     },
     matches: (s) => s.speedCategory === 'steady' && s.habitCategory === 'ritualist'
   },
@@ -532,9 +478,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Compass,
-      color: 'text-teal-400',
-      bgColor: 'bg-teal-500/20',
-      borderColor: 'border-teal-500/30'
     },
     matches: (s) => s.speedCategory === 'steady' && s.habitCategory === 'erratic'
   },
@@ -548,9 +491,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Calendar,
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-500/20',
-      borderColor: 'border-orange-500/30'
     },
     matches: (s) => s.speedCategory === 'delayed' && s.habitCategory === 'batcher'
   },
@@ -564,9 +504,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Shield,
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/20',
-      borderColor: 'border-green-500/30'
     },
     matches: (s) => s.speedCategory === 'delayed' && s.habitCategory === 'ritualist'
   },
@@ -580,9 +517,6 @@ const ARCHETYPES: Archetype[] = [
     ],
     badge: {
       icon: Waves,
-      color: 'text-slate-400',
-      bgColor: 'bg-slate-500/20',
-      borderColor: 'border-slate-500/30'
     },
     matches: (s) => s.speedCategory === 'delayed' && s.habitCategory === 'erratic'
   }
@@ -689,9 +623,6 @@ export const getListeningStyleLabel = (
     description: 'You move through the group\'s music at your own pace, finding your way through each shared song.',
     badge: {
       icon: Heart,
-      color: 'text-muted-foreground',
-      bgColor: 'bg-muted/20',
-      borderColor: 'border-border'
     }
   };
 };
