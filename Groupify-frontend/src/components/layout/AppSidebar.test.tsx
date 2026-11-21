@@ -68,8 +68,8 @@ describe('AppSidebar', () => {
   });
 
   it.each([
-    ['New group', 'Create New Group'],
-    ['Join with a code', 'Join a Group'],
+    ['New group', 'Start a group'],
+    ['Join with a code', 'Join a group'],
   ])('on desktop, "%s" shows its dialog', async (item, title) => {
     renderSidebar(false);
     await openNewOrJoinMenu();
@@ -82,8 +82,19 @@ describe('AppSidebar', () => {
     renderSidebar(false);
     await openNewOrJoinMenu();
     await userEvent.click(screen.getByRole('menuitem', { name: 'New group' }));
-    await userEvent.type(await screen.findByPlaceholderText('Enter group name'), 'Road trip');
-    await userEvent.click(screen.getByRole('button', { name: 'Create Group' }));
+    await userEvent.type(await screen.findByPlaceholderText('Late Night Rotation'), 'Road trip');
+    await userEvent.click(screen.getByRole('button', { name: 'Create group' }));
     expect(await screen.findByText('Group feed page')).toBeInTheDocument();
+  });
+
+  it('switches between the create and join dialogs', async () => {
+    renderSidebar(false);
+    await openNewOrJoinMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'New group' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Have a code? Join instead' }));
+    expect(await screen.findByRole('dialog', { name: 'Join a group' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Start a group' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Start a new group instead' }));
+    expect(await screen.findByRole('dialog', { name: 'Start a group' })).toBeInTheDocument();
   });
 });

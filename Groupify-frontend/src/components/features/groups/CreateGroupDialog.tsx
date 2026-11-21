@@ -18,12 +18,15 @@ interface CreateGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateGroup: (data: { name: string; description?: string }) => Promise<any>;
+  /** Shows "Have a code? Join instead", which should close this and open the join dialog. */
+  onJoinInstead?: () => void;
 }
 
 export default function CreateGroupDialog({
   open,
   onOpenChange,
   onCreateGroup,
+  onJoinInstead,
 }: CreateGroupDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -107,90 +110,76 @@ export default function CreateGroupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Group</DialogTitle>
-          <DialogDescription>
-            Create a music sharing group to connect with friends and discover new tracks together.
-          </DialogDescription>
+          <DialogTitle>Start a group</DialogTitle>
+          <DialogDescription>Name it, then invite people or share its join code.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {/* Group Name Input */}
-            <div className="space-y-2">
-              <Label htmlFor="group-name">
-                Group Name <span className="text-destructive">*</span>
-              </Label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="group-name" className="text-soft">Name</Label>
+                <span className="font-mono text-xs text-quiet" aria-hidden="true">{name.length}/100</span>
+              </div>
               <Input
                 id="group-name"
-                placeholder="Enter group name"
+                placeholder="Late Night Rotation"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 disabled={isSubmitting}
-                className={errors.name ? 'border-destructive' : ''}
                 maxLength={100}
+                required
                 aria-invalid={!!errors.name}
                 aria-describedby={errors.name ? 'name-error' : undefined}
               />
               {errors.name && (
-                <p id="name-error" className="text-sm text-destructive">
+                <p id="name-error" className="text-sm text-danger">
                   {errors.name}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                {name.length}/100 characters
-              </p>
             </div>
 
-            {/* Description Input */}
-            <div className="space-y-2">
-              <Label htmlFor="group-description">
-                Description <span className="text-muted-foreground text-xs">(optional)</span>
-              </Label>
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="group-description" className="text-soft">Description (optional)</Label>
+                <span className="font-mono text-xs text-quiet" aria-hidden="true">{description.length}/500</span>
+              </div>
               <Textarea
                 id="group-description"
-                placeholder="Describe your group's vibe or purpose"
+                placeholder="What goes in here?"
                 value={description}
                 onChange={(e) => handleDescriptionChange(e.target.value)}
                 disabled={isSubmitting}
-                className={errors.description ? 'border-destructive' : ''}
-                rows={3}
+                rows={2}
                 maxLength={500}
                 aria-invalid={!!errors.description}
                 aria-describedby={errors.description ? 'description-error' : undefined}
               />
               {errors.description && (
-                <p id="description-error" className="text-sm text-destructive">
+                <p id="description-error" className="text-sm text-danger">
                   {errors.description}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                {description.length}/500 characters
-              </p>
             </div>
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
+          <DialogFooter className="items-stretch sm:items-center">
+            {onJoinInstead && (
+              <Button type="button" variant="link" className="px-0 sm:mr-auto" onClick={onJoinInstead} disabled={isSubmitting}>
+                Have a code? Join instead
+              </Button>
+            )}
+            <Button type="button" variant="ghost" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90 text-black w-full sm:w-auto min-h-[44px]"
-              disabled={isSubmitting || !name.trim()}
-            >
+            <Button type="submit" disabled={isSubmitting || !name.trim()}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  Creating…
                 </>
               ) : (
-                'Create Group'
+                'Create group'
               )}
             </Button>
           </DialogFooter>
@@ -199,4 +188,3 @@ export default function CreateGroupDialog({
     </Dialog>
   );
 }
-
