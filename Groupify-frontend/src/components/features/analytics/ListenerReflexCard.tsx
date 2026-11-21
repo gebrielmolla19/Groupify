@@ -22,9 +22,9 @@ interface ListenerReflexCardProps {
 }
 
 const CATEGORY_CONFIG: Record<ReflexCategory, { label: string; color: string; icon: typeof Zap }> = {
-  instant: { label: 'Instant Reactor', color: 'bg-primary text-black', icon: Zap },
-  quick: { label: 'Quick', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
-  slow: { label: 'Slow Burn', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: TrendingUp },
+  instant: { label: 'Instant Reactor', color: 'bg-selected text-foreground border-line', icon: Zap },
+  quick: { label: 'Quick', color: 'bg-selected text-soft border-line', icon: Clock },
+  slow: { label: 'Slow Burn', color: 'bg-selected text-soft border-line', icon: TrendingUp },
   longTail: { label: 'Long Tail', color: 'bg-muted text-muted-foreground border-border', icon: Timer }
 };
 
@@ -87,68 +87,6 @@ const formatAxisDate = (timestamp: number): string => {
   return `${months[d.getMonth()]} ${d.getDate()}`;
 };
 
-// ─── Color map helpers (Tailwind → inline) ──────────────────────────────────
-
-const getColorValue = (colorClass: string): string => {
-  const colorMap: Record<string, string> = {
-    'text-yellow-400': '#facc15',
-    'text-primary': '#00FF88',
-    'text-purple-400': '#c084fc',
-    'text-amber-400': '#fbbf24',
-    'text-blue-400': '#60a5fa',
-    'text-indigo-400': '#818cf8',
-    'text-cyan-400': '#22d3ee',
-    'text-teal-400': '#2dd4bf',
-    'text-green-400': '#4ade80',
-    'text-orange-400': '#fb923c',
-    'text-red-400': '#f87171',
-    'text-pink-400': '#f472b6',
-    'text-slate-400': '#94a3b8',
-    'text-muted-foreground': 'var(--muted-foreground)',
-  };
-  return colorMap[colorClass] || '#ffffff';
-};
-
-const getBgValue = (bgClass: string): string => {
-  const bgMap: Record<string, string> = {
-    'bg-yellow-500/20': 'rgba(234, 179, 8, 0.2)',
-    'bg-primary/20': 'rgba(0, 255, 136, 0.2)',
-    'bg-purple-500/20': 'rgba(168, 85, 247, 0.2)',
-    'bg-amber-500/20': 'rgba(245, 158, 11, 0.2)',
-    'bg-blue-500/20': 'rgba(59, 130, 246, 0.2)',
-    'bg-indigo-500/20': 'rgba(99, 102, 241, 0.2)',
-    'bg-cyan-500/20': 'rgba(6, 182, 212, 0.2)',
-    'bg-teal-500/20': 'rgba(20, 184, 166, 0.2)',
-    'bg-green-500/20': 'rgba(34, 197, 94, 0.2)',
-    'bg-orange-500/20': 'rgba(249, 115, 22, 0.2)',
-    'bg-red-500/20': 'rgba(239, 68, 68, 0.2)',
-    'bg-pink-500/20': 'rgba(236, 72, 153, 0.2)',
-    'bg-slate-500/20': 'rgba(100, 116, 139, 0.2)',
-    'bg-muted/20': 'rgba(var(--muted), 0.2)',
-  };
-  return bgMap[bgClass] || 'rgba(0, 0, 0, 0.1)';
-};
-
-const getBorderValue = (borderClass: string): string => {
-  const borderMap: Record<string, string> = {
-    'border-yellow-500/30': 'rgba(234, 179, 8, 0.3)',
-    'border-primary/30': 'rgba(0, 255, 136, 0.3)',
-    'border-purple-500/30': 'rgba(168, 85, 247, 0.3)',
-    'border-amber-500/30': 'rgba(245, 158, 11, 0.3)',
-    'border-blue-500/30': 'rgba(59, 130, 246, 0.3)',
-    'border-indigo-500/30': 'rgba(99, 102, 241, 0.3)',
-    'border-cyan-500/30': 'rgba(6, 182, 212, 0.3)',
-    'border-teal-500/30': 'rgba(20, 184, 166, 0.3)',
-    'border-green-500/30': 'rgba(34, 197, 94, 0.3)',
-    'border-orange-500/30': 'rgba(249, 115, 22, 0.3)',
-    'border-red-500/30': 'rgba(239, 68, 68, 0.3)',
-    'border-pink-500/30': 'rgba(236, 72, 153, 0.3)',
-    'border-slate-500/30': 'rgba(100, 116, 139, 0.3)',
-    'border-border': 'var(--border)',
-  };
-  return borderMap[borderClass] || 'rgba(255, 255, 255, 0.1)';
-};
-
 // SVG viewBox units for the timeline strip chart
 const SVG_WIDTH = 300;
 const SVG_HEIGHT = 80;
@@ -192,7 +130,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
 
   if (isLoading) {
     return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
+      <Card className="w-full bg-card/50 backdrop-blur-sm border-hair">
         <CardHeader>
           <Skeleton className="h-6 w-48 mb-4" />
           <div className="flex gap-2">
@@ -211,7 +149,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
 
   if (error) {
     return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5 border-destructive/50">
+      <Card className="w-full bg-card/50 backdrop-blur-sm border-hair border-destructive/50">
         <CardContent className="p-6">
           <p className="text-destructive text-sm">{error}</p>
         </CardContent>
@@ -221,7 +159,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
 
   if (!data || data.users.length === 0) {
     return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
+      <Card className="w-full bg-card/50 backdrop-blur-sm border-hair">
         <CardHeader>
           <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
             Listener Reflex
@@ -239,7 +177,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
   const yAxisMaxMs = RANGE_MAX_MS[range];
 
   return (
-    <Card className="w-full bg-card/50 backdrop-blur-sm border-white/5">
+    <Card className="w-full bg-card/50 backdrop-blur-sm border-hair">
       <CardHeader>
         <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
           Listener Reflex
@@ -266,15 +204,6 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
             {/* Timeline Strip Charts */}
             {timelineData && timelineData.usersWithTimeline.length > 0 && (
               <div className="w-full">
-                {/* Single shared gradient definition — prevents duplicate IDs when multiple users have AI insights */}
-                <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-                  <defs>
-                    <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="rgb(192 132 252)" stopOpacity="0.8" />
-                      <stop offset="100%" stopColor="rgb(147 197 253)" stopOpacity="0.6" />
-                    </linearGradient>
-                  </defs>
-                </svg>
                 <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Reaction Timeline</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {timelineData.usersWithTimeline.map(({ user, ringData }) => {
@@ -318,12 +247,12 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                     return (
                       <Card
                         key={user.userId}
-                        className="bg-card/50 border-white/5 p-4 transition-all duration-150"
+                        className="bg-card/50 border-hair p-4 transition-all duration-150"
                       >
                         <div className="flex flex-col gap-3 w-full">
                           {/* Header: Avatar + Name + Stats */}
                           <div className="flex items-center gap-2 w-full">
-                            <Avatar className="w-8 h-8 border border-white/10 flex-shrink-0">
+                            <Avatar className="w-8 h-8 border border-hair flex-shrink-0">
                               <AvatarImage src={user.avatarUrl || undefined} />
                               <AvatarFallback className="text-xs">
                                 {user.displayName.substring(0, 2).toUpperCase()}
@@ -352,12 +281,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                           {/* Listening Style Badge + Description */}
                           <div className="flex flex-col gap-2">
                             <div
-                              className="w-fit inline-flex items-center gap-1.5 px-2 py-1 border rounded-md text-xs font-medium"
-                              style={{
-                                backgroundColor: getBgValue(styleLabel.badge.bgColor),
-                                borderColor: getBorderValue(styleLabel.badge.borderColor),
-                                color: getColorValue(styleLabel.badge.color),
-                              }}
+                              className="w-fit inline-flex items-center gap-1.5 px-2 py-1 border border-line bg-selected text-soft rounded-md text-xs font-medium"
                             >
                               <BadgeIcon className="w-3 h-3 shrink-0" />
                               <span>{styleLabel.title}</span>
@@ -370,7 +294,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                             ) : (
                               <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-300 flex items-start gap-1">
                                 {aiInsights?.[user.userId] && (
-                                  <svg className="h-4 w-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="url(#ai-gradient)" stroke="none">
+                                  <svg className="h-4 w-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                                     <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
                                   </svg>
                                 )}
@@ -389,8 +313,8 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                               style={{ minHeight: '80px' }}
                             >
                               {/* Y-axis labels */}
-                              <text x={CHART_LEFT - 3} y={CHART_TOP + 6} textAnchor="end" fontSize="7" fill="rgba(255,255,255,0.4)">Fast</text>
-                              <text x={CHART_LEFT - 3} y={CHART_TOP + CHART_HEIGHT} textAnchor="end" fontSize="7" fill="rgba(255,255,255,0.4)">Slow</text>
+                              <text x={CHART_LEFT - 3} y={CHART_TOP + 6} textAnchor="end" fontSize="7" fill="var(--text-quiet)">Fast</text>
+                              <text x={CHART_LEFT - 3} y={CHART_TOP + CHART_HEIGHT} textAnchor="end" fontSize="7" fill="var(--text-quiet)">Slow</text>
 
                               {/* Chart border */}
                               <rect
@@ -399,7 +323,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                 width={CHART_WIDTH}
                                 height={CHART_HEIGHT}
                                 fill="none"
-                                stroke="rgba(255,255,255,0.06)"
+                                stroke="var(--hair)"
                                 strokeWidth="0.5"
                               />
 
@@ -411,7 +335,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                     y1={groupMedianY}
                                     x2={CHART_LEFT + CHART_WIDTH}
                                     y2={groupMedianY}
-                                    stroke="rgba(255,255,255,0.2)"
+                                    stroke="var(--line)"
                                     strokeWidth="0.7"
                                     strokeDasharray="4,3"
                                   />
@@ -419,7 +343,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                     x={CHART_LEFT + CHART_WIDTH + 1}
                                     y={groupMedianY + 2.5}
                                     fontSize="5.5"
-                                    fill="rgba(255,255,255,0.25)"
+                                    fill="var(--text-quiet)"
                                   >
                                     grp
                                   </text>
@@ -434,14 +358,14 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                     y1={userMedianY}
                                     x2={CHART_LEFT + CHART_WIDTH}
                                     y2={userMedianY}
-                                    stroke="rgba(0,255,136,0.35)"
+                                    stroke="var(--text-soft)"
                                     strokeWidth="0.8"
                                   />
                                   <text
                                     x={CHART_LEFT + CHART_WIDTH + 1}
                                     y={userMedianY + 2.5}
                                     fontSize="5.5"
-                                    fill="rgba(0,255,136,0.4)"
+                                    fill="var(--text-soft)"
                                   >
                                     med
                                   </text>
@@ -458,17 +382,17 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                                     cx={x}
                                     cy={y}
                                     r={dotRadius}
-                                    fill="#00FF88"
+                                    fill="var(--text)"
                                     opacity={0.75}
                                   />
                                 );
                               })}
 
                               {/* X-axis date labels */}
-                              <text x={CHART_LEFT} y={SVG_HEIGHT - 2} fontSize="6.5" fill="rgba(255,255,255,0.35)">
+                              <text x={CHART_LEFT} y={SVG_HEIGHT - 2} fontSize="6.5" fill="var(--text-quiet)">
                                 {formatAxisDate(minTime)}
                               </text>
-                              <text x={CHART_LEFT + CHART_WIDTH} y={SVG_HEIGHT - 2} textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.35)">
+                              <text x={CHART_LEFT + CHART_WIDTH} y={SVG_HEIGHT - 2} textAnchor="end" fontSize="6.5" fill="var(--text-quiet)">
                                 {formatAxisDate(maxTime)}
                               </text>
                             </svg>
@@ -500,7 +424,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                         key={user.userId}
                         className={cn(
                           'flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border transition-colors',
-                          'bg-card/50 border-white/5 hover:bg-white/5',
+                          'bg-card/50 border-hair hover:bg-selected',
                           'flex-wrap sm:flex-nowrap'
                         )}
                       >
@@ -510,7 +434,7 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
                         </div>
 
                         {/* Avatar */}
-                        <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-white/10 flex-shrink-0">
+                        <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-hair flex-shrink-0">
                           <AvatarImage src={user.avatarUrl || undefined} />
                           <AvatarFallback className="text-xs md:text-sm">{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>

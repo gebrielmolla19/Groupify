@@ -47,5 +47,29 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
+  {
+    // Colours come from the theme tokens in src/styles/globals.css (#57), so
+    // both themes stay in step. Use a CSS variable (var(--iris)) or a token
+    // class (text-quiet, bg-pane) instead of a colour literal.
+    files: ['src/components/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Literal[value=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b|(?<![a-zA-Z])(?:rgba?|hsla?)\\(/]',
+          message:
+            'Hard-coded colour. Use a theme token from globals.css (var(--x) or a token class) instead.',
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b|(?<![a-zA-Z])(?:rgba?|hsla?)\\(/]',
+          message:
+            'Hard-coded colour. Use a theme token from globals.css (var(--x) or a token class) instead.',
+        },
+      ],
+    },
+  },
   prettier
 );

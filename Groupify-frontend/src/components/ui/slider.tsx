@@ -48,18 +48,16 @@ function Slider({
         className={cn(
           "relative grow overflow-hidden rounded-full",
           isVolume 
-            ? "h-3 bg-muted/30" 
+            ? "h-3 bg-line" 
             : "bg-muted data-[orientation=horizontal]:h-4 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5"
         )}
-        style={isVolume ? { backgroundColor: 'rgba(255, 255, 255, 0.1)' } : undefined}
       >
         <SliderPrimitive.Range
           data-slot="slider-range"
           className={cn(
             "absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
-            isVolume ? "" : "bg-primary"
+            isVolume ? "bg-foreground" : "bg-primary"
           )}
-          style={isVolume ? { backgroundColor: '#FFFFFF' } : undefined}
         />
       </SliderPrimitive.Track>
       {Array.from({ length: _values.length }, (_, index) => (
@@ -69,14 +67,9 @@ function Slider({
           className={cn(
             "block shrink-0 rounded-full border transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
             isVolume
-              ? "size-5 md:size-4 border-white shadow-none min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0"
+              ? "size-5 md:size-4 border-foreground bg-foreground shadow-none min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0"
               : "border-primary bg-background ring-ring/50 size-5 md:size-4 shadow-sm min-h-[44px] md:min-h-0 min-w-[44px] md:min-w-0"
           )}
-          style={isVolume ? { 
-            backgroundColor: '#FFFFFF', 
-            borderColor: '#FFFFFF',
-            boxShadow: 'none'
-          } : undefined}
         />
       ))}
     </SliderPrimitive.Root>
