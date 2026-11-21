@@ -326,7 +326,7 @@ export default function AnalyticsScreen() {
                   variant={tasteGravityRange === range.value ? 'default' : 'outline'}
                   onClick={() => setTasteGravityRange(range.value)}
                   className={cn(
-                    'h-8 px-3 text-xs',
+                    'h-8 px-3 text-xs min-h-[44px] sm:min-h-0',
                     tasteGravityRange === range.value
                       ? 'bg-primary hover:bg-primary/90 text-black'
                       : 'border-primary/30 hover:bg-primary/10'
