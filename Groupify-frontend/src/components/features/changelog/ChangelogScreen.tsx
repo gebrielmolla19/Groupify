@@ -16,19 +16,6 @@ const filters: { value: FilterType; label: string; icon: typeof Globe }[] = [
   { value: "fix", label: "FIXES", icon: Wrench },
 ];
 
-const categoryColors: Record<ChangelogCategory, { color: string; bg: string }> = {
-  new: { color: "#86efac", bg: "rgba(134,239,172,0.1)" },           // green-300
-  improvement: { color: "#93c5fd", bg: "rgba(147,197,253,0.1)" },   // blue-300
-  fix: { color: "#fdba74", bg: "rgba(253,186,116,0.1)" },           // orange-300
-};
-
-const filterColors: Record<FilterType, string> = {
-  all: "rgba(255,255,255,0.9)",
-  new: "#86efac",
-  improvement: "#93c5fd",
-  fix: "#fdba74",
-};
-
 function formatItemDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   const month = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
@@ -117,11 +104,11 @@ export default function ChangelogScreen() {
                   fontSize: '11px',
                   fontWeight: 500,
                   letterSpacing: '0.1em',
-                  color: active ? filterColors[f.value] : 'rgba(255,255,255,0.35)',
-                  backgroundColor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  color: active ? 'var(--text)' : 'var(--text-soft)',
+                  backgroundColor: active ? 'var(--selected)' : 'transparent',
                 }}
               >
-                <Icon className="w-3.5 h-3.5" style={{ color: active ? filterColors[f.value] : undefined }} />
+                <Icon className="w-3.5 h-3.5" />
                 {f.label}
               </button>
             );
@@ -157,7 +144,7 @@ export default function ChangelogScreen() {
                         <div className="flex items-center" style={{ gap: '0.75rem', marginBottom: '0.375rem' }}>
                           <span
                             className="font-mono"
-                            style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em' }}
+                            style={{ fontSize: '11px', color: 'var(--text-soft)', letterSpacing: '0.1em' }}
                           >
                             {formatItemDate(item.date)}
                           </span>
@@ -168,8 +155,8 @@ export default function ChangelogScreen() {
                               letterSpacing: '0.1em',
                               padding: '2px 8px',
                               borderRadius: '3px',
-                              color: categoryColors[item.category].color,
-                              backgroundColor: categoryColors[item.category].bg,
+                              color: 'var(--text-soft)',
+                              backgroundColor: 'var(--selected)',
                             }}
                           >
                             {categoryLabels[item.category]}
@@ -177,7 +164,7 @@ export default function ChangelogScreen() {
                         </div>
 
                         {/* Title */}
-                        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>
+                        <p style={{ fontSize: '15px', color: 'var(--text-soft)', lineHeight: 1.6 }}>
                           {item.title}
                         </p>
                       </div>

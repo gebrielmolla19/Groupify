@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../ui/card';
-import { Button } from '../../../ui/button';
 import { Badge } from '../../../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../ui/avatar';
 import { Checkbox } from '../../../ui/checkbox';
@@ -115,13 +114,6 @@ export default function ListenerReflexComparePanel({
     } as RadarProfile;
   }, [data]);
 
-  // Get selected profiles
-  const selectedProfiles = useMemo(() => {
-    if (!data || !data.members) return [];
-    return data.members.filter(m => 
-      selectedMemberIds.some(id => String(id) === String(m.userId))
-    );
-  }, [data, selectedMemberIds]);
 
   // Get color for a member based on their index in selectedMemberIds
   const getMemberColor = (userId: string): string | undefined => {
@@ -130,17 +122,13 @@ export default function ListenerReflexComparePanel({
     return RADAR_CHART_COLORS[index % RADAR_CHART_COLORS.length];
   };
 
-  // Convert hex color to rgba with opacity
-  const hexToRgba = (hex: string, opacity: number): string => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-  };
+  // Mix a colour token with transparency (the colours are CSS variables, not hex)
+  const withOpacity = (color: string, opacity: number): string =>
+    `color-mix(in srgb, ${color} ${Math.round(opacity * 100)}%, transparent)`;
 
   if (isLoading) {
     return (
-      <Card className="bg-black/40 border-white/5">
+      <Card className="bg-pane border-hair">
         <CardContent className="p-6 space-y-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-64 w-full" />
@@ -152,7 +140,7 @@ export default function ListenerReflexComparePanel({
 
   if (error) {
     return (
-      <Card className="bg-black/40 border-white/5">
+      <Card className="bg-pane border-hair">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-4 w-4" />
@@ -165,7 +153,7 @@ export default function ListenerReflexComparePanel({
 
   if (!data || !data.members || data.members.length === 0) {
     return (
-      <Card className="bg-black/40 border-white/5">
+      <Card className="bg-pane border-hair">
         <CardContent className="p-6">
           <p className="text-muted-foreground text-sm">No member data available for comparison.</p>
         </CardContent>
@@ -174,7 +162,7 @@ export default function ListenerReflexComparePanel({
   }
 
   return (
-    <Card className="bg-black/40 border-white/5">
+    <Card className="bg-pane border-hair">
       <CardHeader>
         <CardTitle className="text-lg">Compare Members</CardTitle>
       </CardHeader>
@@ -203,7 +191,7 @@ export default function ListenerReflexComparePanel({
           </div>
 
           {/* Member List */}
-          <div className="max-h-48 overflow-y-auto space-y-2 border border-white/5 rounded-lg p-2">
+          <div className="max-h-48 overflow-y-auto space-y-2 border border-hair rounded-lg p-2">
             {filteredMembers.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 No members found
@@ -221,14 +209,14 @@ export default function ListenerReflexComparePanel({
                     className={cn(
                       "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors border",
                       isSelected && memberColor && "border-opacity-30",
-                      !isSelected && !isDisabled && "hover:bg-white/5 border-transparent",
+                      !isSelected && !isDisabled && "hover:bg-selected border-transparent",
                       isDisabled && "opacity-50 cursor-not-allowed border-transparent"
                     )}
                     style={
                       isSelected && memberColor
                         ? {
-                            backgroundColor: hexToRgba(memberColor, 0.15),
-                            borderColor: hexToRgba(memberColor, 0.5),
+                            backgroundColor: withOpacity(memberColor, 0.15),
+                            borderColor: withOpacity(memberColor, 0.5),
                           }
                         : undefined
                     }
@@ -254,8 +242,8 @@ export default function ListenerReflexComparePanel({
                         <div
                           className="absolute -inset-0.5 rounded-[4px] pointer-events-none"
                           style={{
-                            backgroundColor: hexToRgba(memberColor, 0.2),
-                            border: `1px solid ${hexToRgba(memberColor, 0.4)}`,
+                            backgroundColor: withOpacity(memberColor, 0.2),
+                            border: `1px solid ${withOpacity(memberColor, 0.4)}`,
                           }}
                         />
                       )}
@@ -266,8 +254,8 @@ export default function ListenerReflexComparePanel({
                         style={
                           isSelected && memberColor
                             ? {
-                                backgroundColor: hexToRgba(memberColor, 0.2),
-                                borderColor: hexToRgba(memberColor, 0.6),
+                                backgroundColor: withOpacity(memberColor, 0.2),
+                                borderColor: withOpacity(memberColor, 0.6),
                               }
                             : undefined
                         }
