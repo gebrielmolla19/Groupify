@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
-import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import CreateGroupDialog from "../groups/CreateGroupDialog";
@@ -12,9 +11,16 @@ import { useUnheardShares } from "../../../hooks/useUnheardShares";
 import { waitingHeadline, waitingSummary } from "../../../lib/waiting";
 import { useNavigate } from "react-router-dom";
 
+/** Shown on Home before the user is in any group. */
+const HOW_IT_WORKS = [
+  { title: "Share a song", text: "Search Spotify and drop a track into the group feed." },
+  { title: "See who listened", text: "Every song shows who in the group has heard it." },
+  { title: "Compare habits", text: "Group Dynamics shows who shares the most and who listens." },
+];
+
 export default function DashboardScreen() {
   const navigate = useNavigate();
-  const { groups, isLoading, error, createGroup, joinGroupByCode } = useGroups();
+  const { groups, isLoading, error, refetch, createGroup, joinGroupByCode } = useGroups();
   // A few of the newest on Home; the rest are a tap away in each group's Unheard filter.
   const unheard = useUnheardShares(5);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -42,15 +48,16 @@ export default function DashboardScreen() {
   const headlineLoading = isLoading || (unheard.isLoading && !waiting);
   // Say it, then show it: the headline is about what's waiting, unless there's nowhere for it to wait.
   // Without the unheard data there's no count to claim, so stay neutral rather than say "caught up".
-  const counts = waiting && {
+  // Without the groups there's nothing to vouch for either, so no count while they failed to load.
+  const counts = waiting && !error && {
     total: waiting.total,
     newThisWeek: waiting.newThisWeek,
     groupCount: Object.keys(waiting.byGroup).length,
     oldestAt: waiting.oldestAt,
   };
-  const headline = noGroups ? "Start a group" : counts ? waitingHeadline(counts) : "Welcome back";
+  const headline = noGroups ? "Start your first group" : counts ? waitingHeadline(counts) : "Welcome back";
   const summary = noGroups
-    ? "Groups are where friends share tracks. Create one, or join with a code."
+    ? "Groupify works in small groups. Start one and invite people, or join with a code a friend sent you."
     : counts ? waitingSummary(counts) : "";
 
   return (
@@ -70,6 +77,7 @@ export default function DashboardScreen() {
               <span className="ml-2 hidden lg:block">Join Group</span>
             </Button>
             <Button
+              variant={noGroups ? "outline" : "default"}
               className="min-h-11 shrink-0 px-2 sm:px-4"
               aria-label="Create new group"
               onClick={() => setIsCreateDialogOpen(true)}
@@ -87,7 +95,13 @@ export default function DashboardScreen() {
           ) : (
             <>
               <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">{headline}</h1>
-              {!unheard.error && <p className="mt-2 text-soft md:text-lg">{summary}</p>}
+              {!unheard.error && <p className="mt-2 max-w-2xl text-soft md:text-lg">{summary}</p>}
+              {noGroups && (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>Start a group</Button>
+                  <Button variant="outline" onClick={() => setIsJoinDialogOpen(true)}>Join with a code</Button>
+                </div>
+              )}
             </>
           )}
         </header>
@@ -116,11 +130,10 @@ export default function DashboardScreen() {
 
         {/* Your groups */}
         {error && (
-          <Card className="border-destructive">
-            <CardContent className="p-6">
-              <p className="text-destructive">{error}</p>
-            </CardContent>
-          </Card>
+          <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm text-soft">
+            <span className="flex-1">Couldn't load your groups.</span>
+            <Button variant="outline" size="sm" className="min-h-11" onClick={() => void refetch()}>Try again</Button>
+          </div>
         )}
 
         {isLoading && (
@@ -143,41 +156,18 @@ export default function DashboardScreen() {
         )}
 
         {noGroups && (
-          <Card
-            className="cursor-pointer border-2 border-dashed border-border transition-colors hover:border-primary/50"
-            onClick={() => setIsCreateDialogOpen(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setIsCreateDialogOpen(true);
-              }
-            }}
-            aria-label="Create your first group"
-          >
-            <CardContent className="flex flex-col items-center justify-center px-4 py-8 text-center md:py-12">
-              <div className="mb-3 rounded-full border border-primary/30 bg-primary/10 p-3 md:mb-4 md:p-4" aria-hidden="true">
-                <Plus className="size-6 text-primary md:size-8" />
-              </div>
-              <h3 className="mb-2 text-base md:text-lg">Create Your First Group</h3>
-              <p className="mb-4 max-w-md text-sm text-muted-foreground md:text-base">
-                Start sharing music with friends, discover new tracks together,
-                and compete on the leaderboard
-              </p>
-              <Button
-                variant="outline"
-                className="min-h-11"
-                aria-label="Get started creating a group"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCreateDialogOpen(true);
-                }}
-              >
-                Get Started
-              </Button>
-            </CardContent>
-          </Card>
+          <section aria-labelledby="how-it-works-heading">
+            <h2 id="how-it-works-heading" className="sr-only">How Groupify works</h2>
+            <ol className="grid gap-4 sm:grid-cols-3">
+              {HOW_IT_WORKS.map((step, i) => (
+                <li key={step.title} className="flex flex-col gap-2 rounded-2xl border border-hair bg-raised p-5">
+                  <span className="font-mono text-xs text-iris" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                  <h3 className="font-display text-xl font-extrabold tracking-tight">{step.title}</h3>
+                  <p className="text-sm leading-relaxed text-soft">{step.text}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
         )}
       </main>
 
@@ -185,6 +175,10 @@ export default function DashboardScreen() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onCreateGroup={handleCreateGroup}
+        onJoinInstead={() => {
+          setIsCreateDialogOpen(false);
+          setIsJoinDialogOpen(true);
+        }}
       />
 
       <JoinGroupDialog
@@ -192,6 +186,10 @@ export default function DashboardScreen() {
         onOpenChange={setIsJoinDialogOpen}
         onJoinGroup={handleJoinGroup}
         isSubmitting={isJoining}
+        onCreateInstead={() => {
+          setIsJoinDialogOpen(false);
+          setIsCreateDialogOpen(true);
+        }}
       />
     </>
   );

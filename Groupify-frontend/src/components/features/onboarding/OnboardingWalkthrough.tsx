@@ -1,267 +1,124 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '../../ui/button';
-import { Progress } from '../../ui/progress';
-import {
-  Music2,
-  Users,
-  Share2,
-  ListMusic,
-  Trophy,
-  Activity,
-  BarChart2,
-  Star,
-  ChevronRight,
-  ChevronLeft,
-  X,
-  Heart,
-  ListOrdered,
-  Search,
-  User,
-} from 'lucide-react';
 import { useGroups } from '../../../hooks/useGroups';
 import { useIsMobile } from '../../ui/use-mobile';
-import { PHONE_PLAYER_TOP, STACK_GAP } from '../../../lib/layout';
+import { DESKTOP_PLAYER_HEIGHT, PHONE_PLAYER_TOP, STACK_GAP } from '../../../lib/layout';
+import { placeTourCard, type Box } from '../../../lib/tourPlacement';
 
 const TOUR_STORAGE_KEY = 'groupify_tour_completed';
+/** Space between a target and the spotlight drawn around it. */
+const SPOTLIGHT_PAD = 6;
+/** Above everything on the page, including the player (zIndex 9999). */
+const TOUR_Z_INDEX = 10000;
 
-interface OnboardingStep {
-  icon: React.ReactNode;
+interface TourStep {
   title: string;
-  description: string;
-  hint: string;
-  route: (groupId?: string) => string;
-  /** CSS selector(s) for elements to highlight. Comma-separated for multiple. */
-  highlight?: string;
-  /** CSS selector to scroll into view after navigating */
-  scrollTo?: string;
+  text: string;
+  /**
+   * Selectors for the element to spotlight, in order of preference. The
+   * first one with a visible match wins; with none, the card shows alone.
+   */
+  targets: string[];
+  /** Spotlight every visible match of the winning selector together. */
+  union?: boolean;
 }
 
-const STEPS: OnboardingStep[] = [
-  // ── Step 1: Welcome ────────────────────────────────────────────────────────
+// The four-step walkthrough of the group feed (#57, "Tour" in the mock).
+export const TOUR_STEPS: TourStep[] = [
   {
-    icon: <Music2 style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Welcome to Groupify',
-    description:
-      'Groupify is your social music hub — share tracks from Spotify with friends, discover new music together, and see who listens first.',
-    hint: 'This quick tour covers the key features. It takes about a minute.',
-    route: () => '/',
+    title: 'Share a song here',
+    text: 'Search Spotify and send a track to everyone in the group.',
+    targets: ['[data-tour="share-input"]'],
   },
-
-  // ── Step 2: Create / Join ───────────────────────────────────────────────────
   {
-    icon: <Users style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Create or Join a Group',
-    description:
-      'Groups are shared spaces where you and your friends exchange music. Create a new group and invite friends, or enter an invite code to join one.',
-    hint: 'Each group has a unique invite code — copy it from the dashboard and share it with friends.',
-    route: () => '/',
-    highlight: '[data-tour="create-group"],[data-tour="join-group"]',
+    title: 'A dot means unheard',
+    text: 'Songs you have not played yet are bold with a dot, like unread messages.',
+    targets: ['[data-tour="share-row"][data-unheard]', '[data-tour="share-row"]'],
   },
-
-  // ── Step 3: Share Songs ─────────────────────────────────────────────────────
   {
-    icon: <Share2 style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Share Songs from Spotify',
-    description:
-      'Inside a group, use the search bar to find any track on Spotify and share it instantly. Everyone in the group sees it appear in the feed right away.',
-    hint: 'Type a song name or artist — results show in real time as you type.',
-    route: (groupId) => (groupId ? `/groups/${groupId}` : '/'),
-    highlight: '[data-tour="share-input"]',
+    title: 'See who has listened',
+    text: 'This shows how many members have played the song. Playing it counts as a listen; there is nothing to tap.',
+    targets: ['[data-tour="listeners"]'],
   },
-
-  // ── Step 4: Listens ─────────────────────────────────────────────────────────
   {
-    icon: <ListMusic style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Listens Are Tracked Automatically',
-    description:
-      "Play most of a track and your listen is logged — there's nothing to tap. Each song shows how many members have heard it, and its avatars show who.",
-    hint: 'The faster you listen, the better your Listener Reflex score in analytics!',
-    route: (groupId) => (groupId ? `/groups/${groupId}` : '/'),
-    highlight: '[data-tour="listeners"]',
-  },
-
-  // ── Step 5: Like ────────────────────────────────────────────────────────────
-  {
-    icon: <Heart style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Like Tracks',
-    description:
-      'Give a like to tracks you love. Likes show appreciation for the sharer and count toward the "Hype Man" award — given to whoever supports the group most.',
-    hint: 'Liking a track also helps surface great music for the whole group.',
-    route: (groupId) => (groupId ? `/groups/${groupId}` : '/'),
-    highlight: '[data-tour="like-btn"]',
-  },
-
-  // ── Step 6: Group Toolbar ───────────────────────────────────────────────────
-  {
-    icon: <ListOrdered style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Group Toolbar',
-    description:
-      'At the top of each group feed you\'ll find quick-access buttons: "Playlist" to open the group\'s Spotify playlist, "Invite" to share the group code, "Analytics" for stats, and "Settings" to manage the group.',
-    hint: 'The Playlist button opens the group\'s auto-generated Spotify playlist directly.',
-    route: (groupId) => (groupId ? `/groups/${groupId}` : '/'),
-    highlight:
-      '[data-tour="playlist-btn"],[data-tour="invite-btn"],[data-tour="analytics-btn"],[data-tour="settings-btn"]',
-  },
-
-  // ── Step 7: Resonance Frequency ─────────────────────────────────────────────
-  {
-    icon: <Activity style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Resonance Frequency',
-    description:
-      'The Group Dynamics page opens with Resonance Frequency — a wave chart showing sharing and engagement activity over time. Switch between "Shares Posted" and "Engagement" views.',
-    hint: 'Use the time-range buttons (24h, 7d, 30d…) to zoom in or out on activity.',
-    route: (groupId) => (groupId ? `/groups/${groupId}/analytics` : '/'),
-    highlight: '[data-tour="analytics-resonance"]',
-    scrollTo: '[data-tour="analytics-resonance"]',
-  },
-
-  // ── Step 8: Listener Reflex ──────────────────────────────────────────────────
-  {
-    icon: <BarChart2 style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Listener Reflex',
-    description:
-      'Listener Reflex ranks members by how quickly they listen to shared songs. A low average response time means you\'re first to the music — a true early adopter.',
-    hint: 'Response time is measured from when a song is shared to when you mark it listened.',
-    route: (groupId) => (groupId ? `/groups/${groupId}/analytics` : '/'),
-    highlight: '[data-tour="analytics-reflex"]',
-    scrollTo: '[data-tour="analytics-reflex"]',
-  },
-
-  // ── Step 9: Taste Gravity ────────────────────────────────────────────────────
-  {
-    icon: <Star style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Taste Gravity',
-    description:
-      'Taste Gravity visualises musical connections between group members. Members who share similar genres or artists are drawn closer together in the graph.',
-    hint: 'Zoom and drag the graph to explore connections between members.',
-    route: (groupId) => (groupId ? `/groups/${groupId}/analytics` : '/'),
-    highlight: '[data-tour="analytics-taste"]',
-    scrollTo: '[data-tour="analytics-taste"]',
-  },
-
-  // ── Step 10: Hall of Fame ────────────────────────────────────────────────────
-  {
-    icon: <Trophy style={{ width: 32, height: 32, color: 'var(--primary)' }} />,
-    title: 'Hall of Fame',
-    description:
-      'Hall of Fame awards four titles: Trendsetter (most likes received), Hype Man (most likes given), The DJ (most shares), and Diehard (most tracks listened). Compete for them all!',
-    hint: 'Awards reset per time range — check "All time" for the overall champion.',
-    route: (groupId) => (groupId ? `/groups/${groupId}/analytics` : '/'),
-    highlight: '[data-tour="analytics-halloffame"]',
-    scrollTo: '[data-tour="analytics-halloffame"]',
+    title: 'Everything about one song',
+    text: 'Tap a song to play it, like it, and see who heard it and how soon.',
+    targets: ['[data-tour="song-detail"]', '[data-tour="share-row"]'],
   },
 ];
 
-// ── Mock preview components ────────────────────────────────────────────────────
+// Without a group there is no feed to tour: one card points to Home's
+// create and join buttons instead, and the tour proper opens once they have one.
+const NO_GROUP_STEP: TourStep = {
+  title: 'Start with a group',
+  text: 'The tour walks through a group’s feed. Create a group, or join one with an invite code, and it starts there.',
+  targets: ['[data-tour="create-group"],[data-tour="join-group"]'],
+  union: true,
+};
 
-function MockShareInput() {
-  return (
-    <div className="rounded-lg border border-white/10 bg-card/50 p-3 mb-3 space-y-2">
-      <div className="flex items-center gap-2 rounded-md border border-white/15 bg-background px-3 py-2">
-        <Search className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-        <span className="text-xs text-muted-foreground">Search for a song or artist…</span>
-      </div>
-      <div className="flex items-center gap-2 p-2 rounded-md bg-white/5 border border-white/5">
-        <div className="w-8 h-8 rounded bg-primary/20 flex-shrink-0 flex items-center justify-center">
-          <Music2 className="w-4 h-4 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate">Blinding Lights</p>
-          <p className="text-[10px] text-muted-foreground">The Weeknd</p>
-        </div>
-        <div className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 flex-shrink-0 font-medium">
-          Share
-        </div>
-      </div>
-    </div>
-  );
+const GROUP_FEED_PATH = /^\/groups\/[^/]+\/?$/;
+
+/** Visible matches of the first selector that has any. */
+function findTargets(selectors: string[]): Element[] {
+  for (const selector of selectors) {
+    // Skips copies hidden at this width (the row has one heard count per layout).
+    const visible = Array.from(document.querySelectorAll(selector)).filter((el) => el.getClientRects().length > 0);
+    if (visible.length > 0) return visible;
+  }
+  return [];
 }
 
-// Fake listeners for the listened mock — on-theme with app palette
-const MOCK_LISTENERS = [
-  { bg: 'rgba(0,255,136,0.2)', color: 'var(--primary)' },
-  { bg: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' },
-];
+/**
+ * A modal (song sheet, dialog) makes everything outside it inert and hidden
+ * from assistive tech, the card included, so the tour waits until it closes.
+ */
+const modalOpen = () => !!document.querySelector('[role="dialog"][data-state="open"],[role="alertdialog"][data-state="open"]');
 
-function MockSongCardListened() {
-  return (
-    <div className="rounded-lg border border-white/10 bg-card/50 overflow-hidden mb-3">
-      {/* Song row */}
-      <div className="flex items-center gap-3 px-3 pt-3 pb-2.5">
-        <div className="w-9 h-9 rounded bg-primary/15 flex-shrink-0 flex items-center justify-center">
-          <Music2 className="w-4 h-4 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold truncate">Blinding Lights</p>
-          <p className="text-[10px] text-muted-foreground">The Weeknd · Shared by Alex</p>
-        </div>
-      </div>
-      {/* Listeners row */}
-      <div className="border-t border-white/5 px-3 py-2 flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground">Listened by</span>
-        <div className="flex items-center gap-1.5">
-          {MOCK_LISTENERS.map((l, i) => (
-            <div
-              key={i}
-              className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: l.bg, color: l.color }}
-            >
-              <User className="w-3 h-3" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+const sameBox = (a: Box | null, b: Box | null) =>
+  a === b || (!!a && !!b && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
 
-function MockSongCardLike() {
-  return (
-    <div className="rounded-lg border border-white/10 bg-card/50 p-3 mb-3">
-      <div className="flex items-center gap-2">
-        <div className="w-10 h-10 rounded bg-primary/20 flex-shrink-0 flex items-center justify-center">
-          <Music2 className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate">Blinding Lights</p>
-          <p className="text-[10px] text-muted-foreground">The Weeknd · Shared by Alex</p>
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <div className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/5">
-            <img src="/like-icon-svg/like-icon-like.svg" alt="Like" className="w-4 h-4" />
-          </div>
-          <span className="text-xs text-muted-foreground">4</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-
+/**
+ * The first-run walkthrough: four steps over the group feed, each
+ * spotlighting one part of it with a card beside it. Opens by itself once
+ * the user is in a group, and again from "Take the tour" (startTour).
+ */
 export default function OnboardingWalkthrough() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [highlightMissing, setHighlightMissing] = useState(false);
+  const [target, setTarget] = useState<Box | null>(null);
+  const [cardSize, setCardSize] = useState({ width: 320, height: 220 });
+  const [paused, setPaused] = useState(false);
+  // Read by the Escape handler: by then Radix may already have closed the modal.
+  const pausedRef = useRef(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const autoOpened = useRef(false);
   const navigate = useNavigate();
-  const { groups } = useGroups();
+  const { pathname } = useLocation();
+  const { groups, isLoading } = useGroups();
   const isMobile = useIsMobile();
+  const reduceMotion = useReducedMotion();
+  const titleId = useId();
+  const textId = useId();
 
   const firstGroupId = groups?.[0]?._id;
+  const noGroup = !isLoading && !firstGroupId;
+  const steps = noGroup ? [NO_GROUP_STEP] : TOUR_STEPS;
+  const current = steps[Math.min(step, steps.length - 1)];
+  const isLastStep = step >= steps.length - 1;
 
-  // Show tour if not completed
+  // First run: open once the user has a group, since every step is on its feed.
   useEffect(() => {
-    const completed = localStorage.getItem(TOUR_STORAGE_KEY);
-    if (!completed) {
-      const timer = setTimeout(() => setOpen(true), 600);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+    if (autoOpened.current || isLoading || !firstGroupId) return;
+    if (localStorage.getItem(TOUR_STORAGE_KEY)) return;
+    autoOpened.current = true;
+    const timer = setTimeout(() => setOpen(true), 600);
+    return () => clearTimeout(timer);
+  }, [isLoading, firstGroupId]);
 
-  // Allow on-demand trigger from anywhere via custom event
+  // On demand from anywhere (startTour).
   useEffect(() => {
     const handler = () => {
       setStep(0);
@@ -271,209 +128,157 @@ export default function OnboardingWalkthrough() {
     return () => window.removeEventListener('groupify:start-tour', handler);
   }, []);
 
-  // Navigate to the relevant page on step change
+  // Show a group feed: stay on the one that's open, else go to the first
+  // group. Without a group, go Home, where the create and join buttons are.
+  useEffect(() => {
+    if (!open || isLoading) return;
+    if (firstGroupId && !GROUP_FEED_PATH.test(pathname)) navigate(`/groups/${firstGroupId}`);
+    else if (!firstGroupId && pathname !== '/') navigate('/');
+    // Only when the tour opens: later navigation by the user is theirs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, firstGroupId, isLoading]);
+
+  // Follow the target and the card's size. The feed loads and reflows after
+  // the tour opens, so poll as well as listening for scroll and resize.
   useEffect(() => {
     if (!open) return;
-    navigate(STEPS[step].route(firstGroupId));
-  }, [step, open, firstGroupId, navigate]);
-
-  // Apply / remove highlight on target elements; detect when targets are missing
-  useEffect(() => {
-    if (!open) return;
-    const selector = STEPS[step].highlight;
-    if (!selector) {
-      setHighlightMissing(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      const elements = document.querySelectorAll(selector);
-      setHighlightMissing(elements.length === 0);
-      elements.forEach((el) => el.classList.add('tour-highlight'));
-    }, 150);
-
-    return () => {
-      clearTimeout(timer);
-      const elements = document.querySelectorAll(selector);
-      elements.forEach((el) => el.classList.remove('tour-highlight'));
+    let scrolled = false;
+    const update = () => {
+      pausedRef.current = modalOpen();
+      setPaused(pausedRef.current);
+      const found = findTargets(current.targets);
+      const els = current.union ? found : found.slice(0, 1);
+      if (els.length > 0 && !scrolled) {
+        scrolled = true;
+        els[0].scrollIntoView({ block: 'nearest' });
+      }
+      const rects = els.map((el) => el.getBoundingClientRect());
+      let next: Box | null = null;
+      if (rects.length > 0) {
+        const left = Math.min(...rects.map((r) => r.left));
+        const top = Math.min(...rects.map((r) => r.top));
+        const right = Math.max(...rects.map((r) => r.right));
+        const bottom = Math.max(...rects.map((r) => r.bottom));
+        next = { left: left - SPOTLIGHT_PAD, top: top - SPOTLIGHT_PAD, width: right - left + 2 * SPOTLIGHT_PAD, height: bottom - top + 2 * SPOTLIGHT_PAD };
+      }
+      setTarget((prev) => (sameBox(prev, next) ? prev : next));
+      const card = cardRef.current;
+      if (card && card.offsetHeight > 0) {
+        const size = { width: card.offsetWidth, height: card.offsetHeight };
+        setCardSize((prev) => (prev.width === size.width && prev.height === size.height ? prev : size));
+      }
     };
-  }, [step, open]);
+    update();
+    const timer = setInterval(update, 200);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open, current]);
 
-  // Scroll analytics sections into view
+  // Focus the card when the tour opens, so keyboard users start in it.
   useEffect(() => {
-    if (!open) return;
-    const scrollTarget = STEPS[step].scrollTo;
-    if (!scrollTarget) return;
-
-    const timer = setTimeout(() => {
-      const el = document.querySelector(scrollTarget);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [step, open]);
-
-  // Clean up all highlights on close
-  useEffect(() => {
-    if (!open) {
-      document.querySelectorAll('.tour-highlight').forEach((el) =>
-        el.classList.remove('tour-highlight')
-      );
-    }
+    if (open) cardRef.current?.focus({ preventScroll: true });
   }, [open]);
 
-  const markCompleted = useCallback(() => {
+  const close = useCallback(() => {
     localStorage.setItem(TOUR_STORAGE_KEY, 'true');
+    setOpen(false);
   }, []);
 
-  const handleNext = () => {
-    if (step < STEPS.length - 1) {
-      setStep((s) => s + 1);
-    } else {
-      markCompleted();
-      setOpen(false);
-      navigate('/');
-    }
-  };
+  // The no-group card closes without completing the tour, so it opens by
+  // itself once the user has a group.
+  const later = useCallback(() => setOpen(false), []);
 
-  const handlePrev = () => {
-    if (step > 0) setStep((s) => s - 1);
-  };
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      // While a modal is open, Escape is the modal's.
+      if (e.key !== 'Escape' || pausedRef.current || modalOpen()) return;
+      if (noGroup) later();
+      else close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, close, later, noGroup]);
 
-  const handleSkip = useCallback(() => {
-    markCompleted();
-    setOpen(false);
-  }, [markCompleted]);
+  if (!open || paused) return null;
 
-  if (!open) return null;
-
-  const currentStep = STEPS[step];
-  const progressPercent = ((step + 1) / STEPS.length) * 100;
-  const isLastStep = step === STEPS.length - 1;
+  const bottomInset = isMobile ? PHONE_PLAYER_TOP + STACK_GAP : DESKTOP_PLAYER_HEIGHT + 2 * STACK_GAP;
+  const position = placeTourCard({
+    target,
+    card: cardSize,
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    bottomInset,
+  });
 
   return createPortal(
     <>
-      {/* Global highlight styles */}
-      <style>{`
-        .tour-highlight {
-          box-shadow: 0 0 0 3px #00FF88, 0 0 0 10px rgba(0,255,136,0.25) !important;
-          border-radius: 8px;
-          position: relative;
-          z-index: 51;
-          animation: tour-pulse 1.6s ease-in-out infinite;
-        }
-        @keyframes tour-pulse {
-          0%, 100% { box-shadow: 0 0 0 3px #00FF88, 0 0 0 10px rgba(0,255,136,0.25); }
-          50%       { box-shadow: 0 0 0 3px #00FF88, 0 0 0 18px rgba(0,255,136,0.08); }
-        }
-      `}</style>
+      {/* The spotlight: an iris outline whose shadow dims the rest of the page,
+          like a dialog's overlay. Clicks pass through to the page. */}
+      {target && (
+        <div
+          aria-hidden="true"
+          data-testid="tour-spotlight"
+          className="pointer-events-none fixed rounded-[14px] border-2 border-iris shadow-[0_0_0_9999px_color-mix(in_oklab,var(--ground)_70%,transparent)] transition-[left,top,width,height] duration-300 ease-out motion-reduce:transition-none"
+          style={{ left: target.left, top: target.top, width: target.width, height: target.height, zIndex: TOUR_Z_INDEX }}
+        />
+      )}
 
-      {/* Floating card — fixed at bottom center, no overlay.
-          Sits above the Spotify player (zIndex 9999): on desktop the player
-          is at bottom 24px, so 140px clears it; on phones the player sits
-          above the tab bar, so the card goes above the player's top edge.
-          zIndex 10000 wins the stacking contest if any overlap remains. */}
-      <div style={{ position: 'fixed', bottom: `calc(env(safe-area-inset-bottom) + ${isMobile ? PHONE_PLAYER_TOP + STACK_GAP : 140}px)`, left: '50%', transform: 'translateX(-50%) translateZ(0)', willChange: 'transform', zIndex: 10000, width: 'min(calc(100vw - 2rem), 384px)', pointerEvents: 'none' }}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            style={{ pointerEvents: 'auto' }}
-            className="rounded-xl border border-white/10 bg-background/95 backdrop-blur-md shadow-2xl overflow-hidden"
-          >
-            {/* Progress bar */}
-            <Progress
-              value={progressPercent}
-              className="rounded-none h-0.5 [&>div]:bg-primary [&>div]:transition-all [&>div]:duration-300"
-            />
-
-            <div className="p-4">
-              {/* Header row */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex-shrink-0">
-                    {currentStep.icon}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Step {step + 1} of {STEPS.length}
-                    </p>
-                    <p className="text-sm font-semibold leading-tight">{currentStep.title}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleSkip}
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                  aria-label="Skip tour"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Description */}
-              <p className="text-xs text-muted-foreground leading-relaxed mb-2">
-                {currentStep.description}
-              </p>
-
-              {/* Mock previews when real UI elements are not available */}
-              {highlightMissing && step === 2 && <MockShareInput />}
-              {highlightMissing && step === 3 && <MockSongCardListened />}
-              {highlightMissing && step === 4 && <MockSongCardLike />}
-
-              {/* Tip */}
-              <div className="bg-primary/5 border border-primary/15 rounded-md px-3 py-2 mb-3">
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-primary font-medium">Tip: </span>
-                  {currentStep.hint}
-                </p>
-              </div>
-
-              {/* Navigation */}
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrev}
-                  disabled={step === 0}
-                  className="h-8 px-3 text-xs min-w-[64px]"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5 mr-1" />
-                  Back
-                </Button>
-
-                {/* Step dots */}
-                <div className="flex gap-1">
-                  {STEPS.map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                        i === step ? 'bg-primary' : 'bg-white/20'
-                      }`}
-                    />
-                  ))}
-                </div>
-
-                <Button
-                  size="sm"
-                  onClick={handleNext}
-                  className="h-8 px-3 text-xs min-w-[64px] bg-primary text-black hover:bg-primary/90"
-                >
-                  {isLastStep ? (
-                    'Get Started'
-                  ) : (
-                    <>
-                      Next
-                      <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                    </>
-                  )}
+      <div
+        ref={cardRef}
+        role="dialog"
+        aria-labelledby={titleId}
+        aria-describedby={textId}
+        tabIndex={-1}
+        className="fixed w-[min(320px,calc(100vw-32px))] outline-none"
+        style={{ left: position.left, top: position.top, zIndex: TOUR_Z_INDEX }}
+      >
+        {/* Announces each step; the card below remounts per step to fade in. */}
+        <p aria-live="polite" className="sr-only">
+          {noGroup ? current.title : `Step ${step + 1} of ${steps.length}: ${current.title}`}
+        </p>
+        <motion.div
+          key={step}
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+          className="flex flex-col gap-2.5 rounded-2xl border border-hair bg-raised p-5 text-foreground shadow-xl"
+        >
+          <span className="font-mono text-xs text-iris">
+            {noGroup ? 'Tour' : `${step + 1} of ${steps.length}`}
+          </span>
+          <h2 id={titleId} className="font-display text-[22px] font-extrabold leading-tight tracking-[-0.02em]">
+            {current.title}
+          </h2>
+          <p id={textId} className="text-sm leading-normal text-soft">
+            {current.text}
+          </p>
+          {noGroup ? (
+            <div className="flex justify-end pt-1.5">
+              <Button onClick={later}>Got it</Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 pt-1.5">
+              <Button variant="ghost" className="-ml-3 text-soft" onClick={close}>
+                Skip tour
+              </Button>
+              <div className="flex gap-2">
+                {step > 0 && (
+                  <Button variant="outline" onClick={() => setStep((s) => s - 1)}>
+                    Back
+                  </Button>
+                )}
+                <Button onClick={isLastStep ? close : () => setStep((s) => s + 1)}>
+                  {isLastStep ? 'Done' : 'Next'}
                 </Button>
               </div>
             </div>
-          </motion.div>
-        </AnimatePresence>
+          )}
+        </motion.div>
       </div>
     </>,
     document.body

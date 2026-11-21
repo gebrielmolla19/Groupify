@@ -45,8 +45,8 @@ export default function AppSidebar({ rail }: AppSidebarProps) {
 
   const dialogs = (
     <>
-      <CreateGroupDialog open={dialog === "create"} onOpenChange={(open) => setDialog(open ? "create" : null)} onCreateGroup={handleCreate} />
-      <JoinGroupDialog open={dialog === "join"} onOpenChange={(open) => setDialog(open ? "join" : null)} onJoinGroup={handleJoin} isSubmitting={isJoining} />
+      <CreateGroupDialog open={dialog === "create"} onOpenChange={(open) => setDialog(open ? "create" : null)} onCreateGroup={handleCreate} onJoinInstead={() => setDialog("join")} />
+      <JoinGroupDialog open={dialog === "join"} onOpenChange={(open) => setDialog(open ? "join" : null)} onJoinGroup={handleJoin} isSubmitting={isJoining} onCreateInstead={() => setDialog("create")} />
     </>
   );
   const railActions = { onNewGroup: () => setDialog("create"), onJoinGroup: () => setDialog("join") };
