@@ -24,6 +24,7 @@ import DetailPane from "../../layout/DetailPane";
 import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import FeedFilters, { EMPTY_FILTER_TEXT } from "./FeedFilters";
+import FeedStatus from "./FeedStatus";
 import { countShares, filterShares, isFeedFilter, type FeedFilter } from "../../../lib/feedFilter";
 import { isUser } from "../../../lib/heardStack";
 import { logger } from "../../../utils/logger";
@@ -38,7 +39,7 @@ export default function GroupFeedScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { shares, olderIds, total, unheardStatus, isLoading, error, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
+  const { shares, olderIds, total, unheardStatus, isLoading, error, refetch, markListened, shareTrack, toggleLike, removeShare } = useGroupFeed(groupId || '');
   const { results: searchResults, isSearching, search, clear } = useSpotifySearch();
   const { playTrack, deviceId, isLoading: isPlayerLoading, setOnTrackComplete } = useSpotifyPlayer();
 
@@ -441,13 +442,9 @@ export default function GroupFeedScreen() {
                 </section>
               )}
 
-              {/* Error State */}
-              {error && (
-                <Card className="border-destructive mb-4 md:mb-6">
-                  <CardContent className="p-4 md:p-6">
-                    <p className="text-sm md:text-base text-destructive">{error}</p>
-                  </CardContent>
-                </Card>
+              {/* Load error above the songs; the whole feed when nothing loaded. */}
+              {(error || shares.length > 0) && (
+                <FeedStatus error={error} isLoading={isLoading} shareCount={shares.length} onRetry={() => void refetch()} />
               )}
 
               {/* Loading State */}
@@ -495,18 +492,14 @@ export default function GroupFeedScreen() {
               )}
 
               {/* Empty State */}
-              {!isLoading && shares.length === 0 && !error && (
-                <Card className="border-dashed border-2 border-border">
-                  <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 text-center px-4">
-                    <div className="bg-primary/10 border border-primary/30 p-3 md:p-4 rounded-full mb-3 md:mb-4" aria-hidden="true">
-                      <Music2 className="w-6 h-6 md:w-8 md:h-8 text-primary" />
-                    </div>
-                    <h3 className="text-base md:text-lg mb-2">No Tracks Shared Yet</h3>
-                    <p className="text-sm md:text-base text-muted-foreground mb-4 max-w-md">
-                      Be the first to share a track! Search for a song above and add it to the group.
-                    </p>
-                  </CardContent>
-                </Card>
+              {!error && shares.length === 0 && (
+                <FeedStatus
+                  error={null}
+                  isLoading={isLoading}
+                  shareCount={0}
+                  onRetry={() => void refetch()}
+                  onInvite={groupId ? () => setIsInviteDialogOpen(true) : undefined}
+                />
               )}
             </main>
           </div>

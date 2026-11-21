@@ -110,10 +110,11 @@ test.describe('phone', () => {
     // Measured now: the sheet leaves the accessibility tree under the confirm.
     const sheetBox = (await sheet.boundingBox())!;
     await sheet.getByRole('button', { name: 'Remove from group' }).click();
-    const confirm = page.getByRole('alertdialog', { name: 'Remove song from group?' });
+    const confirm = page.getByRole('alertdialog', { name: 'Remove this song?' });
     await expect(confirm).toBeVisible();
-    // Its scrim dims the sheet too.
-    const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.getAttribute('data-slot'), [sheetBox.x + 8, sheetBox.y + sheetBox.height - 8]);
+    // Its scrim dims the sheet too. The confirm is a bottom sheet itself on
+    // phones, so probe the song sheet's top edge, which it doesn't cover.
+    const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.getAttribute('data-slot'), [sheetBox.x + 8, sheetBox.y + 8]);
     expect(hit).toBe('alert-dialog-overlay');
     await confirm.getByRole('button', { name: 'Cancel' }).click();
     await expect(confirm).toHaveCount(0);

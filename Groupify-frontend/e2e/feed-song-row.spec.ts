@@ -39,7 +39,7 @@ test('other actions live in the three-dot menu', async ({ page }) => {
   await expect(menu.getByRole('menuitem', { name: 'Play' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Open in Spotify' })).toHaveAttribute('href', 'https://open.spotify.com/track/t1');
   await menu.getByRole('menuitem', { name: 'Remove from group' }).click();
-  await expect(page.getByRole('alertdialog', { name: 'Remove song from group?' })).toBeVisible();
+  await expect(page.getByRole('alertdialog', { name: 'Remove this song?' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   // Radix can leave the page unclickable after a dialog opened from a menu.

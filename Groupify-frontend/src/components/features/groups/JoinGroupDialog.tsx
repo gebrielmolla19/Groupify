@@ -18,6 +18,8 @@ interface JoinGroupDialogProps {
   onOpenChange: (open: boolean) => void;
   onJoinGroup: (inviteCode: string) => Promise<any>;
   isSubmitting?: boolean;
+  /** Shows "Start a new group instead", which should close this and open the create dialog. */
+  onCreateInstead?: () => void;
 }
 
 export default function JoinGroupDialog({
@@ -25,6 +27,7 @@ export default function JoinGroupDialog({
   onOpenChange,
   onJoinGroup,
   isSubmitting = false,
+  onCreateInstead,
 }: JoinGroupDialogProps) {
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -35,12 +38,12 @@ export default function JoinGroupDialog({
 
     // Validate input
     if (!inviteCode.trim()) {
-      setError('Invite code is required');
+      setError('Join code is required');
       return;
     }
 
     if (inviteCode.trim().length !== 16) {
-      setError('Invite code must be exactly 16 characters');
+      setError('Join code must be exactly 16 characters');
       return;
     }
 
@@ -80,64 +83,56 @@ export default function JoinGroupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Join a Group</DialogTitle>
-          <DialogDescription>
-            Enter the 16-character invite code to join a music sharing group.
-          </DialogDescription>
+          <DialogTitle>Join a group</DialogTitle>
+          <DialogDescription>Paste the 16-character code a friend sent you.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {/* Invite Code Input */}
-            <div className="space-y-2">
-              <Label htmlFor="invite-code">
-                Invite Code <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="invite-code"
-                placeholder="Enter 16-character code"
-                value={inviteCode}
-                onChange={(e) => handleInviteCodeChange(e.target.value)}
-                disabled={isSubmitting}
-                className={error ? 'border-destructive' : ''}
-                maxLength={16}
-                aria-invalid={!!error}
-                aria-describedby={error ? 'invite-code-error' : undefined}
-                autoFocus
-              />
-              {error && (
-                <p id="invite-code-error" className="text-sm text-destructive">
-                  {error}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {inviteCode.length}/16 characters
-              </p>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <Label htmlFor="invite-code" className="text-soft">Join code</Label>
+              <span className="font-mono text-xs text-quiet" aria-hidden="true">{inviteCode.length}/16</span>
             </div>
+            <Input
+              id="invite-code"
+              placeholder="XXXXXXXXXXXXXXXX"
+              value={inviteCode}
+              onChange={(e) => handleInviteCodeChange(e.target.value)}
+              disabled={isSubmitting}
+              className="font-mono tracking-[0.06em]"
+              maxLength={16}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              required
+              aria-invalid={!!error}
+              aria-describedby={error ? 'invite-code-error' : undefined}
+              autoFocus
+            />
+            {error && (
+              <p id="invite-code-error" className="text-sm text-danger">
+                {error}
+              </p>
+            )}
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto min-h-[44px]"
-            >
+          <DialogFooter className="items-stretch sm:items-center">
+            {onCreateInstead && (
+              <Button type="button" variant="link" className="px-0 sm:mr-auto" onClick={onCreateInstead} disabled={isSubmitting}>
+                Start a new group instead
+              </Button>
+            )}
+            <Button type="button" variant="ghost" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90 text-black w-full sm:w-auto min-h-[44px]"
-              disabled={isSubmitting || !inviteCode.trim() || inviteCode.trim().length !== 16}
-            >
+            <Button type="submit" disabled={isSubmitting || inviteCode.trim().length !== 16}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Joining...
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  Joining…
                 </>
               ) : (
-                'Join Group'
+                'Join group'
               )}
             </Button>
           </DialogFooter>
@@ -146,4 +141,3 @@ export default function JoinGroupDialog({
     </Dialog>
   );
 }
-
