@@ -52,7 +52,7 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
   const sharerName = <span className="min-w-[3ch] truncate">{isMine ? "You" : share.sharedBy.displayName}</span>;
 
   return (
-    <li className={cn("group/row relative flex items-center gap-2 @2xl:gap-3 rounded-xl py-2 pl-4 pr-0 @2xl:pl-5 @2xl:pr-2 hover:bg-selected/60 transition-colors", selected && "bg-selected hover:bg-selected")}>
+    <li data-tour="share-row" data-unheard={unheard || undefined} className={cn("group/row relative flex items-center gap-2 @2xl:gap-3 rounded-xl py-2 pl-4 pr-0 @2xl:pl-5 @2xl:pr-2 hover:bg-selected/60 transition-colors", selected && "bg-selected hover:bg-selected")}>
       {/* The dot sits in the row's left padding, keeping width for the title on phones. */}
       {unheard && <span aria-hidden="true" className="absolute left-1 @2xl:left-1.5 top-1/2 size-2 -translate-y-1/2 rounded-full bg-iris" data-testid="unheard-dot" />}
 
@@ -135,7 +135,6 @@ export default function ShareRow({ share, viewer, members, canRemove, isStarting
               onClick={onToggleLike}
               aria-pressed={liked}
               aria-label={`${liked ? "Unlike" : "Like"} ${share.trackName}, ${share.likeCount || 0} ${share.likeCount === 1 ? "like" : "likes"}`}
-              data-tour="like-btn"
             >
               <Heart className={cn("size-5", liked && "fill-current")} aria-hidden="true" />
               {share.likeCount > 0 && <span className="font-mono text-xs">{share.likeCount}</span>}

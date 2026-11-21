@@ -37,17 +37,17 @@ const olderShare = (i: number) => ({
   group: { _id: 'g1', name: 'Sample Group' }, createdAt: `2025-0${i}-01T00:00:00.000Z`, updatedAt: at,
 });
 
-export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'; pendingInvite?: boolean; secondGroup?: boolean; olderUnheard?: number; olderUnheardFails?: boolean }) {
+export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'; pendingInvite?: boolean; secondGroup?: boolean; olderUnheard?: number; olderUnheardFails?: boolean; tour?: boolean }) {
   const invites = opts.pendingInvite
     ? [{ _id: 'i1', group: 'g1', invitedBy: me, invitedUser: { _id: 'u3', displayName: 'Invited Person', profileImage: null }, status: 'pending', createdAt: '2026-01-01T00:00:00.000Z' }]
     : [];
   const token = 'x.' + Buffer.from(JSON.stringify({ id: 'u1', exp: 4102444800 })).toString('base64url') + '.y';
-  await page.addInitScript(([t, theme]) => {
+  await page.addInitScript(([t, theme, tour]) => {
     localStorage.setItem('groupify_token', t);
     localStorage.setItem('groupify-theme', theme);
-    // The first-run tour navigates to the dashboard; skip it.
-    localStorage.setItem('groupify_tour_completed', 'true');
-  }, [token, opts.theme]);
+    // The first-run tour covers the feed; skip it unless the spec is about it.
+    if (!tour) localStorage.setItem('groupify_tour_completed', 'true');
+  }, [token, opts.theme, opts.tour ?? false] as const);
   const shares = [1, 2, 3].map(share);
   const older = Array.from({ length: opts.olderUnheard ?? 0 }, (_, i) => olderShare(i + 1));
   await page.route('**/api/v1/**', (route) => {
