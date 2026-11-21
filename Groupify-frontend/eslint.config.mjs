@@ -58,13 +58,13 @@ export default tseslint.config(
         'error',
         {
           selector:
-            'Literal[value=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b|\\b(?:rgba?|hsla?)\\(/]',
+            'Literal[value=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b|(?<![a-zA-Z])(?:rgba?|hsla?)\\(/]',
           message:
             'Hard-coded colour. Use a theme token from globals.css (var(--x) or a token class) instead.',
         },
         {
           selector:
-            'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b|\\b(?:rgba?|hsla?)\\(/]',
+            'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b|(?<![a-zA-Z])(?:rgba?|hsla?)\\(/]',
           message:
             'Hard-coded colour. Use a theme token from globals.css (var(--x) or a token class) instead.',
         },

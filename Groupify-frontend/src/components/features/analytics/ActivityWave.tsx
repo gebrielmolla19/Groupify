@@ -228,7 +228,7 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 activeDot={{
                                     r: 5,
                                     fill: 'var(--text)',
-                                    stroke: 'var(--pane)',
+                                    stroke: 'var(--card)',
                                     strokeWidth: 2
                                 }}
                                 animationDuration={1200}

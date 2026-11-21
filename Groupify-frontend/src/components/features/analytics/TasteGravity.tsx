@@ -517,8 +517,8 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
       .attr('fill', 'var(--text)')
       .attr('font-size', '12px')
       .attr('font-weight', '500')
-      // A halo in the card colour keeps the name readable over links, in both themes
-      .attr('style', 'paint-order: stroke; stroke: var(--pane); stroke-width: 3px; stroke-linejoin: round;')
+      // A halo in the card's colour keeps the name readable over links, in both themes
+      .attr('style', 'paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round;')
       .attr('opacity', (d) => {
         if (focusedNodeId) {
           const isFocused = d.id === focusedNodeId;
