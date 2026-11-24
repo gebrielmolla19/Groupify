@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Share = require('../models/Share');
-const Group = require('../models/Group');
 
 /**
  * The "You" section of Group Dynamics (#56): numbers about one member, the
@@ -107,12 +106,14 @@ function memberStats(sortedShares, members, window, timeZone, firstByArtist) {
   for (const share of sortedShares) {
     if (!inWindow(share.createdAt, window)) continue;
     const sharer = id(share.sharedBy);
+    const mine = stats.get(sharer);
+    // A former member's shares stay in the group but count for no one, so
+    // Front Row's listens and the shares they're out of are the same set.
+    if (!mine) continue;
     const listeners = new Set(share.listeners.map((l) => id(l.user)));
     for (const [member, s] of stats) {
       if (member !== sharer && listeners.has(member)) s.listensGiven += 1;
     }
-    const mine = stats.get(sharer);
-    if (!mine) continue;
     othersShares += 1;
     mine.shares += 1;
     mine.shareDates.push(share.createdAt);
@@ -146,13 +147,13 @@ const ROLE_RULES = [
     id: 'tastemaker',
     eligible: (s) => s.shares >= MIN_SHARES_FOR_RATE_ROLES,
     value: (s) => s.likesReceived / s.shares,
-    reason: (s) => `No one's shares get liked more often than yours: ${plural(s.likesReceived, 'like')} across ${plural(s.shares, 'song')}.`
+    reason: (s) => `No one's shares get liked more often than yours: ${plural(s.likesReceived, 'like')} across ${plural(s.shares, 'share')}.`
   },
   {
     id: 'crowd_pleaser',
     eligible: (s) => s.shares >= MIN_SHARES_FOR_RATE_ROLES,
     value: (s) => s.hits / s.shares,
-    reason: (s) => `No one gets more of their shares played by the whole group: ${s.hits} of your ${s.shares}.`
+    reason: (s) => `No one gets more of their shares listened to by the whole group: ${s.hits} of your ${s.shares}.`
   },
   {
     id: 'patient_zero',
@@ -170,7 +171,7 @@ const ROLE_RULES = [
     id: 'front_row',
     eligible: (s) => s.listensGiven >= MIN_LISTENS_FOR_FRONT_ROW,
     value: (s) => s.listensGiven,
-    reason: (s) => `No one played more of the group's songs: you heard ${s.listensGiven} of the ${s.othersSharesCount} others shared.`
+    reason: (s) => `No one listened to more of the group's shares: you heard ${s.listensGiven} of the ${s.othersSharesCount} others made.`
   }
 ];
 
@@ -185,14 +186,14 @@ function roleFor(stats, viewerId) {
     return {
       id: 'sharer',
       title: ROLE_TITLES.sharer,
-      reason: `You shared ${plural(mine.shares, 'song')}. A role needs a few more shares or listens to settle.`
+      reason: `You made ${plural(mine.shares, 'share')}. A role needs a few more shares or listens to settle.`
     };
   }
   if (mine.listensGiven > 0) {
     return {
       id: 'listener',
       title: ROLE_TITLES.listener,
-      reason: `You played ${plural(mine.listensGiven, 'song')} others shared, and haven't shared one in this period yet.`
+      reason: `You listened to ${plural(mine.listensGiven, 'share')} from others, and haven't shared one in this period yet.`
     };
   }
   return { id: 'quiet', title: ROLE_TITLES.quiet, reason: 'No shares or listens from you in this period yet.' };
@@ -308,20 +309,14 @@ function isValidTimeZone(timeZone) {
 
 /**
  * Load the group's shares and summarize them for the viewer.
- * The caller has already checked that the viewer is a member.
+ * The caller has already checked that the viewer is a member and passes the
+ * group's member ids (isGroupMember loaded the group).
  */
-async function getViewerSummary(groupId, viewerId, range, timeZone, now = new Date()) {
-  const gid = new mongoose.Types.ObjectId(groupId);
-  const group = await Group.findById(gid).select('members').lean();
-  if (!group) {
-    const error = new Error('Group not found');
-    error.statusCode = 404;
-    throw error;
-  }
-  const shares = await Share.find({ group: gid })
+async function getViewerSummary(groupId, memberIds, viewerId, range, timeZone, now = new Date()) {
+  const shares = await Share.find({ group: new mongoose.Types.ObjectId(groupId) })
     .select('sharedBy trackName artistName createdAt listeners.user listeners.timeToListen likes.user')
     .lean();
-  return summarizeViewer({ shares, memberIds: group.members, viewerId, range, now, timeZone });
+  return summarizeViewer({ shares, memberIds, viewerId, range, now, timeZone });
 }
 
 module.exports = {

@@ -104,12 +104,12 @@ function YouCards({ data, range }: { data: ViewerSummary; range: ViewerSummaryRa
         <p className={cardLabel}>Your reflex</p>
         <dl className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs text-soft">You play others' shares in</dt>
+            <dt className="text-xs text-soft">You listen to others' shares in</dt>
             <dd className="font-mono text-lg text-iris">{youPlayMs === null ? "–" : formatWait(youPlayMs)}</dd>
             {groupPlayMs !== null && <dd className="text-xs text-quiet">Group typical: {formatWait(groupPlayMs)}</dd>}
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs text-soft">Your shares get played in</dt>
+            <dt className="text-xs text-soft">Your shares get listened to in</dt>
             <dd className="font-mono text-lg text-iris">{yoursPlayedMs === null ? "–" : formatWait(yoursPlayedMs)}</dd>
             {groupYoursPlayedMs !== null && (
               <dd className="text-xs text-quiet">Group typical: {formatWait(groupYoursPlayedMs)}</dd>

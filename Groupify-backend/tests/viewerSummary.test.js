@@ -47,7 +47,7 @@ describe('summarizeViewer', () => {
   beforeEach(() => { seq = 0; });
 
   describe('hit rate', () => {
-    it('counts the viewer\'s shares that every other member played', () => {
+    it('counts the viewer\'s shares that every other member listened to', () => {
       const result = summarize([
         share(ME, 1, { listens: { [ANA]: HOUR, [BO]: HOUR } }),
         share(ME, 2, { listens: { [ANA]: HOUR } }),
@@ -179,10 +179,10 @@ describe('summarizeViewer', () => {
 
       expect(result.role.id).toBe('tastemaker');
       expect(result.role.title).toBe('Tastemaker');
-      expect(result.role.reason).toBe('No one\'s shares get liked more often than yours: 4 likes across 3 songs.');
+      expect(result.role.reason).toBe('No one\'s shares get liked more often than yours: 4 likes across 3 shares.');
     });
 
-    it('is Crowd Pleaser when no one gets more shares played by the whole group', () => {
+    it('is Crowd Pleaser when no one gets more shares listened to by the whole group', () => {
       const all = { [ANA]: HOUR, [BO]: HOUR };
       const result = summarize([
         share(ME, 1, { listens: all }),
@@ -194,7 +194,7 @@ describe('summarizeViewer', () => {
       ]);
 
       expect(result.role.id).toBe('crowd_pleaser');
-      expect(result.role.reason).toBe('No one gets more of their shares played by the whole group: 2 of your 3.');
+      expect(result.role.reason).toBe('No one gets more of their shares listened to by the whole group: 2 of your 3.');
     });
 
     it('is Patient Zero when the viewer brought the most new artists (at least 2)', () => {
@@ -218,7 +218,7 @@ describe('summarizeViewer', () => {
       expect(result.role.reason).toBe('You shared 3 days in a row, and no one in the group did more.');
     });
 
-    it('is Front Row when no one played more of the group\'s songs (at least 3)', () => {
+    it('is Front Row when no one listened to more of the group\'s shares (at least 3)', () => {
       const result = summarize([
         share(ANA, 1, { listens: { [ME]: HOUR } }),
         share(ANA, 2, { listens: { [ME]: HOUR, [BO]: HOUR } }),
@@ -227,7 +227,22 @@ describe('summarizeViewer', () => {
       ]);
 
       expect(result.role.id).toBe('front_row');
-      expect(result.role.reason).toBe('No one played more of the group\'s songs: you heard 3 of the 4 others shared.');
+      expect(result.role.reason).toBe('No one listened to more of the group\'s shares: you heard 3 of the 4 others made.');
+    });
+
+    it('counts listens only on shares by current members, so Front Row never hears more than was shared', () => {
+      const GONE = 'former-member';
+      const result = summarize([
+        share(ANA, 1, { listens: { [ME]: HOUR } }),
+        share(ANA, 2, { listens: { [ME]: HOUR } }),
+        share(ANA, 3, { listens: { [ME]: HOUR } }),
+        share(GONE, 1, { listens: { [ME]: HOUR } }),
+        share(GONE, 2, { listens: { [ME]: HOUR } }),
+        share(GONE, 3, { listens: { [ME]: HOUR } })
+      ]);
+
+      expect(result.role.id).toBe('front_row');
+      expect(result.role.reason).toBe('No one listened to more of the group\'s shares: you heard 3 of the 3 others made.');
     });
 
     it('falls back to a plain sharer role with too little data', () => {
@@ -235,7 +250,7 @@ describe('summarizeViewer', () => {
       expect(result.role).toEqual({
         id: 'sharer',
         title: 'Sharer',
-        reason: 'You shared 1 song. A role needs a few more shares or listens to settle.'
+        reason: 'You made 1 share. A role needs a few more shares or listens to settle.'
       });
     });
 

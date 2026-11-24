@@ -30,7 +30,7 @@ const share = (i: number) => {
 
 // The "You" section of Group Dynamics for the sample user.
 const youSummary = {
-  range: '30d', role: { id: 'crowd_pleaser', title: 'Crowd Pleaser', reason: '2 of your 3 shares were played by everyone, the most in the group.' },
+  range: '30d', role: { id: 'crowd_pleaser', title: 'Crowd Pleaser', reason: '2 of your 3 shares were listened to by everyone, the most in the group.' },
   previousRole: { id: 'sharer', title: 'Sharer' }, hitRate: { hits: 2, total: 3 }, streak: { longest: 2, record: 4 },
   bestShare: { shareId: 'sh3', trackName: 'Sample Track 3', artistName: 'Sample Artist', listens: 2, likes: 1, others: 2 },
   discovery: { artists: 1, resharedByOthers: 0 },

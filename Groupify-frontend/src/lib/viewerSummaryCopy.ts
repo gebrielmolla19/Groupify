@@ -37,7 +37,7 @@ export const hitRatePercent = (hitRate: ViewerSummary['hitRate']): number | null
 export const hitRateLine = (hitRate: ViewerSummary['hitRate']): string => {
   if (!hitRate) return 'Shows once someone else is in the group.';
   if (hitRate.total === 0) return 'None of your shares in this period yet.';
-  return `${hitRate.hits} of your ${plural(hitRate.total, 'share')} ${hitRate.total === 1 ? 'was' : 'were'} played by everyone.`;
+  return `${hitRate.hits} of your ${plural(hitRate.total, 'share')} ${hitRate.total === 1 ? 'was' : 'were'} listened to by everyone.`;
 };
 
 export const streakLine = (streak: ViewerSummary['streak'], range: ViewerSummaryRange): string => {
@@ -79,8 +79,8 @@ export const reflexLine = (reflex: ViewerSummary['reflex']): string | null => {
   if (reflex.youPlayMs !== null && reflex.groupPlayMs !== null) {
     const p = pace(reflex.youPlayMs, reflex.groupPlayMs);
     parts.push(p === 'about the same'
-      ? 'You play others\' shares about as fast as the group usually does'
-      : `You play others' shares ${p} than the group usually does`);
+      ? 'You listen to others\' shares about as fast as the group usually does'
+      : `You listen to others' shares ${p} than the group usually does`);
   }
   if (reflex.yoursPlayedMs !== null && reflex.groupYoursPlayedMs !== null) {
     const p = pace(reflex.yoursPlayedMs, reflex.groupYoursPlayedMs);

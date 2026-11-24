@@ -32,7 +32,7 @@ describe('YouSection', () => {
     expect(screen.getByText('Patient Zero')).toBeInTheDocument();
     expect(screen.getByText('Previous 30 days: Sharer')).toBeInTheDocument();
     expect(screen.getByText('78%')).toBeInTheDocument();
-    expect(screen.getByText('7 of your 9 shares were played by everyone.')).toBeInTheDocument();
+    expect(screen.getByText('7 of your 9 shares were listened to by everyone.')).toBeInTheDocument();
     expect(screen.getByText('5 days')).toBeInTheDocument();
     expect(screen.getByText('Sample Artist · all 4 listened, 3 of 4 liked')).toBeInTheDocument();
     expect(screen.getByText('6 min')).toBeInTheDocument();

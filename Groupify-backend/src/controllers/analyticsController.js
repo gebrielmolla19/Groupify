@@ -328,7 +328,7 @@ class AnalyticsController {
         });
       }
 
-      const data = await getViewerSummary(id, req.userId, range, tz);
+      const data = await getViewerSummary(id, req.group.members, req.userId, range, tz);
 
       logger.debug('[Analytics] Viewer summary computed', {
         userId: req.userId,

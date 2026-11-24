@@ -33,8 +33,8 @@ describe('viewerSummaryCopy', () => {
     expect(hitRatePercent({ hits: 7, total: 9 })).toBe(78);
     expect(hitRatePercent({ hits: 0, total: 0 })).toBeNull();
     expect(hitRatePercent(null)).toBeNull();
-    expect(hitRateLine({ hits: 7, total: 9 })).toBe('7 of your 9 shares were played by everyone.');
-    expect(hitRateLine({ hits: 1, total: 1 })).toBe('1 of your 1 share was played by everyone.');
+    expect(hitRateLine({ hits: 7, total: 9 })).toBe('7 of your 9 shares were listened to by everyone.');
+    expect(hitRateLine({ hits: 1, total: 1 })).toBe('1 of your 1 share was listened to by everyone.');
     expect(hitRateLine({ hits: 0, total: 0 })).toBe('None of your shares in this period yet.');
     expect(hitRateLine(null)).toBe('Shows once someone else is in the group.');
   });
@@ -59,9 +59,9 @@ describe('viewerSummaryCopy', () => {
 
   it('compares the viewer\'s speeds with the group only from the numbers it has', () => {
     expect(reflexLine({ youPlayMs: 6 * MIN, groupPlayMs: 3 * HR, yoursPlayedMs: 42 * MIN, groupYoursPlayedMs: 5 * HR }))
-      .toBe('You play others\' shares faster than the group usually does, and the group gets to your picks sooner than usual.');
+      .toBe('You listen to others\' shares faster than the group usually does, and the group gets to your picks sooner than usual.');
     expect(reflexLine({ youPlayMs: 3 * HR, groupPlayMs: 3 * HR, yoursPlayedMs: null, groupYoursPlayedMs: null }))
-      .toBe('You play others\' shares about as fast as the group usually does.');
+      .toBe('You listen to others\' shares about as fast as the group usually does.');
     expect(reflexLine({ youPlayMs: null, groupPlayMs: null, yoursPlayedMs: 9 * HR, groupYoursPlayedMs: 2 * HR }))
       .toBe('The group gets to your picks later than usual.');
     expect(reflexLine({ youPlayMs: null, groupPlayMs: null, yoursPlayedMs: null, groupYoursPlayedMs: null })).toBeNull();
