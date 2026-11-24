@@ -137,6 +137,73 @@ describe('Analytics Routes', () => {
     });
   });
 
+  describe('GET /api/v1/analytics/:id/you', () => {
+    it('returns the signed-in member\'s numbers, not another member\'s', async () => {
+      const { user: me, token } = await createUserAndToken({ displayName: 'Me' });
+      const { user: friend } = await createUserAndToken({ displayName: 'Friend' });
+      const group = await createGroup(me._id, { members: [me._id, friend._id] });
+      const sharedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+      await Share.create({
+        group: group._id,
+        sharedBy: me._id,
+        spotifyTrackId: 'track-mine',
+        trackName: 'Mine',
+        artistName: 'Sample Artist',
+        createdAt: sharedAt,
+        listeners: [{ user: friend._id, listenedAt: new Date(sharedAt.getTime() + 60000), timeToListen: 60000 }],
+        likes: [{ user: friend._id }]
+      });
+      await Share.create({
+        group: group._id,
+        sharedBy: friend._id,
+        spotifyTrackId: 'track-theirs',
+        trackName: 'Theirs',
+        artistName: 'Other Artist',
+        createdAt: sharedAt
+      });
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/you`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '30d', tz: 'America/New_York' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.hitRate).toEqual({ hits: 1, total: 1 });
+      expect(res.body.data.bestShare).toMatchObject({ trackName: 'Mine', listens: 1, likes: 1, others: 1 });
+      expect(res.body.data.reflex.yoursPlayedMs).toBe(60000);
+    });
+
+    it('returns 403 when not a group member', async () => {
+      const { user: owner } = await createUserAndToken();
+      const group = await createGroup(owner._id);
+      const { token: otherToken } = await createUserAndToken();
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/you`)
+        .set('Authorization', `Bearer ${otherToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 400 for an unknown range or time zone', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id);
+
+      const badRange = await request(app)
+        .get(`/api/v1/analytics/${group._id}/you`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '24h' });
+      const badZone = await request(app)
+        .get(`/api/v1/analytics/${group._id}/you`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ tz: 'Not/AZone' });
+
+      expect(badRange.statusCode).toBe(400);
+      expect(badZone.statusCode).toBe(400);
+    });
+  });
+
   describe('GET /api/v1/analytics/listener-reflex/radar', () => {
     it('should return listener reflex radar when group member', async () => {
       const { user, token } = await createUserAndToken();
