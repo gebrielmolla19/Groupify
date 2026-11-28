@@ -321,6 +321,9 @@ async function getViewerSummary(groupId, memberIds, viewerId, range, timeZone, n
 
 module.exports = {
   VIEWER_SUMMARY_RANGES,
+  RANGE_DAYS,
+  windowFor,
+  inWindow,
   summarizeViewer,
   getViewerSummary,
   isValidTimeZone
