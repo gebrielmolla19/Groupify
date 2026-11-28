@@ -147,6 +147,12 @@ describe('summarizeGoldenHour', () => {
       expect(result.streak).toEqual({ current: 0, longest: 2, record: 4 });
     });
 
+    it('counts a run that reaches into the range at its full length', () => {
+      // One share a day for 45 days, up to today: the run started before the 30d window.
+      const shares = Array.from({ length: 45 }, (_, i) => share(ME, at(i)));
+      expect(summarize(shares).streak).toEqual({ current: 45, longest: 45, record: 45 });
+    });
+
     it('counts days in the viewer\'s time zone', () => {
       // Both fall on Nov 19 in UTC. In Los Angeles the first is still Nov 18.
       const shares = [share(ME, '2026-11-19T01:00:00Z'), share(ANA, '2026-11-19T23:00:00Z')];

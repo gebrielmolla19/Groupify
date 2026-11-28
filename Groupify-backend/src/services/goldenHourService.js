@@ -58,16 +58,21 @@ function localClock(timeZone) {
   };
 }
 
-/** Longest run of consecutive day numbers in a sorted, de-duplicated list. */
-function longestRun(days) {
-  let longest = 0;
-  let run = 0;
-  for (let i = 0; i < days.length; i++) {
-    run = i > 0 && days[i] - days[i - 1] === 1 ? run + 1 : 1;
-    longest = Math.max(longest, run);
+/**
+ * Runs of consecutive day numbers, as { start, end }, from a sorted,
+ * de-duplicated list.
+ */
+function dayRuns(days) {
+  const runs = [];
+  for (const day of days) {
+    const last = runs[runs.length - 1];
+    if (last && day - last.end === 1) last.end = day;
+    else runs.push({ start: day, end: day });
   }
-  return longest;
+  return runs;
 }
+
+const runLength = ({ start, end }) => end - start + 1;
 
 /**
  * The run of active days ending today, or yesterday when nothing has
@@ -121,18 +126,21 @@ function summarizeGoldenHour({ shares, memberIds, range, now, timeZone }) {
   const grids = { share: emptyGrid(), listen: emptyGrid() };
   const totals = { shares: 0, listens: 0 };
   const allDays = new Set();
-  const rangeDays = new Set();
 
   for (const event of activityEvents(shares, members)) {
     const { row, column, day } = clock(event.at);
     allDays.add(day);
     if (!inRange(event.at)) continue;
-    rangeDays.add(day);
     grids[event.kind][row][column] += 1;
     totals[event.kind === 'share' ? 'shares' : 'listens'] += 1;
   }
 
-  const sorted = (set) => [...set].sort((a, b) => a - b);
+  // A run counts for the period when any of its days falls in it, at its
+  // full length, so "longest in this period" is never shorter than the
+  // streak running now.
+  const runs = dayRuns([...allDays].sort((a, b) => a - b));
+  const firstRangeDay = start === null ? -Infinity : clock(new Date(start)).day;
+  const longestOf = (list) => Math.max(0, ...list.map(runLength));
   return {
     range,
     buckets: TIME_OF_DAY_BUCKETS,
@@ -141,8 +149,8 @@ function summarizeGoldenHour({ shares, memberIds, range, now, timeZone }) {
     totals,
     streak: {
       current: currentRun(allDays, clock(now).day),
-      longest: longestRun(sorted(rangeDays)),
-      record: longestRun(sorted(allDays))
+      longest: longestOf(runs.filter((run) => run.end >= firstRangeDay)),
+      record: longestOf(runs)
     }
   };
 }
