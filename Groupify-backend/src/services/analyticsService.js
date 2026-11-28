@@ -1237,7 +1237,7 @@ class AnalyticsService {
                 }
               }
             ],
-            total: [{ $count: 'count' }]
+            bySharer: [{ $group: { _id: '$sharedBy', count: { $sum: 1 } } }]
           }
         }
       ];
@@ -1275,7 +1275,7 @@ class AnalyticsService {
                 }
               }
             ],
-            total: [{ $count: 'count' }]
+            bySharer: [{ $group: { _id: '$sharedBy', count: { $sum: 1 } } }]
           }
         }
       ];
@@ -1283,7 +1283,15 @@ class AnalyticsService {
 
     const [facetResult] = await Share.aggregate(pipeline);
     const aggregationResults = facetResult?.stats ?? [];
-    const totalSharesInRange = facetResult?.total[0]?.count ?? 0;
+    const sharesBy = new Map(
+      (facetResult?.bySharer ?? []).map((row) => [row._id.toString(), row.count])
+    );
+    const totalSharesInRange = [...sharesBy.values()].reduce((sum, n) => sum + n, 0);
+    // Listening: a member can only listen to others' shares (their own don't
+    // count), so their ratio is out of the shares someone else made.
+    const listenableBy = (userId) => (mode === 'received'
+      ? totalSharesInRange - (sharesBy.get(userId) ?? 0)
+      : totalSharesInRange);
 
     // Helper function to calculate percentile
     const calculatePercentile = (values, percentile) => {
@@ -1398,7 +1406,7 @@ class AnalyticsService {
         p25Ms: stats.p25Ms,
         p75Ms: stats.p75Ms,
         category: stats.category,
-        listenRatio: totalSharesInRange > 0 ? stats.listens / totalSharesInRange : 0,
+        listenRatio: listenableBy(userId) > 0 ? stats.listens / listenableBy(userId) : 0,
         timing: stats.timing
       });
 

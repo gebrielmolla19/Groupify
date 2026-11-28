@@ -161,7 +161,7 @@ describe('Analytics Routes', () => {
       expect(res.statusCode).toBe(403);
     });
 
-    it('breaks each member\'s listens into timing buckets, leaving out their own shares', async () => {
+    it('breaks each member\'s listens into timing buckets and a ratio, leaving out their own shares', async () => {
       const MIN = 60 * 1000;
       const DAY = 24 * 60 * MIN;
       const { user: me, token } = await createUserAndToken({ displayName: 'Me' });
@@ -196,9 +196,14 @@ describe('Analytics Routes', () => {
       const byId = (res, user) => res.body.data.users.find((u) => u.userId === user._id.toString());
       expect(byId(received, me)).toMatchObject({
         listens: 2,
+        // Both of the shares Me could listen to: Me's own share isn't one.
+        listenRatio: 1,
         timing: { sameHour: 1, sameDay: 0, withinWeek: 1, later: 0 }
       });
-      expect(byId(received, friend).timing).toEqual({ sameHour: 0, sameDay: 0, withinWeek: 0, later: 1 });
+      expect(byId(received, friend)).toMatchObject({
+        listenRatio: 1,
+        timing: { sameHour: 0, sameDay: 0, withinWeek: 0, later: 1 }
+      });
       expect(byId(shared, me)).toMatchObject({
         listens: 1,
         timing: { sameHour: 0, sameDay: 0, withinWeek: 0, later: 1 }
