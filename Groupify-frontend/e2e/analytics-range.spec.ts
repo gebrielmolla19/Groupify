@@ -36,9 +36,12 @@ for (const size of [{ width: 375, height: 812 }, { width: 1280, height: 800 }]) 
     // The screen loads lazily on first visit.
     await expect(page.getByRole('heading', { name: 'Group Dynamics' })).toBeVisible({ timeout: 20000 });
 
-    const control = page.getByRole('radiogroup');
+    // One period control. Listener Reflex's Listening / Sharing toggle is a
+    // radiogroup too (#149), so find the period control by name and check
+    // no other control offers a period.
+    const control = page.getByRole('radiogroup', { name: 'Period for Group Dynamics' });
     await expect(control).toHaveCount(1);
-    await expect(control).toHaveAccessibleName('Period for Group Dynamics');
+    await expect(page.getByRole('radio', { name: '7d' })).toHaveCount(1);
     await expect(page.getByRole('banner').getByRole('radiogroup')).toBeVisible();
     // 24h is gone; the default is 30d.
     await expect(control.getByRole('radio')).toHaveText(['7d', '30d', 'All']);

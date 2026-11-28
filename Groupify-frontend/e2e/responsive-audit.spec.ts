@@ -104,6 +104,14 @@ const screens: Record<string, Open> = {
     await expect(page.getByRole('main')).toBeVisible();
     await page.waitForLoadState('networkidle');
   },
+  'analytics, listener reflex sharing': async (page, theme) => {
+    await openSampleFeed(page, { theme });
+    await page.goto('/groups/g1/analytics');
+    await page.getByRole('radio', { name: 'Sharing' }).click();
+    await page.getByRole('button', { name: /^Test Friend/ }).click();
+    await expect(page.getByRole('heading', { name: "When others listen to Test Friend's shares" })).toBeVisible();
+    await page.getByRole('heading', { name: "When others listen to Test Friend's shares" }).scrollIntoViewIfNeeded();
+  },
   'profile': async (page, theme) => {
     await openSampleSettings(page, { theme, path: '/profile' });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sample User');

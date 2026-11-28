@@ -9,13 +9,11 @@ import TasteGravity from "./TasteGravity";
 import YouSection from "./YouSection";
 import AnalyticsRangeControl from "./AnalyticsRangeControl";
 import BetweenYouSection from "./BetweenYouSection";
-import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
+import { Sparkles, Activity, ArrowLeft, Zap } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
-import { useMemo, useState } from "react";
-import { cn } from "../../../lib/utils";
+import { useMemo } from "react";
 import { useAnalyticsRange } from "../../../hooks/useAnalyticsRange";
-import type { ListenerReflexMode } from "../../../hooks/useListenerReflex";
 
 export default function AnalyticsScreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -28,10 +26,6 @@ export default function AnalyticsScreen() {
   // One period for the whole page. Every section takes it as a `range` prop.
   const [range, setRange] = useAnalyticsRange();
   const { activity: activityData, superlatives, isLoading, isActivityLoading, error, activityMode, changeActivityMode } = useGroupAnalytics(groupId || '', range);
-
-  // Listener Reflex state
-  const [reflexMode, setReflexMode] = useState<ListenerReflexMode>('received');
-  const [reflexCompare, setReflexCompare] = useState(false);
 
   // Show helpful message if no group is selected
   if (!groupId) {
@@ -187,63 +181,13 @@ export default function AnalyticsScreen() {
               </div>
               <div>
                 <h2 className="text-base md:text-xl font-bold">Listener Reflex</h2>
-                <span className="text-xs text-muted-foreground hidden sm:inline">How fast members react to shared songs</span>
-              </div>
-            </div>
-
-            {/* Controls: Mode + Compare */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              {/* Mode Toggle + Compare */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">View:</span>
-                <div className="flex gap-1 border border-hair rounded-md p-0.5">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setReflexMode('received')}
-                    className={
-                      reflexMode === 'received'
-                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                    }
-                  >
-                    Received
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setReflexMode('shared')}
-                    className={
-                      reflexMode === 'shared'
-                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                        : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                    }
-                  >
-                    Shared
-                  </Button>
-                </div>
-                <Button
-                  size="sm"
-                  variant={reflexCompare ? 'default' : 'outline'}
-                  onClick={() => setReflexCompare(!reflexCompare)}
-                  className={cn(
-                    'h-8 sm:h-7 px-3 text-xs flex items-center gap-1.5 min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0',
-                    reflexCompare
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                      : 'border-primary/30 hover:bg-primary/10'
-                  )}
-                >
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  Compare
-                </Button>
+                <span className="text-xs text-muted-foreground hidden sm:inline">How soon members listen after a share</span>
               </div>
             </div>
           </div>
           <ListenerReflexCard
             groupId={groupId || ''}
             range={range}
-            mode={reflexMode}
-            isCompareMode={reflexCompare}
           />
         </div>
 
