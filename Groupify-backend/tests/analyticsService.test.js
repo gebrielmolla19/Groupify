@@ -185,6 +185,90 @@ describe('AnalyticsService', () => {
         expect(hallOfFame.diehard.user._id.toString()).toBe(user1._id.toString());
     });
 
+    describe('getSuperlatives with a timeRange', () => {
+        const DAY = 24 * 60 * 60 * 1000;
+        let rangeGroup;
+
+        // Within the last 7 days Bob leads every title; across all time Alice
+        // does, through activity 40 days ago.
+        beforeEach(async () => {
+            rangeGroup = await Group.create({
+                name: 'Range Group', createdBy: user1._id,
+                members: [user1._id, user2._id, user3._id], inviteCode: 'RANGECODE'
+            });
+            const now = new Date();
+            const old = new Date(now.getTime() - 40 * DAY);
+            const recent = new Date(now.getTime() - 2 * DAY);
+            const likes = (user, n, at) => Array.from({ length: n }, () => ({ user: user._id, likedAt: at }));
+            const listens = (users, at) => users.map((u) => ({ user: u._id, listenedAt: at, timeToListen: 1000 }));
+
+            // Alice: 3 old shares, each liked 3 times by Charlie long ago;
+            // Alice liked and listened a lot long ago too.
+            for (const n of [1, 2, 3]) {
+                await Share.create({
+                    group: rangeGroup._id, sharedBy: user1._id,
+                    spotifyTrackId: `old${n}`, trackName: `Old ${n}`, artistName: 'Old Artist',
+                    createdAt: old, likes: likes(user3, 3, old)
+                });
+            }
+            // Bob: 1 recent share, liked twice recently by Charlie and listened
+            // to recently by Bob and Charlie; Alice liked and played it long ago
+            // (impossible in real life, but it isolates the likedAt / listenedAt filters).
+            await Share.create({
+                group: rangeGroup._id, sharedBy: user2._id,
+                spotifyTrackId: 'new1', trackName: 'New 1', artistName: 'New Artist',
+                createdAt: recent,
+                likes: [...likes(user3, 2, recent), ...likes(user1, 6, old)],
+                listeners: [...listens([user2, user3], recent), ...listens([user1], old)]
+            });
+            // Bob also liked two recent things and listened to one more.
+            await Share.create({
+                group: rangeGroup._id, sharedBy: user3._id,
+                spotifyTrackId: 'new2', trackName: 'New 2', artistName: 'New Artist',
+                createdAt: old,
+                likes: likes(user2, 4, recent),
+                listeners: [...listens([user2], recent), ...listens([user1], old), ...listens([user1], old)]
+            });
+        });
+
+        it('counts only activity inside the period', async () => {
+            const fame = await AnalyticsService.getSuperlatives(rangeGroup._id, '7d');
+
+            // Shares created in the last 7 days: only Bob's.
+            expect(fame.dj.user._id.toString()).toBe(user2._id.toString());
+            expect(fame.dj.value).toBe(1);
+            // Likes given in the period: Bob 4, Charlie 2 (Alice's 6 are old).
+            expect(fame.hypeMan.user._id.toString()).toBe(user2._id.toString());
+            expect(fame.hypeMan.value).toBe(4);
+            // Likes received in the period: Charlie 4 (from Bob), Bob 2.
+            expect(fame.trendsetter.user._id.toString()).toBe(user3._id.toString());
+            expect(fame.trendsetter.value).toBe(4);
+            // Listens in the period: Bob 2, Charlie 1 (Alice's 3 are old).
+            expect(fame.diehard.user._id.toString()).toBe(user2._id.toString());
+            expect(fame.diehard.value).toBe(2);
+        });
+
+        it("keeps today's all-time answer for 'all' and for no range", async () => {
+            const all = await AnalyticsService.getSuperlatives(rangeGroup._id, 'all');
+            const none = await AnalyticsService.getSuperlatives(rangeGroup._id);
+
+            for (const fame of [all, none]) {
+                expect(fame.dj.user._id.toString()).toBe(user1._id.toString());
+                expect(fame.dj.value).toBe(3);
+                expect(fame.trendsetter.user._id.toString()).toBe(user1._id.toString());
+                expect(fame.trendsetter.value).toBe(9);
+                expect(fame.diehard.user._id.toString()).toBe(user1._id.toString());
+                expect(fame.diehard.value).toBe(3);
+            }
+        });
+
+        it('leaves a title out when nothing happened in the period', async () => {
+            await Share.deleteMany({ group: rangeGroup._id, spotifyTrackId: { $in: ['new1', 'new2'] } });
+            const fame = await AnalyticsService.getSuperlatives(rangeGroup._id, '30d');
+            expect(fame).toEqual({});
+        });
+    });
+
     describe('getTasteGravity', () => {
         let testGroup;
         let testUser1, testUser2, testUser3;

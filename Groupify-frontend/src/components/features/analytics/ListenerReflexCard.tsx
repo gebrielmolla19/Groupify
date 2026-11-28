@@ -5,7 +5,8 @@ import { Badge } from '../../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { Skeleton } from '../../ui/skeleton';
 import { useIsMobile } from '../../ui/use-mobile';
-import { useListenerReflex, type ListenerReflexRange, type ListenerReflexMode } from '../../../hooks/useListenerReflex';
+import { useListenerReflex, type ListenerReflexMode } from '../../../hooks/useListenerReflex';
+import type { AnalyticsRange } from '../../../types/analytics';
 import { formatTime } from '../../../lib/formatTime';
 import { cn } from '../../../lib/utils';
 import type { ListenerReflexUser, ReflexCategory } from '../../../types';
@@ -16,7 +17,7 @@ import { useAiInsights } from '../../../hooks/useAiInsights';
 
 interface ListenerReflexCardProps {
   groupId: string;
-  range: ListenerReflexRange;
+  range: AnalyticsRange;
   mode: ListenerReflexMode;
   isCompareMode: boolean;
 }
@@ -53,8 +54,7 @@ const mapTimestampToX = (
 };
 
 // Y-axis ceiling per range so short-range charts aren't compressed against a 30d scale
-const RANGE_MAX_MS: Record<ListenerReflexRange, number> = {
-  '24h': 24 * 60 * 60 * 1000,
+const RANGE_MAX_MS: Record<AnalyticsRange, number> = {
   '7d': 7 * 24 * 60 * 60 * 1000,
   '30d': 30 * 24 * 60 * 60 * 1000,
   'all': 90 * 24 * 60 * 60 * 1000,
@@ -188,14 +188,9 @@ export default function ListenerReflexCard({ groupId, range, mode, isCompareMode
         {/* Compare Mode Panel */}
         {isCompareMode ? (
           <div className="transition-all duration-200 space-y-3">
-            {range === '24h' && (
-              <p className="text-xs text-muted-foreground px-1">
-                Compare uses <span className="text-foreground font-medium">7-day</span> data — the 24h window is too narrow for a meaningful radar comparison.
-              </p>
-            )}
             <ListenerReflexComparePanel
               groupId={groupId}
-              window={range === '24h' ? '7d' : (range === 'all' ? 'all' : range)}
+              window={range}
               mode={mode}
             />
           </div>

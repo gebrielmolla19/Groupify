@@ -39,7 +39,6 @@ import type { TasteGravityNode, TasteGravityLink } from '../../../types/analytic
 interface TasteGravityProps {
   groupId: string;
   timeRange: TimeRange;
-  onTimeRangeChange?: (range: TimeRange) => void;
 }
 
 export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) {

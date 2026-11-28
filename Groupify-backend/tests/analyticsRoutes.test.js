@@ -61,6 +61,31 @@ describe('Analytics Routes', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data).toBeDefined();
     });
+
+    it('accepts a timeRange', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id);
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/superlatives`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ timeRange: '7d' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('should return 400 for invalid timeRange', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id);
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/superlatives`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ timeRange: '24h' });
+
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   describe('GET /api/v1/analytics/:id/taste-gravity', () => {

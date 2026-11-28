@@ -7,14 +7,15 @@ import SuperlativeCard from "./SuperlativeCard";
 import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
 import YouSection from "./YouSection";
+import AnalyticsRangeControl from "./AnalyticsRangeControl";
 import SleepingOnSection from "./SleepingOnSection";
 import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
 import { useMemo, useState } from "react";
 import { cn } from "../../../lib/utils";
-import type { TimeRange as TasteGravityTimeRange } from "../../../hooks/useTasteGravity";
-import type { ListenerReflexRange, ListenerReflexMode } from "../../../hooks/useListenerReflex";
+import { useAnalyticsRange } from "../../../hooks/useAnalyticsRange";
+import type { ListenerReflexMode } from "../../../hooks/useListenerReflex";
 
 export default function AnalyticsScreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -24,43 +25,13 @@ export default function AnalyticsScreen() {
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
   
-  const { data, isLoading, isActivityLoading, error, activityRange, activityMode, changeTimeRange, changeActivityMode } = useGroupAnalytics(groupId || '');
+  // One period for the whole page. Every section takes it as a `range` prop.
+  const [range, setRange] = useAnalyticsRange();
+  const { activity: activityData, superlatives, isLoading, isActivityLoading, error, activityMode, changeActivityMode } = useGroupAnalytics(groupId || '', range);
 
   // Listener Reflex state
-  const [reflexRange, setReflexRange] = useState<ListenerReflexRange>('30d');
   const [reflexMode, setReflexMode] = useState<ListenerReflexMode>('received');
   const [reflexCompare, setReflexCompare] = useState(false);
-
-  // Taste Gravity time range state
-  const [tasteGravityRange, setTasteGravityRange] = useState<TasteGravityTimeRange>('7d');
-
-  // Helper to safely access data
-  const activityData = data?.activity || [];
-  const superlatives = data?.superlatives || {};
-
-  // Time range options
-  const timeRanges = [
-    { value: '24h' as const, label: '24h' },
-    { value: '7d' as const, label: '7d' },
-    { value: '30d' as const, label: '30d' },
-    { value: 'all' as const, label: 'All' },
-  ];
-
-  // Listener Reflex time range options
-  const reflexTimeRanges: { value: ListenerReflexRange; label: string }[] = [
-    { value: '24h', label: '24h' },
-    { value: '7d', label: '7d' },
-    { value: '30d', label: '30d' },
-    { value: 'all', label: 'All' },
-  ];
-
-  // Taste Gravity time range options (no 24h)
-  const tasteGravityTimeRanges: { value: TasteGravityTimeRange; label: string }[] = [
-    { value: '7d', label: '7d' },
-    { value: '30d', label: '30d' },
-    { value: 'all', label: 'All' },
-  ];
-
 
   // Show helpful message if no group is selected
   if (!groupId) {
@@ -134,6 +105,7 @@ export default function AnalyticsScreen() {
               Visualizing {group?.name || 'group'} activity and engagement
             </p>
           </div>
+          <AnalyticsRangeControl value={range} onChange={setRange} />
         </div>
       </header>
 
@@ -147,7 +119,7 @@ export default function AnalyticsScreen() {
           </Card>
         )}
 
-        <YouSection groupId={groupId} />
+        <YouSection groupId={groupId} range={range} />
 
         <SleepingOnSection groupId={groupId} />
 
@@ -160,27 +132,8 @@ export default function AnalyticsScreen() {
             </h2>
           </div>
 
-          {/* Time Range Selector and Mode Toggle */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 px-2">
-            <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-              {timeRanges.map((range) => (
-                <Button
-                  key={range.value}
-                  size="sm"
-                  variant={activityRange === range.value ? 'default' : 'outline'}
-                  onClick={() => changeTimeRange(range.value)}
-                  className={
-                    activityRange === range.value
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
-                      : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
-                  }
-                >
-                  {range.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Mode Toggle */}
+          {/* Mode Toggle */}
+          <div className="flex items-center justify-end gap-3 px-2">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">View:</span>
               <div className="flex gap-1 border border-hair rounded-md p-0.5">
@@ -238,26 +191,8 @@ export default function AnalyticsScreen() {
               </div>
             </div>
 
-            {/* Controls: Range + Mode + Compare */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                {reflexTimeRanges.map((r) => (
-                  <Button
-                    key={r.value}
-                    size="sm"
-                    variant={reflexRange === r.value ? 'default' : 'outline'}
-                    onClick={() => setReflexRange(r.value)}
-                    className={
-                      reflexRange === r.value
-                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
-                        : 'border-primary/30 hover:bg-primary/10 h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0 shrink-0'
-                    }
-                  >
-                    {r.label}
-                  </Button>
-                ))}
-              </div>
-
+            {/* Controls: Mode + Compare */}
+            <div className="flex items-center gap-3 sm:gap-4">
               {/* Mode Toggle + Compare */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">View:</span>
@@ -306,7 +241,7 @@ export default function AnalyticsScreen() {
           </div>
           <ListenerReflexCard
             groupId={groupId || ''}
-            range={reflexRange}
+            range={range}
             mode={reflexMode}
             isCompareMode={reflexCompare}
           />
@@ -324,29 +259,10 @@ export default function AnalyticsScreen() {
                 <span className="text-xs text-muted-foreground hidden sm:inline">Musical taste connections</span>
               </div>
             </div>
-            <div className="flex gap-2">
-              {tasteGravityTimeRanges.map((range) => (
-                <Button
-                  key={range.value}
-                  size="sm"
-                  variant={tasteGravityRange === range.value ? 'default' : 'outline'}
-                  onClick={() => setTasteGravityRange(range.value)}
-                  className={cn(
-                    'h-8 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0',
-                    tasteGravityRange === range.value
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                      : 'border-primary/30 hover:bg-primary/10'
-                  )}
-                >
-                  {range.label}
-                </Button>
-              ))}
-            </div>
           </div>
           <TasteGravity
             groupId={groupId || ''}
-            timeRange={tasteGravityRange}
-            onTimeRangeChange={setTasteGravityRange}
+            timeRange={range}
           />
         </div>
 
@@ -421,7 +337,9 @@ export default function AnalyticsScreen() {
               {Object.keys(superlatives).length === 0 && (
                 <Card className="col-span-full border-dashed bg-transparent">
                   <CardContent className="h-24 md:h-32 flex items-center justify-center text-sm md:text-base text-muted-foreground px-4">
-                    No data available for superlatives yet.
+                    {range === 'all'
+                      ? 'No data available for superlatives yet.'
+                      : `Nobody shared, liked or listened in the last ${range === '7d' ? '7' : '30'} days. Try All.`}
                   </CardContent>
                 </Card>
               )}
