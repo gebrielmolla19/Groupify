@@ -84,3 +84,39 @@ export interface ViewerSummary {
     groupYoursPlayedMs: number | null;
   };
 }
+
+/** Periods "The songs" in Group Dynamics covers: the page's shared range. */
+export type SongsRange = AnalyticsRange;
+
+/** A current member of the group, as "The songs" names them. */
+export interface SongsMember {
+  id: string;
+  displayName: string;
+  profileImage: string | null;
+}
+
+/** One share, with how long after it was shared each member listened. */
+export interface SongSummary {
+  shareId: string;
+  trackName: string;
+  artistName: string;
+  trackImage: string | null;
+  /** The member who shared it; null for a former member. */
+  sharedBy: string | null;
+  sharedAt: string;
+  /** Current members other than the sharer. */
+  audience: number;
+  /** Listens from the audience, earliest first. */
+  listens: { memberId: string; afterMs: number }[];
+  /** Time to the last listen once the whole audience has listened; null until then. */
+  spreadMs: number | null;
+}
+
+/** GET /analytics/:groupId/songs */
+export interface SongsResponse {
+  range: SongsRange;
+  viewerId: string;
+  members: SongsMember[];
+  /** Newest first. */
+  songs: SongSummary[];
+}

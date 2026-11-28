@@ -1,5 +1,6 @@
 import { useId, useState, type ElementType } from "react";
-import { ExternalLink, Heart, Loader2, Music2, Play, Trash2, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronRight, ExternalLink, Heart, Loader2, Music2, Play, Trash2, X } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { cn } from "../../../lib/utils";
@@ -25,6 +26,8 @@ interface ShareDetailProps {
   TitleTag?: ElementType;
   /** Shows a close button (the desktop pane; the sheet has its own). */
   onClose?: () => void;
+  /** The share's journey in Group Dynamics. */
+  journeyHref?: string;
 }
 
 function heardHeading({ heard, total }: HeardStack): string {
@@ -42,7 +45,7 @@ function heardHeading({ heard, total }: HeardStack): string {
  */
 export default function ShareDetail({
   share, viewer, members, canRemove, isStarting, playDisabled, isRemoving,
-  onPlay, onToggleLike, onRemove, compact = false, TitleTag = "h2", onClose,
+  onPlay, onToggleLike, onRemove, compact = false, TitleTag = "h2", onClose, journeyHref,
 }: ShareDetailProps) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const headingId = useId();
@@ -121,7 +124,16 @@ export default function ShareDetail({
       )}
 
       <section aria-labelledby={headingId}>
-        <h3 id={headingId} className="font-display text-lg font-bold text-foreground">{heardHeading(stack)}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-x-2">
+          <h3 id={headingId} className="shrink-0 font-display text-lg font-bold text-foreground">{heardHeading(stack)}</h3>
+          {journeyHref && (
+            <Button variant="ghost" asChild className="-ml-3.5 -mr-2 shrink-0 text-iris">
+              <Link to={journeyHref}>
+                See how it spread <ChevronRight aria-hidden="true" />
+              </Link>
+            </Button>
+          )}
+        </div>
         <ul className="mt-2">
           {people.map(({ user, heard }) => {
             const you = isUser(user, viewer);

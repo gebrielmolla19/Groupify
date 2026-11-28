@@ -84,3 +84,12 @@ listened to and liked in the group.
 The group's four awards: Trendsetter (most likes received), Hype Man
 (most likes given), The DJ (most shares), Diehard (most listens).
 _Avoid_: Superlatives
+
+**Song journey**:
+For one share, how long after it was shared each member listened, and
+who hasn't yet. "Song" is kept here because it is the name members see;
+in code and data the thing is still a share of a track.
+
+**Song picker**:
+The search, sort chips and list in Group Dynamics that find a share to
+show its song journey.

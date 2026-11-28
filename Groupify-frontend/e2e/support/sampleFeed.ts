@@ -37,6 +37,30 @@ const youSummary = {
   reflex: { youPlayMs: 240_000, groupPlayMs: 480_000, yoursPlayedMs: 360_000, groupYoursPlayedMs: 300_000 },
 };
 
+// "The songs" of Group Dynamics: shares 1 to 3 as in the feed, plus older
+// sample shares so the picker's list scrolls. Waits are in ms.
+const MIN = 60_000;
+const songAt = (daysAgo: number) => new Date(Date.UTC(2026, 10, 27 - daysAgo, 18)).toISOString();
+const song = (i: number, sharedBy: string | null, listens: [string, number][], daysAgo: number) => {
+  const audience = [me, friend, other].filter((m) => m._id !== sharedBy).length;
+  return {
+    shareId: `sh${i}`, trackName: `Sample Track ${i}`, artistName: i % 2 ? 'Sample Artist' : 'Another Artist', trackImage: null,
+    sharedBy, sharedAt: songAt(daysAgo), audience, listens: listens.map(([memberId, afterMs]) => ({ memberId, afterMs })),
+    spreadMs: listens.length === audience ? listens.at(-1)![1] : null,
+  };
+};
+const songs = {
+  range: 'all', viewerId: 'u1',
+  members: [me, friend, other].map((m) => ({ id: m._id, displayName: m.displayName, profileImage: null })),
+  songs: [
+    song(1, 'u1', [['u2', 4 * MIN]], 0),
+    song(2, 'u2', [['u4', 4 * MIN]], 1),
+    song(3, 'u1', [['u2', 4 * MIN], ['u4', 8 * MIN]], 2),
+    ...Array.from({ length: 12 }, (_, k) => song(k + 4, k % 3 === 0 ? null : k % 3 === 1 ? 'u2' : 'u4',
+      k % 2 ? [['u1', (k + 1) * 45 * MIN], ['u2', (k + 2) * 180 * MIN]] : [['u1', (k + 1) * 30 * MIN]], k + 3)),
+  ],
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -78,6 +102,7 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
     }
     else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
+    else if (path.endsWith('/analytics/g1/songs')) json = { success: true, data: songs };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };

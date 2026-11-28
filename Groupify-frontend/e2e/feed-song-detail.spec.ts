@@ -14,6 +14,38 @@ test.describe('desktop', () => {
     await openSampleFeed(page, { theme: 'dark' });
   });
 
+  test('"See how it spread" opens the share\'s journey in Group Dynamics', async ({ page }) => {
+    await row(page, 2).click();
+    const pane = page.getByRole('complementary', { name: 'Song details' });
+    await pane.getByRole('link', { name: 'See how it spread' }).click();
+
+    await expect(page).toHaveURL(/\/groups\/g1\/analytics\?share=sh2$/);
+    const journey = page.getByRole('article', { name: 'Sample Track 2' });
+    await expect(journey).toContainText('Shared by Test Friend');
+    await expect(journey).toContainText('1 of 2 have listened');
+    await expect(journey.getByRole('listitem').filter({ hasText: 'Other Member' })).toContainText('4 min');
+    await expect(journey.getByRole('listitem').filter({ hasText: 'You' })).toContainText('Not yet');
+
+    // Search, then a chip, then pick another share from the list.
+    const songs = page.getByRole('list', { name: 'Songs' });
+    await page.getByRole('searchbox', { name: 'Search songs' }).fill('another');
+    await expect(songs.getByRole('button', { name: /Sample Track 1\b/ })).toHaveCount(0);
+    await page.getByRole('searchbox', { name: 'Search songs' }).fill('');
+    await page.getByRole('radio', { name: 'Yours 2' }).click();
+    await songs.getByRole('button', { name: /Sample Track 3/ }).click();
+    await expect(page.getByRole('article', { name: 'Sample Track 3' })).toContainText('Everyone listened within 8 min');
+    await expect(page).toHaveURL(/\?share=sh3$/);
+
+    // A new period keeps the picked share: it's sent as the share to include.
+    const reload = page.waitForRequest((r) => {
+      const url = new URL(r.url());
+      return url.pathname.endsWith('/analytics/g1/songs') && url.searchParams.get('range') === '7d';
+    });
+    await page.getByRole('radiogroup', { name: 'Period for Group Dynamics' }).getByRole('radio', { name: '7d' }).click();
+    expect(new URL((await reload).url()).searchParams.get('share')).toBe('sh3');
+    await expect(page.getByRole('article', { name: 'Sample Track 3' })).toBeVisible();
+  });
+
   test('clicking a row opens it in the detail pane', async ({ page }) => {
     await expect(page.getByRole('complementary', { name: 'Song details' })).toHaveCount(0);
     await row(page, 3).click(); // the row body, over the sharer column

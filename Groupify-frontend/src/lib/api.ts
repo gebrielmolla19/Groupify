@@ -7,6 +7,7 @@ import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
 import { AnalyticsRange, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
+import type { SongsRange, SongsResponse } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -1216,3 +1217,23 @@ export const removeGroupMember = async (
   return { success: true, message: data.message };
 };
 
+/**
+ * "The songs" in Group Dynamics: each share in the period with its listens.
+ * @param shareId - a share to include even when it's older than the period
+ */
+export const getSongs = async (
+  groupId: string,
+  range: SongsRange,
+  shareId: string | null
+): Promise<SongsResponse> => {
+  const params = new URLSearchParams({ range });
+  if (shareId) params.set('share', shareId);
+  const response = await fetchWithAuth(`/analytics/${groupId}/songs?${params}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch the songs');
+  }
+
+  return data.data;
+};
