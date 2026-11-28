@@ -2,10 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import YouSection from './YouSection';
+import { useReducedMotion } from 'framer-motion';
 import { useViewerSummary } from '../../../hooks/useViewerSummary';
 import type { ViewerSummary } from '../../../types/analytics';
 
 vi.mock('../../../hooks/useViewerSummary', () => ({ useViewerSummary: vi.fn() }));
+vi.mock('framer-motion', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('framer-motion')>()),
+  useReducedMotion: vi.fn(() => false),
+}));
 
 // jsdom has no layout observers or matchMedia; Embla and framer-motion need them.
 class NoopObserver {
@@ -14,11 +19,13 @@ class NoopObserver {
   disconnect() {}
 }
 // The section counts as on screen as soon as it's observed.
+const observed: Element[] = [];
 class InViewObserver extends NoopObserver {
   constructor(private callback: IntersectionObserverCallback) {
     super();
   }
   observe(target: Element) {
+    observed.push(target);
     this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
   }
 }
@@ -52,6 +59,8 @@ describe('YouSection', () => {
   beforeEach(() => {
     vi.mocked(useViewerSummary).mockReset();
     localStorage.clear();
+    observed.length = 0;
+    vi.mocked(useReducedMotion).mockReturnValue(false);
   });
 
   it('shows the viewer\'s role, hit rate, streak, best share, discovery and reflex', () => {
@@ -114,11 +123,38 @@ describe('YouSection', () => {
     ]);
   });
 
+  // The nudge waits for the whole section (which contains the carousel) to come into view.
+  const watchedForNudge = () => {
+    const region = screen.getByRole('region', { name: 'Your numbers' });
+    return observed.some((target) => target !== region && target.contains(region));
+  };
+  const cardStyles = () =>
+    Array.from(document.querySelectorAll<HTMLElement>('[data-you-card]')).map((card) => card.style.transform);
+
   it('nudges the cards once, then remembers it did', () => {
     hook({ data: sample });
     const { unmount } = render(<YouSection groupId="g1" />);
+    expect(watchedForNudge()).toBe(true);
     expect(localStorage.getItem('groupify-you-nudge-seen')).toBe('true');
     unmount();
+
+    observed.length = 0;
+    render(<YouSection groupId="g1" />);
+    expect(watchedForNudge()).toBe(false);
+  });
+
+  it('scales the cards as they swipe, unless reduced motion is on', () => {
+    hook({ data: sample });
+    const { unmount } = render(<YouSection groupId="g1" />);
+    expect(cardStyles().every((t) => t.startsWith('scale('))).toBe(true);
+    unmount();
+
+    localStorage.clear();
+    observed.length = 0;
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    render(<YouSection groupId="g1" />);
+    expect(cardStyles().every((t) => t === '')).toBe(true);
+    expect(watchedForNudge()).toBe(false);
   });
 
   it('offers to try again when the numbers fail to load', async () => {

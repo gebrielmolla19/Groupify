@@ -20,6 +20,7 @@ import {
   streakLine,
 } from "../../../lib/viewerSummaryCopy";
 import type { ViewerSummary, ViewerSummaryRange } from "../../../types/analytics";
+import { logger } from "../../../utils/logger";
 
 const RANGES: { value: ViewerSummaryRange; label: string }[] = [
   { value: "7d", label: "7d" },
@@ -166,8 +167,9 @@ const NUDGE_STORAGE_KEY = "groupify-you-nudge-seen";
 function nudgeSeen(): boolean {
   try {
     return localStorage.getItem(NUDGE_STORAGE_KEY) === "true";
-  } catch {
+  } catch (error) {
     // Storage blocked (private mode): treat as seen rather than nudge every visit.
+    logger.warn("[YouSection] Couldn't read the nudge flag", error);
     return true;
   }
 }
@@ -175,8 +177,9 @@ function nudgeSeen(): boolean {
 function markNudgeSeen() {
   try {
     localStorage.setItem(NUDGE_STORAGE_KEY, "true");
-  } catch {
+  } catch (error) {
     // Storage blocked: the nudge may show again next visit, which is harmless.
+    logger.warn("[YouSection] Couldn't save the nudge flag", error);
   }
 }
 
@@ -197,14 +200,18 @@ function useCardTween(api: CarouselApi | undefined, enabled: boolean) {
     }
 
     const apply = () => {
+      // Read every position first, then write every style, so the browser
+      // lays out once per frame instead of once per card.
       const viewport = api.rootNode().getBoundingClientRect();
-      api.slideNodes().forEach((slide) => {
+      const tweens = api.slideNodes().map((slide) => {
         const frame = slide.querySelector<HTMLElement>("[data-you-frame]");
         const card = slide.querySelector<HTMLElement>("[data-you-card]");
-        if (!frame || !card) return;
-        const { scale, opacity } = cardTween(visibleFraction(frame.getBoundingClientRect(), viewport));
-        card.style.transform = `scale(${scale})`;
-        card.style.opacity = String(opacity);
+        return frame && card ? { card, ...cardTween(visibleFraction(frame.getBoundingClientRect(), viewport)) } : null;
+      });
+      tweens.forEach((tween) => {
+        if (!tween) return;
+        tween.card.style.transform = `scale(${tween.scale})`;
+        tween.card.style.opacity = String(tween.opacity);
       });
     };
 
@@ -221,6 +228,8 @@ function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummar
   const [api, setApi] = useState<CarouselApi>();
   const [selected, setSelected] = useState(0);
   const [snapCount, setSnapCount] = useState(cards.length);
+  // The cards fully in view: one on a phone, two on desktop.
+  const [inView, setInView] = useState<number[]>([0]);
   const reduceMotion = useReducedMotion() ?? false;
   const [scope, animate] = useAnimate<HTMLDivElement>();
 
@@ -232,10 +241,15 @@ function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummar
       setSelected(api.selectedScrollSnap());
       setSnapCount(api.scrollSnapList().length);
     };
+    const syncInView = () => {
+      const visible = api.slidesInView();
+      if (visible.length > 0) setInView(visible);
+    };
     sync();
-    api.on("select", sync).on("reInit", sync);
+    syncInView();
+    api.on("select", sync).on("reInit", sync).on("slidesInView", syncInView);
     return () => {
-      api.off("select", sync).off("reInit", sync);
+      api.off("select", sync).off("reInit", sync).off("slidesInView", syncInView);
     };
   }, [api]);
 
@@ -265,13 +279,19 @@ function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummar
     };
   }, [scope, animate, reduceMotion]);
 
-  const current = cards[Math.min(selected, cards.length - 1)];
+  // On desktop the last stop shows two cards, so announce what's in view
+  // rather than the stop number.
+  const shown = inView.map((i) => cards[i]).filter((c): c is YouCard => Boolean(c));
+  const announcement =
+    shown.length > 1
+      ? `Cards ${inView[0] + 1} to ${inView[inView.length - 1] + 1} of ${cards.length}: ${shown.map((c) => c.title).join(", ")}`
+      : `Card ${(inView[0] ?? 0) + 1} of ${cards.length}: ${(shown[0] ?? cards[0]).title}`;
 
   return (
     <div ref={scope} className="flex flex-col gap-3">
       <Carousel
         setApi={setApi}
-        opts={{ align: "start", containScroll: "trimSnaps" }}
+        opts={{ align: "start", containScroll: "trimSnaps", inViewThreshold: 0.9 }}
         aria-label="Your numbers"
         tabIndex={0}
         className="rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-iris"
@@ -329,7 +349,7 @@ function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummar
         </Button>
       </div>
       <p className="sr-only" aria-live="polite">
-        Card {selected + 1} of {cards.length}: {current.title}
+        {announcement}
       </p>
     </div>
   );
