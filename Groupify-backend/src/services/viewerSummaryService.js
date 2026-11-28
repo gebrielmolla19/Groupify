@@ -323,5 +323,8 @@ module.exports = {
   VIEWER_SUMMARY_RANGES,
   summarizeViewer,
   getViewerSummary,
-  isValidTimeZone
+  isValidTimeZone,
+  windowFor,
+  inWindow,
+  longestDayRun
 };

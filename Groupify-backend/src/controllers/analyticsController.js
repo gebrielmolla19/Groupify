@@ -5,6 +5,7 @@ const {
   getViewerSummary,
   isValidTimeZone
 } = require('../services/viewerSummaryService');
+const { getSongsSummary } = require('../services/songsSummaryService');
 const logger = require('../utils/logger');
 
 /**
@@ -335,6 +336,39 @@ class AnalyticsController {
         groupId: id,
         range
       });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * "The songs" cards: shares the viewer is sleeping on, the viewer's shares
+   * the group slept on, and group records.
+   * GET /api/v1/analytics/:id/songs?range=30d&tz=America/New_York
+   */
+  static async getSongsSummary(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { range = '30d', tz = 'UTC' } = req.query;
+
+      if (!VIEWER_SUMMARY_RANGES.includes(range)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid range. Must be one of: ${VIEWER_SUMMARY_RANGES.join(', ')}`
+        });
+      }
+      if (typeof tz !== 'string' || !isValidTimeZone(tz)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid tz. Must be an IANA time zone such as America/New_York.'
+        });
+      }
+
+      const data = await getSongsSummary(id, req.group.members, req.userId, range, tz);
+
+      logger.debug('[Analytics] Songs summary computed', { userId: req.userId, groupId: id, range });
 
       res.json({ success: true, data });
     } catch (error) {
