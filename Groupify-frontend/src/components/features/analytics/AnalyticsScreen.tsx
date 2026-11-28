@@ -8,6 +8,7 @@ import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
 import YouSection from "./YouSection";
 import AnalyticsRangeControl from "./AnalyticsRangeControl";
+import GoldenHourSection from "./GoldenHourSection";
 import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
@@ -174,6 +175,9 @@ export default function AnalyticsScreen() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Golden hour and group streak */}
+        <GoldenHourSection groupId={groupId} range={range} />
 
         {/* Listener Reflex Section */}
         <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-reflex">

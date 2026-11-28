@@ -268,4 +268,73 @@ describe('Analytics Routes', () => {
       expect(res.statusCode).toBe(403);
     });
   });
+
+  describe('GET /api/v1/analytics/:id/golden-hour', () => {
+    it('returns the group\'s heatmap and streak in the viewer\'s time zone', async () => {
+      const { user: me, token } = await createUserAndToken({ displayName: 'Me' });
+      const { user: friend } = await createUserAndToken({ displayName: 'Friend' });
+      const group = await createGroup(me._id, { members: [me._id, friend._id] });
+      const sharedAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      await Share.create({
+        group: group._id,
+        sharedBy: me._id,
+        spotifyTrackId: 'track-golden',
+        trackName: 'Golden',
+        artistName: 'Sample Artist',
+        createdAt: sharedAt,
+        listeners: [{ user: friend._id, listenedAt: new Date(sharedAt.getTime() + 60000), timeToListen: 60000 }]
+      });
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/golden-hour`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '7d', tz: 'Asia/Tokyo' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.range).toBe('7d');
+      expect(res.body.data.totals).toEqual({ shares: 1, listens: 1 });
+      expect(res.body.data.shares).toHaveLength(7);
+      expect(res.body.data.buckets).toHaveLength(6);
+      expect(res.body.data.streak.current).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns 403 when not a group member', async () => {
+      const { user: owner } = await createUserAndToken();
+      const group = await createGroup(owner._id);
+      const { token: otherToken } = await createUserAndToken();
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/golden-hour`)
+        .set('Authorization', `Bearer ${otherToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 401 when not authenticated', async () => {
+      const { user } = await createUserAndToken();
+      const group = await createGroup(user._id);
+
+      const res = await request(app).get(`/api/v1/analytics/${group._id}/golden-hour`);
+
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('returns 400 for an unknown range or time zone', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id);
+
+      const badRange = await request(app)
+        .get(`/api/v1/analytics/${group._id}/golden-hour`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '24h' });
+      const badZone = await request(app)
+        .get(`/api/v1/analytics/${group._id}/golden-hour`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ tz: 'Not/AZone' });
+
+      expect(badRange.statusCode).toBe(400);
+      expect(badZone.statusCode).toBe(400);
+    });
+  });
 });

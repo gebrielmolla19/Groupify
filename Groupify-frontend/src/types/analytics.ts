@@ -84,3 +84,25 @@ export interface ViewerSummary {
     groupYoursPlayedMs: number | null;
   };
 }
+
+export type GoldenHourRange = AnalyticsRange;
+
+/** One 4-hour band of the viewer's day, e.g. evening 16–20. */
+export interface TimeOfDayBucket {
+  id: string;
+  label: string;
+  startHour: number;
+  endHour: number;
+}
+
+/** GET /analytics/:groupId/golden-hour: when in the week the group is active. */
+export interface GoldenHour {
+  range: GoldenHourRange;
+  buckets: TimeOfDayBucket[];
+  /** 7 rows (Monday first) by one column per bucket, in the viewer's time zone. */
+  shares: number[][];
+  listens: number[][];
+  totals: { shares: number; listens: number };
+  /** Consecutive days with a share or listen: running now, longest in the period, ever. */
+  streak: { current: number; longest: number; record: number };
+}
