@@ -182,6 +182,7 @@ export default function GroupFeedScreen() {
     onPlay: () => handlePlayTrack(share),
     onToggleLike: () => handleToggleLike(share._id),
     onRemove: () => handleRemoveShare(share._id),
+    journeyHref: groupId ? `/groups/${groupId}/analytics?share=${share._id}` : undefined,
   });
 
   const handlePlayTrack = async (share: Share) => {

@@ -104,6 +104,12 @@ const screens: Record<string, Open> = {
     await expect(page.getByRole('main')).toBeVisible();
     await page.waitForLoadState('networkidle');
   },
+  'analytics, share from the feed': async (page, theme) => {
+    await openSampleFeed(page, { theme });
+    await page.goto('/groups/g1/analytics?share=sh2');
+    await expect(page.getByRole('heading', { name: 'Sample Track 2', level: 3 })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+  },
   'profile': async (page, theme) => {
     await openSampleSettings(page, { theme, path: '/profile' });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sample User');

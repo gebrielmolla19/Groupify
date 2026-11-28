@@ -8,6 +8,7 @@ import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
 import YouSection from "./YouSection";
 import AnalyticsRangeControl from "./AnalyticsRangeControl";
+import SongsSection from "./SongsSection";
 import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
@@ -119,6 +120,8 @@ export default function AnalyticsScreen() {
         )}
 
         <YouSection groupId={groupId} range={range} />
+
+        <SongsSection groupId={groupId} range={range} />
 
         {/* Resonance Frequency */}
         <div className="flex flex-col gap-3 md:gap-4" data-tour="analytics-resonance">
