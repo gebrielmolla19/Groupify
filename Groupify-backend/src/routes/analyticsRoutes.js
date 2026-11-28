@@ -51,5 +51,11 @@ router.get('/:id/ai-insights', authMiddleware, (req, res, next) => {
   next();
 }, isGroupMember, AnalyticsController.getAiInsights);
 
+// Golden hour and group streak: when in the week the group shares and listens
+router.get('/:id/golden-hour', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.params.id;
+  next();
+}, isGroupMember, AnalyticsController.getGoldenHour);
+
 module.exports = router;
 

@@ -5,6 +5,7 @@ const {
   getViewerSummary,
   isValidTimeZone
 } = require('../services/viewerSummaryService');
+const { GOLDEN_HOUR_RANGES, getGoldenHour } = require('../services/goldenHourService');
 const logger = require('../utils/logger');
 
 // Hall of Fame periods; the page's shared range control offers the same three.
@@ -348,6 +349,39 @@ class AnalyticsController {
         groupId: id,
         range
       });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Golden hour and group streak: when in the week the group is active.
+   * GET /api/v1/analytics/:id/golden-hour?range=30d&tz=America/New_York
+   * `tz` (IANA, default UTC) decides the weekday, hour and calendar day.
+   */
+  static async getGoldenHour(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { range = '30d', tz = 'UTC' } = req.query;
+
+      if (!GOLDEN_HOUR_RANGES.includes(range)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid range. Must be one of: ${GOLDEN_HOUR_RANGES.join(', ')}`
+        });
+      }
+      if (typeof tz !== 'string' || !isValidTimeZone(tz)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid tz. Must be an IANA time zone such as America/New_York.'
+        });
+      }
+
+      const data = await getGoldenHour(id, req.group.members, range, tz);
+
+      logger.debug('[Analytics] Golden hour computed', { userId: req.userId, groupId: id, range });
 
       res.json({ success: true, data });
     } catch (error) {
