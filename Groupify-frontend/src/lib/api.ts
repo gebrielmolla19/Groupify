@@ -7,6 +7,7 @@ import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
 import { AnalyticsRange, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
+import type { SongsSummary } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -1216,3 +1217,23 @@ export const removeGroupMember = async (
   return { success: true, message: data.message };
 };
 
+/**
+ * "The songs" cards of Group Dynamics: what the signed-in member is
+ * sleeping on, what the group slept on, and group records.
+ * @param timeZone - IANA zone the streak counts calendar days in
+ */
+export const getSongsSummary = async (
+  groupId: string,
+  range: ViewerSummaryRange,
+  timeZone: string
+): Promise<SongsSummary> => {
+  const params = new URLSearchParams({ range, tz: timeZone });
+  const response = await fetchWithAuth(`/analytics/${groupId}/songs?${params}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch the songs');
+  }
+
+  return data.data;
+};

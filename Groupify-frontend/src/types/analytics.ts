@@ -84,3 +84,35 @@ export interface ViewerSummary {
     groupYoursPlayedMs: number | null;
   };
 }
+
+/** One share in "The songs" cards of Group Dynamics. */
+export interface SongsSummaryShare {
+  shareId: string;
+  spotifyTrackId: string;
+  trackName: string;
+  artistName: string;
+  trackImage: string | null;
+  sharedBy: { id: string; displayName: string | null };
+  sharedAt: string;
+}
+
+/**
+ * GET /analytics/:groupId/songs: shares the signed-in member is sleeping on,
+ * their shares the group slept on, and group records, for one period.
+ * Lists hold at most five shares; `total` counts them all.
+ */
+export interface SongsSummary {
+  range: ViewerSummaryRange;
+  /** Other members' shares the viewer has no listen on, newest first. */
+  sleepingOn: { shares: SongsSummaryShare[]; total: number };
+  /** The viewer's shares, a day old or more, no other member listened to; oldest first. */
+  sleptOn: { shares: SongsSummaryShare[]; total: number; others: number };
+  records: {
+    /** Shortest time from a share to the last other member's listen. */
+    fastestFullListen: (SongsSummaryShare & { ms: number }) | null;
+    /** Most likes from other members. */
+    mostLiked: (SongsSummaryShare & { likes: number; others: number }) | null;
+    /** Most consecutive days with at least one share. */
+    longestStreak: { days: number } | null;
+  };
+}
