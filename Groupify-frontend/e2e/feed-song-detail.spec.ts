@@ -35,6 +35,15 @@ test.describe('desktop', () => {
     await songs.getByRole('button', { name: /Sample Track 3/ }).click();
     await expect(page.getByRole('article', { name: 'Sample Track 3' })).toContainText('Everyone listened within 8 min');
     await expect(page).toHaveURL(/\?share=sh3$/);
+
+    // A new period keeps the picked share: it's sent as the share to include.
+    const reload = page.waitForRequest((r) => {
+      const url = new URL(r.url());
+      return url.pathname.endsWith('/analytics/g1/songs') && url.searchParams.get('range') === '7d';
+    });
+    await page.getByRole('radiogroup', { name: 'Period for Group Dynamics' }).getByRole('radio', { name: '7d' }).click();
+    expect(new URL((await reload).url()).searchParams.get('share')).toBe('sh3');
+    await expect(page.getByRole('article', { name: 'Sample Track 3' })).toBeVisible();
   });
 
   test('clicking a row opens it in the detail pane', async ({ page }) => {
