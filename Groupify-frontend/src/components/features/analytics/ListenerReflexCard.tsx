@@ -192,6 +192,9 @@ export default function ListenerReflexCard({ groupId, range }: ListenerReflexCar
   if (!data) return null;
 
   const hasListens = rows.some((r) => r.medianMs !== null);
+  // The words follow the numbers on screen: while the other mode loads, the
+  // headline and breakdown keep describing the ranking that's still shown.
+  const shownMode = data.mode;
   const selected = rows.find((r) => r.userId === selectedId)
     ?? rows.find((r) => r.isViewer)
     ?? rows[0];
@@ -200,12 +203,12 @@ export default function ListenerReflexCard({ groupId, range }: ListenerReflexCar
     <div className={cn(card, 'grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-center', isLoading && 'opacity-70')}>
       <div className="flex flex-col gap-3">
         <h3 className="font-display text-2xl font-semibold text-foreground md:text-3xl">
-          {rows.length < 2 ? 'Better with company' : reflexHeadline(rows, mode)}
+          {rows.length < 2 ? 'Better with company' : reflexHeadline(rows, shownMode)}
         </h3>
         <p className="text-sm text-soft">
           {rows.length < 2
             ? 'Listener Reflex compares members, so it needs at least two. Invite someone to the group.'
-            : reflexExplainer(mode)}
+            : reflexExplainer(shownMode)}
         </p>
         {rows.length >= 2 && <ModeToggle mode={mode} onChange={setMode} />}
       </div>
@@ -214,7 +217,7 @@ export default function ListenerReflexCard({ groupId, range }: ListenerReflexCar
         <div className="flex min-w-0 flex-col gap-4">
           {hasListens ? (
             <>
-              <ol aria-label={mode === 'shared' ? 'Members, shares listened to fastest first' : 'Members, fastest to listen first'} className="flex flex-col gap-2">
+              <ol aria-label={shownMode === 'shared' ? 'Members, shares listened to fastest first' : 'Members, fastest to listen first'} className="flex flex-col gap-2">
                 {rows.map((row) => (
                   <MemberRow
                     key={row.userId}
@@ -225,7 +228,7 @@ export default function ListenerReflexCard({ groupId, range }: ListenerReflexCar
                   />
                 ))}
               </ol>
-              {selected && <Breakdown row={selected} mode={mode} id={breakdownId} />}
+              {selected && <Breakdown row={selected} mode={shownMode} id={breakdownId} />}
             </>
           ) : (
             <p className="text-sm text-foreground">
