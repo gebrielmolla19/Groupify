@@ -204,61 +204,6 @@ class AnalyticsController {
   }
 
   /**
-   * Get listener reflex radar profiles
-   * GET /api/v1/analytics/listener-reflex/radar?groupId=...&window=7d&mode=received
-   */
-  static async getListenerReflexRadar(req, res, next) {
-    try {
-      const { groupId } = req.query;
-      const { window = '30d', mode = 'received' } = req.query;
-
-      if (!groupId) {
-        logger.warn('[Analytics] Missing groupId for listener reflex radar', {
-          userId: req.userId
-        });
-
-        return res.status(400).json({
-          success: false,
-          message: 'groupId is required'
-        });
-      }
-
-      const validWindows = ['7d', '30d', 'all'];
-      if (!validWindows.includes(window)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid window. Must be one of: ${validWindows.join(', ')}`
-        });
-      }
-
-      const validModes = ['received', 'shared'];
-      if (!validModes.includes(mode)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid mode. Must be one of: ${validModes.join(', ')}`
-        });
-      }
-
-      const data = await AnalyticsService.computeListenerReflexRadar(groupId, window, mode);
-
-      logger.debug('[Analytics] Listener reflex radar computed', {
-        userId: req.userId,
-        userDisplayName: req.user?.displayName,
-        groupId,
-        window,
-        mode
-      });
-
-      res.json({
-        success: true,
-        data
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
    * Get AI-generated insights for analytics sections
    * GET /api/v1/analytics/:id/ai-insights?type=reflex&timeRange=30d&mode=received
    */

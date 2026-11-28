@@ -160,6 +160,50 @@ describe('Analytics Routes', () => {
 
       expect(res.statusCode).toBe(403);
     });
+
+    it('breaks each member\'s listens into timing buckets, leaving out their own shares', async () => {
+      const MIN = 60 * 1000;
+      const DAY = 24 * 60 * MIN;
+      const { user: me, token } = await createUserAndToken({ displayName: 'Me' });
+      const { user: friend } = await createUserAndToken({ displayName: 'Friend' });
+      const group = await createGroup(me._id, { members: [me._id, friend._id] });
+      const sharedAt = new Date(Date.now() - 10 * DAY);
+      const listen = (user, ms) => ({ user: user._id, listenedAt: new Date(sharedAt.getTime() + ms), timeToListen: ms });
+      const share = (sharedBy, n, listeners) => Share.create({
+        group: group._id,
+        sharedBy: sharedBy._id,
+        spotifyTrackId: `track-${n}`,
+        trackName: `Track ${n}`,
+        artistName: 'Sample Artist',
+        createdAt: sharedAt,
+        listeners
+      });
+
+      await share(friend, 1, [listen(me, 5 * MIN)]);
+      await share(friend, 2, [listen(me, 3 * DAY)]);
+      // Me playing my own share doesn't count as a reflex.
+      await share(me, 3, [listen(me, 1 * MIN), listen(friend, 8 * DAY)]);
+
+      const received = await request(app)
+        .get(`/api/v1/analytics/${group._id}/listener-reflex`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '30d', mode: 'received' });
+      const shared = await request(app)
+        .get(`/api/v1/analytics/${group._id}/listener-reflex`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '30d', mode: 'shared' });
+
+      const byId = (res, user) => res.body.data.users.find((u) => u.userId === user._id.toString());
+      expect(byId(received, me)).toMatchObject({
+        listens: 2,
+        timing: { sameHour: 1, sameDay: 0, withinWeek: 1, later: 0 }
+      });
+      expect(byId(received, friend).timing).toEqual({ sameHour: 0, sameDay: 0, withinWeek: 0, later: 1 });
+      expect(byId(shared, me)).toMatchObject({
+        listens: 1,
+        timing: { sameHour: 0, sameDay: 0, withinWeek: 0, later: 1 }
+      });
+    });
   });
 
   describe('GET /api/v1/analytics/:id/you', () => {
@@ -306,42 +350,16 @@ describe('Analytics Routes', () => {
   });
 
   describe('GET /api/v1/analytics/listener-reflex/radar', () => {
-    it('should return listener reflex radar when group member', async () => {
+    it('is gone: the radar was removed with compare mode (#149)', async () => {
       const { user, token } = await createUserAndToken();
-      const group = await createGroup(user._id, { name: 'Radar Group' });
+      const group = await createGroup(user._id);
 
       const res = await request(app)
         .get('/api/v1/analytics/listener-reflex/radar')
         .set('Authorization', `Bearer ${token}`)
-        .query({ groupId: group._id.toString(), window: '30d', mode: 'received' });
+        .query({ groupId: group._id.toString() });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data).toBeDefined();
-    });
-
-    it('should return 400 when groupId missing', async () => {
-      const { token } = await createUserAndToken();
-
-      const res = await request(app)
-        .get('/api/v1/analytics/listener-reflex/radar')
-        .set('Authorization', `Bearer ${token}`)
-        .query({ window: '30d' });
-
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('should return 403 when not a group member', async () => {
-      const { user: owner } = await createUserAndToken();
-      const group = await createGroup(owner._id, { name: 'Other Group' });
-      const { token: otherToken } = await createUserAndToken();
-
-      const res = await request(app)
-        .get('/api/v1/analytics/listener-reflex/radar')
-        .set('Authorization', `Bearer ${otherToken}`)
-        .query({ groupId: group._id.toString(), window: '30d' });
-
-      expect(res.statusCode).toBe(403);
+      expect(res.statusCode).toBe(404);
     });
   });
 });
