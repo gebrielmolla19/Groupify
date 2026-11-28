@@ -5,6 +5,8 @@ const {
   getViewerSummary,
   isValidTimeZone
 } = require('../services/viewerSummaryService');
+const { SONG_RANGES, getSongs } = require('../services/songJourneyService');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
 // Hall of Fame periods; the page's shared range control offers the same three.
@@ -348,6 +350,36 @@ class AnalyticsController {
         groupId: id,
         range
       });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * "The songs" in Group Dynamics: each share's listens by member.
+   * GET /api/v1/analytics/:id/songs?range=30d&share=<shareId>
+   * `share` stays in the answer even when it's older than the period.
+   */
+  static async getSongs(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { range = '30d', share } = req.query;
+
+      if (!SONG_RANGES.includes(range)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid range. Must be one of: ${SONG_RANGES.join(', ')}`
+        });
+      }
+      if (share !== undefined && (typeof share !== 'string' || !mongoose.Types.ObjectId.isValid(share))) {
+        return res.status(400).json({ success: false, message: 'Invalid share id.' });
+      }
+
+      const data = await getSongs(id, req.group.members, req.userId, range, share ?? null);
+
+      logger.debug('[Analytics] Songs computed', { userId: req.userId, groupId: id, range, songs: data.songs.length });
 
       res.json({ success: true, data });
     } catch (error) {

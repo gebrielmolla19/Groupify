@@ -51,5 +51,11 @@ router.get('/:id/ai-insights', authMiddleware, (req, res, next) => {
   next();
 }, isGroupMember, AnalyticsController.getAiInsights);
 
+// The songs: each share's listens by member, for the song picker and journey
+router.get('/:id/songs', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.params.id;
+  next();
+}, isGroupMember, AnalyticsController.getSongs);
+
 module.exports = router;
 

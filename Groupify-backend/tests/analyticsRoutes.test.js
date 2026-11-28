@@ -229,6 +229,118 @@ describe('Analytics Routes', () => {
     });
   });
 
+  describe('GET /api/v1/analytics/:id/songs', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    async function sampleGroup() {
+      const { user: me, token } = await createUserAndToken({ displayName: 'Me' });
+      const { user: friend } = await createUserAndToken({ displayName: 'Friend' });
+      const group = await createGroup(me._id, { members: [me._id, friend._id] });
+      const sharedAt = new Date(Date.now() - 2 * DAY);
+      const recent = await Share.create({
+        group: group._id,
+        sharedBy: me._id,
+        spotifyTrackId: 'track-recent',
+        trackName: 'Recent',
+        artistName: 'Sample Artist',
+        createdAt: sharedAt,
+        listeners: [{ user: friend._id, listenedAt: new Date(sharedAt.getTime() + 60000), timeToListen: 60000 }]
+      });
+      const old = await Share.create({
+        group: group._id,
+        sharedBy: friend._id,
+        spotifyTrackId: 'track-old',
+        trackName: 'Old',
+        artistName: 'Other Artist',
+        createdAt: new Date(Date.now() - 90 * DAY)
+      });
+      return { me, friend, token, group, recent, old };
+    }
+
+    it('returns the shares in the period with each member\'s listen', async () => {
+      const { me, friend, token, group, recent } = await sampleGroup();
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/songs`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '30d' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.viewerId).toBe(me._id.toString());
+      expect(res.body.data.members).toEqual([
+        { id: me._id.toString(), displayName: 'Me', profileImage: null },
+        { id: friend._id.toString(), displayName: 'Friend', profileImage: null }
+      ]);
+      expect(res.body.data.songs).toHaveLength(1);
+      expect(res.body.data.songs[0]).toMatchObject({
+        shareId: recent._id.toString(),
+        sharedBy: me._id.toString(),
+        audience: 1,
+        listens: [{ memberId: friend._id.toString(), afterMs: 60000 }],
+        spreadMs: 60000
+      });
+    });
+
+    it('keeps the requested share when it is older than the period', async () => {
+      const { token, group, old } = await sampleGroup();
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/songs`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '7d', share: old._id.toString() });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.songs.map((s) => s.trackName)).toEqual(['Recent', 'Old']);
+    });
+
+    it('returns 404 for a share from another group', async () => {
+      const { me, token, group } = await sampleGroup();
+      const elsewhere = await createGroup(me._id);
+      const stranger = await Share.create({
+        group: elsewhere._id,
+        sharedBy: me._id,
+        spotifyTrackId: 'track-elsewhere',
+        trackName: 'Elsewhere',
+        artistName: 'Sample Artist'
+      });
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/songs`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ share: stranger._id.toString() });
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('returns 403 when not a group member', async () => {
+      const { group } = await sampleGroup();
+      const { token: otherToken } = await createUserAndToken();
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/songs`)
+        .set('Authorization', `Bearer ${otherToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 400 for an unknown range or a malformed share id', async () => {
+      const { user, token } = await createUserAndToken();
+      const group = await createGroup(user._id);
+
+      const badRange = await request(app)
+        .get(`/api/v1/analytics/${group._id}/songs`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '24h' });
+      const badShare = await request(app)
+        .get(`/api/v1/analytics/${group._id}/songs`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ share: 'not-an-id' });
+
+      expect(badRange.statusCode).toBe(400);
+      expect(badShare.statusCode).toBe(400);
+    });
+  });
+
   describe('GET /api/v1/analytics/listener-reflex/radar', () => {
     it('should return listener reflex radar when group member', async () => {
       const { user, token } = await createUserAndToken();
