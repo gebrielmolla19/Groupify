@@ -28,6 +28,15 @@ const share = (i: number) => {
   };
 };
 
+// The "You" section of Group Dynamics for the sample user.
+const youSummary = {
+  range: '30d', role: { id: 'crowd_pleaser', title: 'Crowd Pleaser', reason: '2 of your 3 shares were listened to by everyone, the most in the group.' },
+  previousRole: { id: 'sharer', title: 'Sharer' }, hitRate: { hits: 2, total: 3 }, streak: { longest: 2, record: 4 },
+  bestShare: { shareId: 'sh3', trackName: 'Sample Track 3', artistName: 'Sample Artist', listens: 2, likes: 1, others: 2 },
+  discovery: { artists: 1, resharedByOthers: 0 },
+  reflex: { youPlayMs: 240_000, groupPlayMs: 480_000, yoursPlayedMs: 360_000, groupYoursPlayedMs: 300_000 },
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -68,6 +77,7 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       const unheard = [shares[1], ...older];
       json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
     }
+    else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };

@@ -39,6 +39,12 @@ router.get('/listener-reflex/radar', authMiddleware, (req, res, next) => {
   next();
 }, isGroupMember, AnalyticsController.getListenerReflexRadar);
 
+// The "You" section: numbers about the signed-in member in this group
+router.get('/:id/you', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.params.id;
+  next();
+}, isGroupMember, AnalyticsController.getViewerSummary);
+
 // Get AI-generated insights for analytics sections
 router.get('/:id/ai-insights', authMiddleware, (req, res, next) => {
   req.params.groupId = req.params.id;

@@ -6,7 +6,7 @@
 import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
-import { TasteGravityResponse } from '../types/analytics';
+import { TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -1045,6 +1045,26 @@ export const getTasteGravity = async (
 
   if (!data.success) {
     throw new Error(data.message || 'Failed to fetch taste gravity');
+  }
+
+  return data.data;
+};
+
+/**
+ * The "You" section of Group Dynamics: numbers about the signed-in member.
+ * @param timeZone - IANA zone the streak counts calendar days in
+ */
+export const getViewerSummary = async (
+  groupId: string,
+  range: ViewerSummaryRange,
+  timeZone: string
+): Promise<ViewerSummary> => {
+  const params = new URLSearchParams({ range, tz: timeZone });
+  const response = await fetchWithAuth(`/analytics/${groupId}/you?${params}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch your numbers');
   }
 
   return data.data;

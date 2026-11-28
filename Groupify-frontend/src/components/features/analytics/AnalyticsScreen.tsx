@@ -6,6 +6,7 @@ import ActivityWave from "./ActivityWave";
 import SuperlativeCard from "./SuperlativeCard";
 import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
+import YouSection from "./YouSection";
 import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
@@ -144,6 +145,8 @@ export default function AnalyticsScreen() {
             </CardContent>
           </Card>
         )}
+
+        <YouSection groupId={groupId} />
 
         {/* Resonance Frequency */}
         <div className="flex flex-col gap-3 md:gap-4" data-tour="analytics-resonance">
