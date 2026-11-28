@@ -45,6 +45,12 @@ router.get('/:id/you', authMiddleware, (req, res, next) => {
   next();
 }, isGroupMember, AnalyticsController.getViewerSummary);
 
+// "Between you": the signed-in member and each other member of this group
+router.get('/:id/between', authMiddleware, (req, res, next) => {
+  req.params.groupId = req.params.id;
+  next();
+}, isGroupMember, AnalyticsController.getBetweenYou);
+
 // Get AI-generated insights for analytics sections
 router.get('/:id/ai-insights', authMiddleware, (req, res, next) => {
   req.params.groupId = req.params.id;

@@ -5,6 +5,8 @@ const {
   getViewerSummary,
   isValidTimeZone
 } = require('../services/viewerSummaryService');
+const { getBetweenYou } = require('../services/betweenYouService');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
 // Hall of Fame periods; the page's shared range control offers the same three.
@@ -348,6 +350,36 @@ class AnalyticsController {
         groupId: id,
         range
       });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * The "Between you" section of Group Dynamics: the viewer and the other members.
+   * GET /api/v1/analytics/:id/between?range=30d&member=<userId>
+   * `member` (optional) picks the other member for the pair view.
+   */
+  static async getBetweenYou(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { range = '30d', member } = req.query;
+
+      if (!VIEWER_SUMMARY_RANGES.includes(range)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid range. Must be one of: ${VIEWER_SUMMARY_RANGES.join(', ')}`
+        });
+      }
+      if (member !== undefined && (typeof member !== 'string' || !mongoose.isValidObjectId(member))) {
+        return res.status(400).json({ success: false, message: 'Invalid member id.' });
+      }
+
+      const data = await getBetweenYou(id, req.group.members, req.userId, member, range);
+
+      logger.debug('[Analytics] Between you computed', { userId: req.userId, groupId: id, range });
 
       res.json({ success: true, data });
     } catch (error) {

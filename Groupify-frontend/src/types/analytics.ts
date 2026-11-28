@@ -84,3 +84,39 @@ export interface ViewerSummary {
     groupYoursPlayedMs: number | null;
   };
 }
+
+/** How the viewer and one other member like each other's shares. */
+export type PairVerdict =
+  | { id: 'too_early' }
+  | { id: 'closest_match' }
+  | { id: 'one_sided'; leaning: 'you' | 'them' }
+  | { id: 'different_wavelengths' }
+  | { id: 'common_ground' };
+
+export interface BetweenYouMember {
+  userId: string;
+  displayName: string;
+  profileImage: string | null;
+}
+
+/** GET /analytics/:groupId/between: the signed-in member and the others. */
+export interface BetweenYou {
+  range: ViewerSummaryRange;
+  /** The other current members, by name. Empty when the viewer is alone. */
+  members: BetweenYouMember[];
+  /** Null when the viewer is the only member. */
+  pair: {
+    member: string;
+    theirShares: number;
+    youLiked: number;
+    yourShares: number;
+    theyLiked: number;
+    verdict: PairVerdict;
+    /** The verdict over the period of the same length before this one; null for all time. */
+    previousVerdict: PairVerdict | null;
+  } | null;
+  /** Most listens + likes on the viewer's shares; several members when level. */
+  biggestFan: { members: string[]; listens: number; likes: number; yourShares: number } | null;
+  /** Whose shares the viewer likes at the highest rate; several members when level. */
+  tastemaker: { members: string[]; liked: number; shares: number } | null;
+}

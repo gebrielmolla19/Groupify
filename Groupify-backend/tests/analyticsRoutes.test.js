@@ -229,6 +229,82 @@ describe('Analytics Routes', () => {
     });
   });
 
+  describe('GET /api/v1/analytics/:id/between', () => {
+    it('returns the pair, biggest fan and tastemaker for the signed-in member', async () => {
+      const { user: me, token } = await createUserAndToken({ displayName: 'Me' });
+      const { user: ana } = await createUserAndToken({ displayName: 'Ana' });
+      const { user: bo } = await createUserAndToken({ displayName: 'Bo' });
+      const group = await createGroup(me._id, { members: [me._id, ana._id, bo._id] });
+      const sharedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+      await Share.create({
+        group: group._id,
+        sharedBy: me._id,
+        spotifyTrackId: 'track-mine',
+        trackName: 'Mine',
+        artistName: 'Sample Artist',
+        createdAt: sharedAt,
+        listeners: [{ user: bo._id, listenedAt: sharedAt, timeToListen: 60000 }],
+        likes: [{ user: bo._id }]
+      });
+      await Share.create({
+        group: group._id,
+        sharedBy: ana._id,
+        spotifyTrackId: 'track-ana',
+        trackName: 'Theirs',
+        artistName: 'Other Artist',
+        createdAt: sharedAt,
+        likes: [{ user: me._id }]
+      });
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/between`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ range: '30d', member: ana._id.toString() });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.members.map((m) => m.displayName)).toEqual(['Ana', 'Bo']);
+      expect(res.body.data.pair).toMatchObject({
+        member: ana._id.toString(),
+        theirShares: 1,
+        youLiked: 1,
+        yourShares: 1,
+        theyLiked: 0,
+        verdict: { id: 'too_early' }
+      });
+      expect(res.body.data.biggestFan).toMatchObject({ members: [bo._id.toString()], listens: 1, likes: 1 });
+    });
+
+    it('returns 403 when not a group member', async () => {
+      const { user: owner } = await createUserAndToken();
+      const group = await createGroup(owner._id);
+      const { token: otherToken } = await createUserAndToken();
+
+      const res = await request(app)
+        .get(`/api/v1/analytics/${group._id}/between`)
+        .set('Authorization', `Bearer ${otherToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 400 for an unknown range, a malformed member id, or someone outside the group', async () => {
+      const { user, token } = await createUserAndToken();
+      const { user: friend } = await createUserAndToken();
+      const { user: stranger } = await createUserAndToken();
+      const group = await createGroup(user._id, { members: [user._id, friend._id] });
+      const get = (query) => request(app)
+        .get(`/api/v1/analytics/${group._id}/between`)
+        .set('Authorization', `Bearer ${token}`)
+        .query(query);
+
+      expect((await get({ range: '24h' })).statusCode).toBe(400);
+      expect((await get({ member: 'not-an-id' })).statusCode).toBe(400);
+      expect((await get({ member: stranger._id.toString() })).statusCode).toBe(400);
+      expect((await get({ member: user._id.toString() })).statusCode).toBe(400);
+      expect((await get({ member: friend._id.toString() })).statusCode).toBe(200);
+    });
+  });
+
   describe('GET /api/v1/analytics/listener-reflex/radar', () => {
     it('should return listener reflex radar when group member', async () => {
       const { user, token } = await createUserAndToken();
