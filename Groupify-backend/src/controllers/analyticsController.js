@@ -7,6 +7,9 @@ const {
 } = require('../services/viewerSummaryService');
 const logger = require('../utils/logger');
 
+// Hall of Fame periods; the page's shared range control offers the same three.
+const SUPERLATIVE_RANGES = ['7d', '30d', 'all'];
+
 /**
  * Analytics Controller
  * Handles HTTP requests for group analytics
@@ -68,17 +71,27 @@ class AnalyticsController {
 
   /**
    * Get superlatives (Hall of Fame)
-   * GET /api/v1/groups/:id/analytics/superlatives
+   * GET /api/v1/groups/:id/analytics/superlatives?timeRange=30d (default all)
    */
   static async getSuperlatives(req, res, next) {
     try {
       const { id } = req.params;
-      const data = await AnalyticsService.getSuperlatives(id);
+      const { timeRange = 'all' } = req.query;
+
+      if (!SUPERLATIVE_RANGES.includes(timeRange)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid timeRange. Must be one of: ${SUPERLATIVE_RANGES.join(', ')}`
+        });
+      }
+
+      const data = await AnalyticsService.getSuperlatives(id, timeRange);
 
       logger.debug('[Analytics] Superlatives fetched', {
         userId: req.userId,
         userDisplayName: req.user?.displayName,
-        groupId: id
+        groupId: id,
+        timeRange
       });
 
       res.json({
