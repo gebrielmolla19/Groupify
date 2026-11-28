@@ -2,15 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import YouSection from './YouSection';
-import { useReducedMotion } from 'framer-motion';
+import { animate, useReducedMotion } from 'framer-motion';
 import { useViewerSummary } from '../../../hooks/useViewerSummary';
 import type { ViewerSummary } from '../../../types/analytics';
 
 vi.mock('../../../hooks/useViewerSummary', () => ({ useViewerSummary: vi.fn() }));
-vi.mock('framer-motion', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('framer-motion')>()),
-  useReducedMotion: vi.fn(() => false),
-}));
+vi.mock('framer-motion', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('framer-motion')>();
+  // Real animations, counted so tests can see how often the nudge plays.
+  return { ...actual, animate: vi.fn(actual.animate), useReducedMotion: vi.fn(() => false) };
+});
 
 // jsdom has no IntersectionObserver or matchMedia. The section counts as on
 // screen as soon as it's observed, and the screen is a phone unless a test
@@ -57,6 +58,7 @@ describe('YouSection', () => {
     localStorage.clear();
     observed.length = 0;
     desktop = false;
+    vi.mocked(animate).mockClear();
     vi.mocked(useReducedMotion).mockReturnValue(false);
   });
 
@@ -159,6 +161,46 @@ describe('YouSection', () => {
     observed.length = 0;
     render(<YouSection groupId="g1" />);
     expect(watchedForNudge()).toBe(false);
+  });
+
+  const nudges = () =>
+    vi.mocked(animate).mock.calls.filter(([, keyframes]) => JSON.stringify(keyframes) === '[0,-48,0]').length;
+
+  it('plays the nudge once, not again when card 1 comes back to the top', async () => {
+    hook({ data: sample });
+    render(<YouSection groupId="g1" />);
+    expect(nudges()).toBe(1);
+
+    screen.getByRole('region', { name: 'Your numbers' }).focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(await screen.findByText('Card 6 of 6: Your reflex')).toBeInTheDocument();
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}');
+    expect(await screen.findByText('Card 1 of 6: Your role')).toBeInTheDocument();
+    expect(nudges()).toBe(1);
+  });
+
+  it('ignores ← while a card is flying off after →', async () => {
+    localStorage.setItem('groupify-you-nudge-seen', 'true');
+    hook({ data: sample });
+    render(<YouSection groupId="g1" />);
+    screen.getByRole('region', { name: 'Your numbers' }).focus();
+
+    await userEvent.keyboard('{ArrowRight}{ArrowLeft}');
+    expect(await screen.findByText('Card 2 of 6: Hit rate')).toBeInTheDocument();
+  });
+
+  it('keeps the same card on top when the period changes', async () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    hook({ data: sample });
+    const { rerender } = render(<YouSection groupId="g1" />);
+    screen.getByRole('region', { name: 'Your numbers' }).focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(await screen.findByText('Card 6 of 6: Your reflex')).toBeInTheDocument();
+
+    hook({ data: { ...sample, range: '7d' } });
+    await userEvent.click(screen.getByRole('radio', { name: '7d' }));
+    rerender(<YouSection groupId="g1" />);
+    expect(screen.getByText('Card 6 of 6: Your reflex')).toBeInTheDocument();
   });
 
   it('skips the nudge when reduced motion is on', () => {

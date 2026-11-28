@@ -227,13 +227,16 @@ type DeckCardProps = {
   flingRef?: (fling: () => Promise<void>) => void;
   /** Wiggle left and back once, to show the card can be swiped. */
   nudge: boolean;
+  onNudged: () => void;
+  /** True while a card is flying off; other moves wait until it lands. */
+  flying: React.MutableRefObject<boolean>;
 };
 
 /**
  * One card in the deck. Only the top card can be dragged; it tilts as it
  * moves and flies off when swiped far or fast enough.
  */
-function DeckCard({ item, depth, label, reduceMotion, onSwipe, flingRef, nudge }: DeckCardProps) {
+function DeckCard({ item, depth, label, reduceMotion, onSwipe, flingRef, nudge, onNudged, flying }: DeckCardProps) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-240, 0, 240], reduceMotion ? [0, 0, 0] : [-10, 0, 10]);
   const isTop = depth === 0;
@@ -247,12 +250,20 @@ function DeckCard({ item, depth, label, reduceMotion, onSwipe, flingRef, nudge }
   }, [isTop, x, reduceMotion]);
 
   // Fly off to the left (next card); used by swipes and the keyboard.
+  // Ignored while another card is already flying, so a quick → then ← can't
+  // leave this card stranded part-way off screen.
   const flyOff = useCallback(async () => {
-    if (!reduceMotion) {
-      await animate(x, -(window.innerWidth + 40), { duration: 0.25, ease: "easeIn" });
+    if (flying.current) return;
+    flying.current = true;
+    try {
+      if (!reduceMotion) {
+        await animate(x, -(window.innerWidth + 40), { duration: 0.25, ease: "easeIn" });
+      }
+    } finally {
+      flying.current = false;
     }
     onSwipe("next");
-  }, [x, reduceMotion, onSwipe]);
+  }, [x, reduceMotion, onSwipe, flying]);
 
   useEffect(() => {
     if (isTop) flingRef?.(flyOff);
@@ -262,14 +273,15 @@ function DeckCard({ item, depth, label, reduceMotion, onSwipe, flingRef, nudge }
   useEffect(() => {
     if (!isTop || !nudge || reduceMotion) return;
     const controls = animate(x, [0, -48, 0], { duration: 0.9, delay: 0.5, ease: "easeInOut" });
+    void controls.then(onNudged);
     return () => controls.stop();
-  }, [isTop, nudge, reduceMotion, x]);
+  }, [isTop, nudge, reduceMotion, x, onNudged]);
 
   const onDragEnd = (_: unknown, info: PanInfo) => {
     const { offset, velocity } = info;
     if (offset.x < -SWIPE_DISTANCE || velocity.x < -SWIPE_SPEED) {
       void flyOff();
-    } else if (offset.x > SWIPE_DISTANCE || velocity.x > SWIPE_SPEED) {
+    } else if (!flying.current && (offset.x > SWIPE_DISTANCE || velocity.x > SWIPE_SPEED)) {
       animate(x, 0, { type: "spring", stiffness: 400, damping: 32 });
       onSwipe("prev");
     } else {
@@ -318,12 +330,19 @@ function YouDeck({ cards }: { cards: YouCard[] }) {
   const scope = useRef<HTMLDivElement>(null);
   const [nudge, setNudge] = useState(false);
   const flingTop = useRef<() => Promise<void>>();
+  const flying = useRef(false);
   const count = cards.length;
 
+  // Any move ends the nudge for good, so it never replays when card 1 comes
+  // back to the top.
   const onSwipe = useCallback(
-    (direction: "next" | "prev") => setTop((t) => (direction === "next" ? (t + 1) % count : (t - 1 + count) % count)),
+    (direction: "next" | "prev") => {
+      setNudge(false);
+      setTop((t) => (direction === "next" ? (t + 1) % count : (t - 1 + count) % count));
+    },
     [count],
   );
+  const onNudged = useCallback(() => setNudge(false), []);
   const setFling = useCallback((fling: () => Promise<void>) => {
     flingTop.current = fling;
   }, []);
@@ -334,7 +353,7 @@ function YouDeck({ cards }: { cards: YouCard[] }) {
       void flingTop.current?.();
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
-      onSwipe("prev");
+      if (!flying.current) onSwipe("prev");
     }
   };
 
@@ -386,6 +405,8 @@ function YouDeck({ cards }: { cards: YouCard[] }) {
             onSwipe={onSwipe}
             flingRef={i === top ? setFling : undefined}
             nudge={nudge && i === 0}
+            onNudged={onNudged}
+            flying={flying}
           />
         ))}
       </div>
