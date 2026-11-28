@@ -1,13 +1,18 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { useAnimate, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type PanInfo,
+} from "framer-motion";
 import { Skeleton } from "../../ui/skeleton";
 import { Button } from "../../ui/button";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../../ui/carousel";
-import { cardTween, visibleFraction } from "../../../lib/carouselTween";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/toggle-group";
 import { eyebrow } from "../profile/SettingsSection";
 import { useViewerSummary } from "../../../hooks/useViewerSummary";
+import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import {
   bestShareLine,
   discoveryLine,
@@ -54,7 +59,7 @@ function HitRateRing({ percent }: { percent: number | null }) {
   );
 }
 
-type YouCard = { key: string; title: string; body: ReactNode; className?: string };
+type YouCard = { key: string; title: string; body: ReactNode; className?: string; wide?: boolean };
 
 /** The six cards, in the order they're swiped through. */
 function youCards(data: ViewerSummary, range: ViewerSummaryRange): YouCard[] {
@@ -66,6 +71,7 @@ function youCards(data: ViewerSummary, range: ViewerSummaryRange): YouCard[] {
     {
       key: "role",
       title: "Your role",
+      wide: true,
       body: (
         <>
           <p className={cardLabel}>{roleLabel(range)}</p>
@@ -136,6 +142,7 @@ function youCards(data: ViewerSummary, range: ViewerSummaryRange): YouCard[] {
     {
       key: "reflex",
       title: "Your reflex",
+      wide: true,
       body: (
         <>
           <p className={cardLabel}>Your reflex</p>
@@ -160,8 +167,6 @@ function youCards(data: ViewerSummary, range: ViewerSummaryRange): YouCard[] {
   ];
 }
 
-// One card and the next one's edge on a phone; two and a bit on desktop.
-const slideBasis = "basis-[82%] md:basis-[47%]";
 const NUDGE_STORAGE_KEY = "groupify-you-nudge-seen";
 
 function nudgeSeen(): boolean {
@@ -183,78 +188,158 @@ function markNudgeSeen() {
   }
 }
 
-/**
- * Scales and dims each card by how much of it is in view, on every scroll
- * frame, so the effect follows the finger. Writes styles directly instead of
- * through React state to avoid a re-render per frame.
- */
-function useCardTween(api: CarouselApi | undefined, enabled: boolean) {
-  useEffect(() => {
-    if (!api) return;
-    const cards = () => api.slideNodes().map((slide) => slide.querySelector<HTMLElement>("[data-you-card]"));
-
-    if (!enabled) {
-      cards().forEach((card) => card?.style.removeProperty("transform"));
-      cards().forEach((card) => card?.style.removeProperty("opacity"));
-      return;
-    }
-
-    const apply = () => {
-      // Read every position first, then write every style, so the browser
-      // lays out once per frame instead of once per card.
-      const viewport = api.rootNode().getBoundingClientRect();
-      const tweens = api.slideNodes().map((slide) => {
-        const frame = slide.querySelector<HTMLElement>("[data-you-frame]");
-        const card = slide.querySelector<HTMLElement>("[data-you-card]");
-        return frame && card ? { card, ...cardTween(visibleFraction(frame.getBoundingClientRect(), viewport)) } : null;
-      });
-      tweens.forEach((tween) => {
-        if (!tween) return;
-        tween.card.style.transform = `scale(${tween.scale})`;
-        tween.card.style.opacity = String(tween.opacity);
-      });
-    };
-
-    apply();
-    api.on("scroll", apply).on("reInit", apply).on("resize", apply);
-    return () => {
-      api.off("scroll", apply).off("reInit", apply).off("resize", apply);
-    };
-  }, [api, enabled]);
+/** Desktop: the cards in a two-column grid, the role and reflex full width. */
+function YouGrid({ cards }: { cards: YouCard[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {cards.map((item) => (
+        <div key={item.key} className={`${card} ${item.className ?? ""} ${item.wide ? "col-span-2" : ""}`}>
+          {item.body}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummaryRange }) {
-  const cards = youCards(data, range);
-  const [api, setApi] = useState<CarouselApi>();
-  const [selected, setSelected] = useState(0);
-  const [snapCount, setSnapCount] = useState(cards.length);
-  // The cards fully in view: one on a phone, two on desktop.
-  const [inView, setInView] = useState<number[]>([0]);
-  const reduceMotion = useReducedMotion() ?? false;
-  const [scope, animate] = useAnimate<HTMLDivElement>();
+// How far (px) or how fast (px/s) a drag must go to move to another card.
+const SWIPE_DISTANCE = 90;
+const SWIPE_SPEED = 500;
+// Cards behind the top one: each step smaller and lower, so their edges show
+// under it. From the fourth card on they sit hidden behind the third. Cards
+// stay opaque so one card's text never shows through another; the content of
+// the cards behind is dimmed instead (see DeckCard).
+const VISIBLE_DEPTH = 3;
+const depthStyle = (depth: number) => {
+  const step = Math.min(depth, VISIBLE_DEPTH - 1);
+  return {
+    scale: 1 - step * 0.05,
+    y: step * 16,
+    opacity: depth < VISIBLE_DEPTH ? 1 : 0,
+  };
+};
 
-  useCardTween(api, !reduceMotion);
+type DeckCardProps = {
+  item: YouCard;
+  depth: number;
+  label: string;
+  reduceMotion: boolean;
+  onSwipe: (direction: "next" | "prev") => void;
+  flingRef?: (fling: () => Promise<void>) => void;
+  /** Wiggle left and back once, to show the card can be swiped. */
+  nudge: boolean;
+};
+
+/**
+ * One card in the deck. Only the top card can be dragged; it tilts as it
+ * moves and flies off when swiped far or fast enough.
+ */
+function DeckCard({ item, depth, label, reduceMotion, onSwipe, flingRef, nudge }: DeckCardProps) {
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-240, 0, 240], reduceMotion ? [0, 0, 0] : [-10, 0, 10]);
+  const isTop = depth === 0;
+
+  // A card that left the top flew off to the left: once it has faded out at
+  // the back, bring it home so it's in place when it comes round again.
+  useEffect(() => {
+    if (isTop || x.get() === 0) return;
+    const controls = animate(x, 0, { duration: 0, delay: reduceMotion ? 0 : 0.3 });
+    return () => controls.stop();
+  }, [isTop, x, reduceMotion]);
+
+  // Fly off to the left (next card); used by swipes and the keyboard.
+  const flyOff = useCallback(async () => {
+    if (!reduceMotion) {
+      await animate(x, -(window.innerWidth + 40), { duration: 0.25, ease: "easeIn" });
+    }
+    onSwipe("next");
+  }, [x, reduceMotion, onSwipe]);
 
   useEffect(() => {
-    if (!api) return;
-    const sync = () => {
-      setSelected(api.selectedScrollSnap());
-      setSnapCount(api.scrollSnapList().length);
-    };
-    const syncInView = () => {
-      const visible = api.slidesInView();
-      if (visible.length > 0) setInView(visible);
-    };
-    sync();
-    syncInView();
-    api.on("select", sync).on("reInit", sync).on("slidesInView", syncInView);
-    return () => {
-      api.off("select", sync).off("reInit", sync).off("slidesInView", syncInView);
-    };
-  }, [api]);
+    if (isTop) flingRef?.(flyOff);
+  }, [isTop, flingRef, flyOff]);
 
-  // Once ever, when the cards first come into view, slide them a little to
-  // the left and back, so it's clear there's more to swipe to.
+  // Moves the card's own drag position, so the tilt follows as in a real swipe.
+  useEffect(() => {
+    if (!isTop || !nudge || reduceMotion) return;
+    const controls = animate(x, [0, -48, 0], { duration: 0.9, delay: 0.5, ease: "easeInOut" });
+    return () => controls.stop();
+  }, [isTop, nudge, reduceMotion, x]);
+
+  const onDragEnd = (_: unknown, info: PanInfo) => {
+    const { offset, velocity } = info;
+    if (offset.x < -SWIPE_DISTANCE || velocity.x < -SWIPE_SPEED) {
+      void flyOff();
+    } else if (offset.x > SWIPE_DISTANCE || velocity.x > SWIPE_SPEED) {
+      animate(x, 0, { type: "spring", stiffness: 400, damping: 32 });
+      onSwipe("prev");
+    } else {
+      animate(x, 0, { type: "spring", stiffness: 500, damping: 30 });
+    }
+  };
+
+  return (
+    <motion.div
+      className="[grid-area:1/1] origin-bottom"
+      style={{ zIndex: 10 - depth }}
+      initial={false}
+      animate={depthStyle(depth)}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 30 }}
+      // Cards behind the top one hold no controls, so hiding them from screen
+      // readers is enough; the live region announces the top card.
+      aria-hidden={!isTop}
+    >
+      <motion.div
+        role="group"
+        aria-roledescription="slide"
+        aria-label={label}
+        className={`${card} h-full select-none *:transition-opacity *:duration-300 ${item.className ?? ""} ${
+          isTop ? "cursor-grab active:cursor-grabbing" : "*:opacity-30"
+        }`}
+        style={{ x, rotate, touchAction: "pan-y" }}
+        drag={isTop ? "x" : false}
+        dragSnapToOrigin={false}
+        dragElastic={0.9}
+        dragMomentum={false}
+        onDragEnd={onDragEnd}
+      >
+        {item.body}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * Phones: the cards in a stacked deck. Swipe the top card left for the next
+ * one, right for the previous one; the deck goes round.
+ */
+function YouDeck({ cards }: { cards: YouCard[] }) {
+  const [top, setTop] = useState(0);
+  const reduceMotion = useReducedMotion() ?? false;
+  const scope = useRef<HTMLDivElement>(null);
+  const [nudge, setNudge] = useState(false);
+  const flingTop = useRef<() => Promise<void>>();
+  const count = cards.length;
+
+  const onSwipe = useCallback(
+    (direction: "next" | "prev") => setTop((t) => (direction === "next" ? (t + 1) % count : (t - 1 + count) % count)),
+    [count],
+  );
+  const setFling = useCallback((fling: () => Promise<void>) => {
+    flingTop.current = fling;
+  }, []);
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      void flingTop.current?.();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      onSwipe("prev");
+    }
+  };
+
+  // Once ever, when the deck first comes into view, wiggle the top card to
+  // the left and back, so it's clear it can be swiped.
   useEffect(() => {
     const root = scope.current;
     if (!root || nudgeSeen()) return;
@@ -268,7 +353,7 @@ function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummar
         if (!entry?.isIntersecting || cancelled) return;
         observer.disconnect();
         markNudgeSeen();
-        animate("[data-you-frame]", { x: [0, -36, 0] }, { duration: 0.9, delay: 0.5, ease: "easeInOut" });
+        setNudge(true);
       },
       { threshold: 0.6 },
     );
@@ -277,80 +362,72 @@ function YouCarousel({ data, range }: { data: ViewerSummary; range: ViewerSummar
       cancelled = true;
       observer.disconnect();
     };
-  }, [scope, animate, reduceMotion]);
+  }, [reduceMotion]);
 
-  // On desktop the last stop shows two cards, so announce what's in view
-  // rather than the stop number.
-  const shown = inView.map((i) => cards[i]).filter((c): c is YouCard => Boolean(c));
-  const announcement =
-    shown.length > 1
-      ? `Cards ${inView[0] + 1} to ${inView[inView.length - 1] + 1} of ${cards.length}: ${shown.map((c) => c.title).join(", ")}`
-      : `Card ${(inView[0] ?? 0) + 1} of ${cards.length}: ${(shown[0] ?? cards[0]).title}`;
+  const current = cards[top] ?? cards[0];
 
   return (
     <div ref={scope} className="flex flex-col gap-3">
-      <Carousel
-        setApi={setApi}
-        opts={{ align: "start", containScroll: "trimSnaps", inViewThreshold: 0.9 }}
+      <div
+        role="region"
+        aria-roledescription="carousel"
         aria-label="Your numbers"
         tabIndex={0}
-        className="rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-iris"
+        onKeyDown={onKeyDown}
+        className="grid rounded-2xl pb-8 outline-none focus-visible:ring-2 focus-visible:ring-iris"
       >
-        <CarouselContent className="-ml-3">
-          {cards.map((item, i) => (
-            <CarouselItem
-              key={item.key}
-              aria-label={`${i + 1} of ${cards.length}: ${item.title}`}
-              className={`flex pl-3 ${slideBasis}`}
-            >
-              <div data-you-frame className="flex w-full">
-                <div
-                  data-you-card
-                  className={`${card} w-full origin-center will-change-transform ${item.className ?? ""}`}
-                >
-                  {item.body}
-                </div>
-              </div>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-      </Carousel>
+        {cards.map((item, i) => (
+          <DeckCard
+            key={item.key}
+            item={item}
+            depth={(i - top + count) % count}
+            label={`${i + 1} of ${count}: ${item.title}`}
+            reduceMotion={reduceMotion}
+            onSwipe={onSwipe}
+            flingRef={i === top ? setFling : undefined}
+            nudge={nudge && i === 0}
+          />
+        ))}
+      </div>
 
-      <div className="flex items-center justify-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          className="hidden size-11 rounded-full pointer-fine:inline-flex"
-          onClick={() => api?.scrollPrev()}
-          disabled={selected === 0}
-          aria-label="Previous card"
-        >
-          <ArrowLeft />
-        </Button>
-        <div className="flex items-center gap-1.5" aria-hidden="true">
-          {Array.from({ length: snapCount }, (_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === selected ? "w-5 bg-iris" : "w-1.5 bg-hair"
-              }`}
-            />
-          ))}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          className="hidden size-11 rounded-full pointer-fine:inline-flex"
-          onClick={() => api?.scrollNext()}
-          disabled={selected >= snapCount - 1}
-          aria-label="Next card"
-        >
-          <ArrowRight />
-        </Button>
+      <div className="flex items-center justify-center gap-1.5" aria-hidden="true">
+        {cards.map((item, i) => (
+          <span
+            key={item.key}
+            className={`h-1.5 rounded-full transition-all duration-300 ${i === top ? "w-5 bg-iris" : "w-1.5 bg-hair"}`}
+          />
+        ))}
       </div>
       <p className="sr-only" aria-live="polite">
-        {announcement}
+        Card {top + 1} of {count}: {current.title}
       </p>
+    </div>
+  );
+}
+
+function YouCards({ data, range }: { data: ViewerSummary; range: ViewerSummaryRange }) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const cards = youCards(data, range);
+  return isDesktop ? <YouGrid cards={cards} /> : <YouDeck cards={cards} />;
+}
+
+function YouSkeleton() {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  return isDesktop ? (
+    <div className="grid grid-cols-2 gap-4" aria-busy="true" aria-label="Loading your numbers">
+      <Skeleton className="col-span-2 h-32 rounded-2xl" />
+      <Skeleton className="h-28 rounded-2xl" />
+      <Skeleton className="h-28 rounded-2xl" />
+    </div>
+  ) : (
+    <div className="grid pb-8" aria-busy="true" aria-label="Loading your numbers">
+      {[
+        { key: "back", style: "translate-y-8 scale-90" },
+        { key: "middle", style: "translate-y-4 scale-95" },
+        { key: "top", style: "" },
+      ].map((layer) => (
+        <Skeleton key={layer.key} className={`[grid-area:1/1] h-40 origin-bottom rounded-2xl ${layer.style}`} />
+      ))}
     </div>
   );
 }
@@ -396,13 +473,9 @@ export default function YouSection({ groupId }: { groupId: string }) {
           </Button>
         </div>
       ) : isLoading && !data ? (
-        <div className="flex gap-3 overflow-hidden" aria-busy="true" aria-label="Loading your numbers">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className={`h-40 shrink-0 rounded-2xl ${slideBasis}`} />
-          ))}
-        </div>
+        <YouSkeleton />
       ) : data ? (
-        <YouCarousel data={data} range={data.range} />
+        <YouCards data={data} range={data.range} />
       ) : null}
     </section>
   );

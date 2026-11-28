@@ -12,27 +12,23 @@ vi.mock('framer-motion', async (importOriginal) => ({
   useReducedMotion: vi.fn(() => false),
 }));
 
-// jsdom has no layout observers or matchMedia; Embla and framer-motion need them.
-class NoopObserver {
-  observe(_target?: Element) {}
-  unobserve() {}
-  disconnect() {}
-}
-// The section counts as on screen as soon as it's observed.
+// jsdom has no IntersectionObserver or matchMedia. The section counts as on
+// screen as soon as it's observed, and the screen is a phone unless a test
+// says otherwise.
 const observed: Element[] = [];
-class InViewObserver extends NoopObserver {
-  constructor(private callback: IntersectionObserverCallback) {
-    super();
-  }
+class InViewObserver {
+  constructor(private callback: IntersectionObserverCallback) {}
   observe(target: Element) {
     observed.push(target);
     this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
   }
+  unobserve() {}
+  disconnect() {}
 }
-vi.stubGlobal('ResizeObserver', NoopObserver);
+let desktop = false;
 vi.stubGlobal('IntersectionObserver', InViewObserver);
 vi.stubGlobal('matchMedia', (query: string) => ({
-  matches: false,
+  matches: desktop && query.includes('min-width'),
   media: query,
   addEventListener: () => {},
   removeEventListener: () => {},
@@ -60,6 +56,7 @@ describe('YouSection', () => {
     vi.mocked(useViewerSummary).mockReset();
     localStorage.clear();
     observed.length = 0;
+    desktop = false;
     vi.mocked(useReducedMotion).mockReturnValue(false);
   });
 
@@ -106,32 +103,53 @@ describe('YouSection', () => {
     expect(screen.queryByText(/Previous/)).not.toBeInTheDocument();
   });
 
-  it('puts the six cards in a carousel, each labelled with its place', () => {
+  const slides = () => screen.queryAllByRole('group', { hidden: true }).filter((el) => el.getAttribute('aria-roledescription') === 'slide');
+  const topCard = () => slides().find((el) => !el.closest('[aria-hidden="true"]'));
+  const announced = () => screen.getByText(/^Card \d of 6/);
+
+  it('stacks the six cards in a deck on a phone, the first on top', () => {
     hook({ data: sample });
     render(<YouSection groupId="g1" />);
 
-    const carousel = screen.getByRole('region', { name: 'Your numbers' });
-    expect(carousel).toHaveAttribute('aria-roledescription', 'carousel');
-    const slides = screen.getAllByRole('group').filter((el) => el.getAttribute('aria-roledescription') === 'slide');
-    expect(slides.map((s) => s.getAttribute('aria-label'))).toEqual([
-      '1 of 6: Your role',
-      '2 of 6: Hit rate',
-      '3 of 6: Sharing streak',
-      '4 of 6: Best-landing share',
-      '5 of 6: Discovery credit',
-      '6 of 6: Your reflex',
-    ]);
+    expect(screen.getByRole('region', { name: 'Your numbers' })).toHaveAttribute('aria-roledescription', 'carousel');
+    expect(slides()).toHaveLength(6);
+    expect(topCard()).toHaveAttribute('aria-label', '1 of 6: Your role');
+    expect(announced()).toHaveTextContent('Card 1 of 6: Your role');
   });
 
-  // The nudge waits for the whole section (which contains the carousel) to come into view.
+  it('moves through the deck with the arrow keys and goes round', async () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    hook({ data: sample });
+    render(<YouSection groupId="g1" />);
+    const deck = screen.getByRole('region', { name: 'Your numbers' });
+    deck.focus();
+
+    await userEvent.keyboard('{ArrowRight}');
+    expect(await screen.findByText('Card 2 of 6: Hit rate')).toBeInTheDocument();
+    expect(topCard()).toHaveAttribute('aria-label', '2 of 6: Hit rate');
+
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+    expect(await screen.findByText('Card 6 of 6: Your reflex')).toBeInTheDocument();
+  });
+
+  it('keeps the grid on desktop', () => {
+    desktop = true;
+    hook({ data: sample });
+    render(<YouSection groupId="g1" />);
+
+    expect(screen.queryByRole('region', { name: 'Your numbers' })).not.toBeInTheDocument();
+    expect(slides()).toHaveLength(0);
+    expect(screen.getByText('Patient Zero')).toBeVisible();
+    expect(screen.getByText('Your reflex')).toBeVisible();
+  });
+
+  // The nudge waits for the deck's wrapper to come into view.
   const watchedForNudge = () => {
     const region = screen.getByRole('region', { name: 'Your numbers' });
     return observed.some((target) => target !== region && target.contains(region));
   };
-  const cardStyles = () =>
-    Array.from(document.querySelectorAll<HTMLElement>('[data-you-card]')).map((card) => card.style.transform);
 
-  it('nudges the cards once, then remembers it did', () => {
+  it('nudges the top card once, then remembers it did', () => {
     hook({ data: sample });
     const { unmount } = render(<YouSection groupId="g1" />);
     expect(watchedForNudge()).toBe(true);
@@ -143,17 +161,10 @@ describe('YouSection', () => {
     expect(watchedForNudge()).toBe(false);
   });
 
-  it('scales the cards as they swipe, unless reduced motion is on', () => {
-    hook({ data: sample });
-    const { unmount } = render(<YouSection groupId="g1" />);
-    expect(cardStyles().every((t) => t.startsWith('scale('))).toBe(true);
-    unmount();
-
-    localStorage.clear();
-    observed.length = 0;
+  it('skips the nudge when reduced motion is on', () => {
     vi.mocked(useReducedMotion).mockReturnValue(true);
+    hook({ data: sample });
     render(<YouSection groupId="g1" />);
-    expect(cardStyles().every((t) => t === '')).toBe(true);
     expect(watchedForNudge()).toBe(false);
   });
 
