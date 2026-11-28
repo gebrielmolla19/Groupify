@@ -17,6 +17,12 @@ const SONG_RANGES = ['7d', '30d', 'all'];
 
 const id = (value) => (value == null ? null : value.toString());
 
+/** The earliest moment a share can have been made to fall in the period; null for all time. */
+function periodStart(range, now) {
+  const days = RANGE_DAYS[range];
+  return days ? new Date(now.getTime() - days * DAY_MS) : null;
+}
+
 /** How long after the share a listen came, in ms. */
 function waitFor(listen, sharedAt) {
   if (listen.timeToListen != null) return listen.timeToListen;
@@ -35,8 +41,7 @@ function waitFor(listen, sharedAt) {
 function summarizeSongs({ shares, memberIds, viewerId, range, now, shareId = null }) {
   const members = memberIds.map(id);
   const current = new Set(members);
-  const days = RANGE_DAYS[range];
-  const start = days ? now.getTime() - days * DAY_MS : null;
+  const start = periodStart(range, now)?.getTime() ?? null;
 
   const songs = shares
     .filter((share) => start === null
@@ -48,10 +53,14 @@ function summarizeSongs({ shares, memberIds, viewerId, range, now, shareId = nul
       // everyone still in the group is its audience.
       const sharer = current.has(id(share.sharedBy)) ? id(share.sharedBy) : null;
       const audience = members.filter((m) => m !== sharer);
+      // Earliest listen per member: two listen calls racing can store a
+      // member twice (#155), and one member is one row.
+      const seen = new Set();
       const listens = share.listeners
         .filter((l) => audience.includes(id(l.user)))
         .map((l) => ({ memberId: id(l.user), afterMs: waitFor(l, share.createdAt) }))
-        .sort((a, b) => a.afterMs - b.afterMs);
+        .sort((a, b) => a.afterMs - b.afterMs)
+        .filter((l) => !seen.has(l.memberId) && seen.add(l.memberId));
       const everyone = audience.length > 0 && audience.every((m) => listens.some((l) => l.memberId === m));
       return {
         shareId: id(share._id),
@@ -76,17 +85,23 @@ function summarizeSongs({ shares, memberIds, viewerId, range, now, shareId = nul
  */
 async function getSongs(groupId, memberIds, viewerId, range, shareId = null, now = new Date()) {
   const group = new mongoose.Types.ObjectId(groupId);
-  if (shareId && !(await Share.exists({ _id: shareId, group }))) {
-    const error = new Error('That share is no longer in this group.');
-    error.statusCode = 404;
-    throw error;
+  const start = periodStart(range, now);
+  const query = { group };
+  if (start) {
+    query.$or = [{ createdAt: { $gte: start } }];
+    if (shareId) query.$or.push({ _id: new mongoose.Types.ObjectId(shareId) });
   }
   const [shares, users] = await Promise.all([
-    Share.find({ group })
+    Share.find(query)
       .select('sharedBy trackName artistName trackImage createdAt listeners.user listeners.listenedAt listeners.timeToListen')
       .lean(),
     User.find({ _id: { $in: memberIds } }).select('displayName profileImage').lean()
   ]);
+  if (shareId && !shares.some((s) => id(s._id) === id(shareId))) {
+    const error = new Error('That share is no longer in this group.');
+    error.statusCode = 404;
+    throw error;
+  }
   const summary = summarizeSongs({ shares, memberIds, viewerId, range, now, shareId });
   const byId = new Map(users.map((u) => [id(u._id), u]));
   return {

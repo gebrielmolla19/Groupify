@@ -34,6 +34,7 @@ test.describe('desktop', () => {
     await page.getByRole('radio', { name: 'Yours 2' }).click();
     await songs.getByRole('button', { name: /Sample Track 3/ }).click();
     await expect(page.getByRole('article', { name: 'Sample Track 3' })).toContainText('Everyone listened within 8 min');
+    await expect(page).toHaveURL(/\?share=sh3$/);
   });
 
   test('clicking a row opens it in the detail pane', async ({ page }) => {

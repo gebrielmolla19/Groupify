@@ -72,6 +72,17 @@ describe('summarizeSongs', () => {
     expect(s.audience).toBe(2);
   });
 
+  it('keeps only the earliest listen when a member was stored twice', () => {
+    const s0 = share(ME, 1, { [ANA]: 3 * HOUR, [BO]: 2 * HOUR });
+    s0.listeners.push({ user: ANA, listenedAt: new Date(s0.createdAt.getTime() + HOUR), timeToListen: HOUR });
+    const [s] = summarize([s0]).songs;
+    expect(s.listens).toEqual([
+      { memberId: ANA, afterMs: HOUR },
+      { memberId: BO, afterMs: 2 * HOUR }
+    ]);
+    expect(s.spreadMs).toBe(2 * HOUR);
+  });
+
   it('works out the wait from listenedAt when timeToListen is missing', () => {
     const s0 = share(ANA, 2);
     s0.listeners.push({ user: ME, listenedAt: new Date(s0.createdAt.getTime() + 2 * HOUR), timeToListen: null });

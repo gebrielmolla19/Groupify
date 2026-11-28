@@ -210,9 +210,10 @@ function SongPicker({ songs, viewerId, selectedId, onSelect }: {
  * (`?share=<id>`), even when it's older than the period.
  */
 export default function SongsSection({ groupId, range }: { groupId: string; range: SongsRange }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Only the share the page was opened with is sent to the backend, so
-  // picking another share doesn't load everything again.
+  // picking another share doesn't load everything again. The URL follows
+  // the picked share, so a reload or a copied link opens it.
   const [linkedShare, setLinkedShare] = useState(() => searchParams.get("share"));
   const { data, isLoading, error, refetch } = useSongJourney(groupId, range, linkedShare);
   const [picked, setPicked] = useState<string | null>(linkedShare);
@@ -241,6 +242,10 @@ export default function SongsSection({ groupId, range }: { groupId: string; rang
 
   const onSelect = (shareId: string) => {
     setPicked(shareId);
+    setSearchParams((params) => {
+      params.set("share", shareId);
+      return params;
+    }, { replace: true });
     // On a phone the journey sits above the list.
     journeyRef.current?.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
   };
@@ -259,7 +264,13 @@ export default function SongsSection({ groupId, range }: { groupId: string; rang
               Try again
             </Button>
             {linkedShare && (
-              <Button variant="ghost" className="min-h-11" onClick={() => setLinkedShare(null)}>
+              <Button variant="ghost" className="min-h-11" onClick={() => {
+                  setLinkedShare(null);
+                  setSearchParams((params) => {
+                    params.delete("share");
+                    return params;
+                  }, { replace: true });
+                }}>
                 Show all songs
               </Button>
             )}
