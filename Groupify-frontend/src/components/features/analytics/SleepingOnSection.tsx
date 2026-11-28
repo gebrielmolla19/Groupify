@@ -168,14 +168,7 @@ function SleptOnCard({ data, now }: { data: SongsSummary; now: Date }) {
  * listened to, with a play button; the viewer's shares nobody has listened
  * to, with a nudge; and the group's records for the period.
  */
-export default function SleepingOnSection({
-  groupId,
-  range = "30d",
-}: {
-  groupId: string;
-  // Defaults until the page's shared range control passes it in.
-  range?: ViewerSummaryRange;
-}) {
+export default function SleepingOnSection({ groupId, range }: { groupId: string; range: ViewerSummaryRange }) {
   const { data, isLoading, error, refetch } = useSongsSummary(groupId, range);
   // "2 days ago" only needs the day, so the time the section opened will do.
   const [now] = useState(() => new Date());

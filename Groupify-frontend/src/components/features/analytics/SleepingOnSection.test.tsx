@@ -66,7 +66,7 @@ describe('SleepingOnSection', () => {
 
   it('plays a share the viewer is sleeping on through the app player', async () => {
     setSummary({ data: summary() });
-    render(<SleepingOnSection groupId="g1" />);
+    render(<SleepingOnSection groupId="g1" range="30d" />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Play Lost Track by Sample Artist' }));
 
@@ -78,7 +78,7 @@ describe('SleepingOnSection', () => {
   it('says the player is not ready instead of playing', async () => {
     setPlayer(false);
     setSummary({ data: summary() });
-    render(<SleepingOnSection groupId="g1" />);
+    render(<SleepingOnSection groupId="g1" range="30d" />);
 
     await userEvent.click(screen.getByRole('button', { name: /Play Lost Track/ }));
 
@@ -88,7 +88,7 @@ describe('SleepingOnSection', () => {
 
   it('says once when playing fails, unless the player already did', async () => {
     setSummary({ data: summary() });
-    render(<SleepingOnSection groupId="g1" />);
+    render(<SleepingOnSection groupId="g1" range="30d" />);
     const play = screen.getByRole('button', { name: /Play Lost Track/ });
 
     playTrack.mockRejectedValueOnce(new Error('Spotify is busy'));
@@ -102,7 +102,7 @@ describe('SleepingOnSection', () => {
 
   it('shows the nudge stand-in and the records', async () => {
     setSummary({ data: summary() });
-    render(<SleepingOnSection groupId="g1" />);
+    render(<SleepingOnSection groupId="g1" range="30d" />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Nudge the group about My Track' }));
 
@@ -115,7 +115,7 @@ describe('SleepingOnSection', () => {
     setSummary({
       data: summary({ sleepingOn: { shares: [], total: 0 }, sleptOn: { shares: [], total: 0, others: 0 } }),
     });
-    render(<SleepingOnSection groupId="g1" />);
+    render(<SleepingOnSection groupId="g1" range="30d" />);
 
     expect(screen.getByText("You've listened to every share from the others in the last 30 days.")).toBeInTheDocument();
     expect(screen.getByText('Shows once someone else is in the group.')).toBeInTheDocument();
@@ -124,10 +124,17 @@ describe('SleepingOnSection', () => {
   it('shows a load failure inline with Try again', async () => {
     const refetch = vi.fn();
     setSummary({ error: 'Network down', refetch });
-    render(<SleepingOnSection groupId="g1" />);
+    render(<SleepingOnSection groupId="g1" range="30d" />);
 
     expect(screen.getByRole('alert')).toHaveTextContent("The songs didn't load.");
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for the range the page passes in', () => {
+    setSummary({ data: summary({ range: '7d' }) });
+    render(<SleepingOnSection groupId="g1" range="7d" />);
+
+    expect(useSongsSummary).toHaveBeenCalledWith('g1', '7d');
   });
 });

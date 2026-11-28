@@ -121,7 +121,7 @@ export default function AnalyticsScreen() {
 
         <YouSection groupId={groupId} range={range} />
 
-        <SleepingOnSection groupId={groupId} />
+        <SleepingOnSection groupId={groupId} range={range} />
 
         {/* Resonance Frequency */}
         <div className="flex flex-col gap-3 md:gap-4" data-tour="analytics-resonance">
