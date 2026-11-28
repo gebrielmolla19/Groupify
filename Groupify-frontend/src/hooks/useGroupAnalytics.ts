@@ -1,178 +1,88 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { getGroupActivity, getMemberVibes, getSuperlatives } from '../lib/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getGroupActivity, getSuperlatives } from '../lib/api';
 import { logger } from '../utils/logger';
+import type { AnalyticsRange } from '../types/analytics';
 
-interface AnalyticsData {
-  activity: any[];
-  vibes: any[];
-  superlatives: any;
-}
-
-export type TimeRange = '24h' | '7d' | '30d' | 'all';
 export type ActivityMode = 'shares' | 'engagement';
 
-export const useGroupAnalytics = (groupId: string) => {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isActivityLoading, setIsActivityLoading] = useState(false);
-  const [isVibesLoading, setIsVibesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activityRange, setActivityRange] = useState<TimeRange>('30d');
+type Activity = Awaited<ReturnType<typeof getGroupActivity>>;
+type Superlatives = Awaited<ReturnType<typeof getSuperlatives>>;
+
+/**
+ * Resonance Frequency (activity) and Hall of Fame (superlatives) for one
+ * group over the page's shared range. While a new range or mode loads, the
+ * previous numbers stay on screen; only a new group starts from empty.
+ */
+export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
+  const [activity, setActivity] = useState<Activity | null>(null);
+  const [superlatives, setSuperlatives] = useState<Superlatives | null>(null);
   const [activityMode, setActivityMode] = useState<ActivityMode>('shares');
-  const [vibesRange, setVibesRange] = useState<TimeRange>('all');
-  
-  // Use ref to track the groupId that the current data belongs to
-  const dataGroupIdRef = useRef<string | null>(null);
+  const [isActivityLoading, setIsActivityLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Only the latest request of each kind may write state, so a slow answer
+  // for an old group, range or mode never replaces a newer one.
+  const activityRequest = useRef(0);
+  const superlativesRequest = useRef(0);
 
-  // Clear data when groupId changes
   useEffect(() => {
-    if (groupId !== dataGroupIdRef.current) {
-      setData(null);
-      dataGroupIdRef.current = null;
-      setIsLoading(true);
-      setError(null);
-      setActivityRange('30d');
-      setVibesRange('all');
-    }
+    setActivity(null);
+    setSuperlatives(null);
+    setError(null);
   }, [groupId]);
 
-  // Initial fetch: load everything
-  const fetchAllStats = useCallback(async () => {
+  const fetchActivity = useCallback(async () => {
     if (!groupId) return;
-
-    const fetchGroupId = groupId; // Capture groupId at fetch start
-
+    const request = ++activityRequest.current;
+    setIsActivityLoading(true);
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const [activity, superlatives] = await Promise.all([
-        getGroupActivity(fetchGroupId, '30d', 'shares'),
-        getSuperlatives(fetchGroupId)
-      ]);
-
-      // Only set data if groupId hasn't changed during the fetch
-      if (fetchGroupId === groupId) {
-      setData({ activity, vibes: [], superlatives });
-        dataGroupIdRef.current = fetchGroupId;
-        setActivityRange('30d');
-        setVibesRange('all');
-      }
+      const result = await getGroupActivity(groupId, range, activityMode);
+      if (request === activityRequest.current) setActivity(result);
     } catch (err) {
-      // Only set error if groupId hasn't changed
-      if (fetchGroupId === groupId) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics';
-      setError(errorMessage);
-      logger.error('Failed to fetch analytics:', err);
+      logger.error('Failed to fetch activity:', err);
+      if (request === activityRequest.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch activity');
       }
     } finally {
-      if (fetchGroupId === groupId) {
-      setIsLoading(false);
-      }
+      if (request === activityRequest.current) setIsActivityLoading(false);
     }
-  }, [groupId]);
+  }, [groupId, range, activityMode]);
 
-  // Fetch only activity data for time range or mode changes
-  const fetchActivity = useCallback(async (range: TimeRange, mode: ActivityMode = activityMode) => {
-    // Don't proceed if:
-    // 1. No groupId
-    // 2. Currently loading initial data (data might be stale)
-    // 3. No data exists yet (initial load not complete)
-    // 4. Data belongs to a different group (stale data)
-    if (!groupId || isLoading || !data || dataGroupIdRef.current !== groupId) {
-      return;
-    }
-
-    const fetchGroupId = groupId; // Capture groupId at fetch start
-
+  const fetchSuperlatives = useCallback(async () => {
+    if (!groupId) return;
+    const request = ++superlativesRequest.current;
     try {
-      setIsActivityLoading(true);
-      const activity = await getGroupActivity(fetchGroupId, range, mode);
-      
-      // Only update if groupId hasn't changed during the fetch and data still belongs to this group
-      if (fetchGroupId === groupId && dataGroupIdRef.current === groupId) {
-        setData(prev => prev ? { ...prev, activity } : null);
-        setActivityRange(range);
-        setActivityMode(mode);
-      }
+      const result = await getSuperlatives(groupId, range);
+      if (request === superlativesRequest.current) setSuperlatives(result);
     } catch (err) {
-      // Only set error if groupId hasn't changed
-      if (fetchGroupId === groupId) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch activity';
-        setError(errorMessage);
-        logger.error('Failed to fetch activity:', err);
-      }
-    } finally {
-      if (fetchGroupId === groupId) {
-        setIsActivityLoading(false);
+      logger.error('Failed to fetch superlatives:', err);
+      if (request === superlativesRequest.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
       }
     }
-  }, [groupId, data, isLoading, activityMode]);
+  }, [groupId, range]);
 
   useEffect(() => {
-    fetchAllStats();
-  }, [groupId]); // Re-fetch when groupId changes
+    fetchActivity();
+  }, [fetchActivity]);
 
-  // Fetch only vibes data for time range changes
-  const fetchVibes = useCallback(async (range: TimeRange) => {
-    // Don't proceed if:
-    // 1. No groupId
-    // 2. Currently loading initial data (data might be stale)
-    // 3. No data exists yet (initial load not complete)
-    // 4. Data belongs to a different group (stale data)
-    if (!groupId || isLoading || !data || dataGroupIdRef.current !== groupId) {
-      return;
-    }
+  useEffect(() => {
+    fetchSuperlatives();
+  }, [fetchSuperlatives]);
 
-    const fetchGroupId = groupId; // Capture groupId at fetch start
-
-    try {
-      setIsVibesLoading(true);
-      const vibes = await getMemberVibes(fetchGroupId, range);
-      
-      // Only update if groupId hasn't changed during the fetch and data still belongs to this group
-      if (fetchGroupId === groupId && dataGroupIdRef.current === groupId) {
-        setData(prev => prev ? { ...prev, vibes } : null);
-        setVibesRange(range);
-      }
-    } catch (err) {
-      // Only set error if groupId hasn't changed
-      if (fetchGroupId === groupId) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch vibes';
-        setError(errorMessage);
-        logger.error('Failed to fetch vibes:', err);
-      }
-    } finally {
-      if (fetchGroupId === groupId) {
-        setIsVibesLoading(false);
-      }
-    }
-  }, [groupId, data, isLoading]);
-
-  const changeTimeRange = useCallback((range: TimeRange) => {
-    fetchActivity(range, activityMode);
-  }, [fetchActivity, activityMode]);
-
-  const changeActivityMode = useCallback((mode: ActivityMode) => {
-    fetchActivity(activityRange, mode);
-  }, [fetchActivity, activityRange]);
-
-  const changeVibesRange = useCallback((range: TimeRange) => {
-    fetchVibes(range);
-  }, [fetchVibes]);
+  const refetch = useCallback(async () => {
+    setError(null);
+    await Promise.all([fetchActivity(), fetchSuperlatives()]);
+  }, [fetchActivity, fetchSuperlatives]);
 
   return {
-    data,
-    isLoading,
+    activity: activity ?? [],
+    superlatives: superlatives ?? {},
+    /** True until the group's first activity and Hall of Fame have loaded. */
+    isLoading: (activity === null || superlatives === null) && !error,
     isActivityLoading,
-    isVibesLoading,
     error,
-    activityRange,
     activityMode,
-    vibesRange,
-    changeTimeRange,
-    changeActivityMode,
-    changeVibesRange,
-    refetch: fetchAllStats
+    changeActivityMode: setActivityMode,
+    refetch,
   };
 };

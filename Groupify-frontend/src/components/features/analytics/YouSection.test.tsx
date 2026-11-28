@@ -64,7 +64,7 @@ describe('YouSection', () => {
 
   it('shows the viewer\'s role, hit rate, streak, best share, discovery and reflex', () => {
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
 
     expect(screen.getByText('Patient Zero')).toBeInTheDocument();
     expect(screen.getByText('Previous 30 days: Sharer')).toBeInTheDocument();
@@ -76,12 +76,13 @@ describe('YouSection', () => {
     expect(screen.getByText('Group typical: 3 hr')).toBeInTheDocument();
   });
 
-  it('asks for the chosen period', async () => {
+  it('asks for the period it is given, and has no period control of its own', () => {
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    const { rerender } = render(<YouSection groupId="g1" range="30d" />);
 
     expect(useViewerSummary).toHaveBeenLastCalledWith('g1', '30d');
-    await userEvent.click(screen.getByRole('radio', { name: '7d' }));
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    rerender(<YouSection groupId="g1" range="7d" />);
     expect(useViewerSummary).toHaveBeenLastCalledWith('g1', '7d');
   });
 
@@ -98,7 +99,7 @@ describe('YouSection', () => {
         reflex: { youPlayMs: null, groupPlayMs: null, yoursPlayedMs: null, groupYoursPlayedMs: null },
       },
     });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
 
     expect(screen.getByText('Shows once someone else is in the group.')).toBeInTheDocument();
     expect(screen.getByText('Shows once there are listens to compare.')).toBeInTheDocument();
@@ -111,7 +112,7 @@ describe('YouSection', () => {
 
   it('stacks the six cards in a deck on a phone, the first on top', () => {
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
 
     expect(screen.getByRole('region', { name: 'Your numbers' })).toHaveAttribute('aria-roledescription', 'carousel');
     expect(slides()).toHaveLength(6);
@@ -122,7 +123,7 @@ describe('YouSection', () => {
   it('moves through the deck with the arrow keys and goes round', async () => {
     vi.mocked(useReducedMotion).mockReturnValue(true);
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
     const deck = screen.getByRole('region', { name: 'Your numbers' });
     deck.focus();
 
@@ -137,7 +138,7 @@ describe('YouSection', () => {
   it('keeps the grid on desktop', () => {
     desktop = true;
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
 
     expect(screen.queryByRole('region', { name: 'Your numbers' })).not.toBeInTheDocument();
     expect(slides()).toHaveLength(0);
@@ -153,13 +154,13 @@ describe('YouSection', () => {
 
   it('nudges the top card once, then remembers it did', () => {
     hook({ data: sample });
-    const { unmount } = render(<YouSection groupId="g1" />);
+    const { unmount } = render(<YouSection groupId="g1" range="30d" />);
     expect(watchedForNudge()).toBe(true);
     expect(localStorage.getItem('groupify-you-nudge-seen')).toBe('true');
     unmount();
 
     observed.length = 0;
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
     expect(watchedForNudge()).toBe(false);
   });
 
@@ -168,7 +169,7 @@ describe('YouSection', () => {
 
   it('plays the nudge once, not again when card 1 comes back to the top', async () => {
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
     expect(nudges()).toBe(1);
 
     screen.getByRole('region', { name: 'Your numbers' }).focus();
@@ -182,7 +183,7 @@ describe('YouSection', () => {
   it('ignores ← while a card is flying off after →', async () => {
     localStorage.setItem('groupify-you-nudge-seen', 'true');
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
     screen.getByRole('region', { name: 'Your numbers' }).focus();
 
     await userEvent.keyboard('{ArrowRight}{ArrowLeft}');
@@ -192,28 +193,27 @@ describe('YouSection', () => {
   it('keeps the same card on top when the period changes', async () => {
     vi.mocked(useReducedMotion).mockReturnValue(true);
     hook({ data: sample });
-    const { rerender } = render(<YouSection groupId="g1" />);
+    const { rerender } = render(<YouSection groupId="g1" range="30d" />);
     screen.getByRole('region', { name: 'Your numbers' }).focus();
     await userEvent.keyboard('{ArrowLeft}');
     expect(await screen.findByText('Card 6 of 6: Your reflex')).toBeInTheDocument();
 
     hook({ data: { ...sample, range: '7d' } });
-    await userEvent.click(screen.getByRole('radio', { name: '7d' }));
-    rerender(<YouSection groupId="g1" />);
+    rerender(<YouSection groupId="g1" range="7d" />);
     expect(screen.getByText('Card 6 of 6: Your reflex')).toBeInTheDocument();
   });
 
   it('skips the nudge when reduced motion is on', () => {
     vi.mocked(useReducedMotion).mockReturnValue(true);
     hook({ data: sample });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
     expect(watchedForNudge()).toBe(false);
   });
 
   it('offers to try again when the numbers fail to load', async () => {
     const refetch = vi.fn();
     hook({ error: 'Server error', refetch });
-    render(<YouSection groupId="g1" />);
+    render(<YouSection groupId="g1" range="30d" />);
 
     expect(screen.getByRole('alert')).toHaveTextContent("Your numbers didn't load.");
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
