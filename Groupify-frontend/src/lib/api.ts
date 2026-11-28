@@ -6,7 +6,7 @@
 import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
-import { AnalyticsRange, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
+import { AnalyticsRange, BetweenYou, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -1065,6 +1065,27 @@ export const getViewerSummary = async (
 
   if (!data.success) {
     throw new Error(data.message || 'Failed to fetch your numbers');
+  }
+
+  return data.data;
+};
+
+/**
+ * The "Between you" section of Group Dynamics.
+ * @param memberId - the other member for the pair view; the server picks one when omitted
+ */
+export const getBetweenYou = async (
+  groupId: string,
+  range: ViewerSummaryRange,
+  memberId?: string
+): Promise<BetweenYou> => {
+  const params = new URLSearchParams({ range });
+  if (memberId) params.set('member', memberId);
+  const response = await fetchWithAuth(`/analytics/${groupId}/between?${params}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch Between you');
   }
 
   return data.data;

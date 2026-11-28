@@ -37,6 +37,22 @@ const youSummary = {
   reflex: { youPlayMs: 240_000, groupPlayMs: 480_000, yoursPlayedMs: 360_000, groupYoursPlayedMs: 300_000 },
 };
 
+// "Between you" for the sample user. The pair follows ?member=, so picking the
+// other member in the screen shows a different verdict.
+const betweenYou = (member: string | null) => {
+  const pairs: Record<string, object> = {
+    u2: { member: 'u2', theirShares: 4, youLiked: 3, yourShares: 5, theyLiked: 3, verdict: { id: 'closest_match' }, previousVerdict: { id: 'common_ground' } },
+    u4: { member: 'u4', theirShares: 6, youLiked: 1, yourShares: 5, theyLiked: 3, verdict: { id: 'one_sided', leaning: 'them' }, previousVerdict: { id: 'too_early' } },
+  };
+  return {
+    range: '30d',
+    members: [other, friend].map(({ _id, displayName, profileImage }) => ({ userId: _id, displayName, profileImage })),
+    pair: pairs[member ?? 'u2'],
+    biggestFan: { members: ['u4'], listens: 4, likes: 3, yourShares: 5 },
+    tastemaker: { members: ['u2'], liked: 3, shares: 4 },
+  };
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -78,6 +94,7 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
     }
     else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
+    else if (path.endsWith('/analytics/g1/between')) json = { success: true, data: betweenYou(url.searchParams.get('member')) };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };
