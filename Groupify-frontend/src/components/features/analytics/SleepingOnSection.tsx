@@ -27,7 +27,7 @@ function ShareRow({ share, line, action }: { share: SongsSummaryShare; line: str
     <li className="flex items-center gap-3">
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-semibold text-foreground">{share.trackName}</span>
-        <span className="truncate text-xs text-soft">{line}</span>
+        <span className="text-xs text-soft">{line}</span>
       </div>
       {action}
     </li>
@@ -153,7 +153,7 @@ function SleptOnCard({ data, now }: { data: SongsSummary; now: Date }) {
           {recordRows(data.records).map((record) => (
             <div key={record.key} className="flex items-baseline justify-between gap-3 text-sm">
               <dt className="shrink-0 text-foreground">{record.label}</dt>
-              <dd className="min-w-0 truncate text-right font-semibold text-foreground">{record.value}</dd>
+              <dd className="min-w-0 text-right font-semibold text-foreground">{record.value}</dd>
             </div>
           ))}
         </dl>
