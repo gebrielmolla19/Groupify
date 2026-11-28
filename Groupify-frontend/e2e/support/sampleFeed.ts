@@ -37,6 +37,24 @@ const youSummary = {
   reflex: { youPlayMs: 240_000, groupPlayMs: 480_000, yoursPlayedMs: 360_000, groupYoursPlayedMs: 300_000 },
 };
 
+// Golden hour for the sample group: busiest on Thursday evening.
+// Rows are Monday first; columns are 00-04, 04-08, 08-12, 12-16, 16-20, 20-24.
+const goldenHour = {
+  range: '30d',
+  buckets: [
+    { id: 'late_night', label: 'Late night', startHour: 0, endHour: 4 },
+    { id: 'early_morning', label: 'Early morning', startHour: 4, endHour: 8 },
+    { id: 'morning', label: 'Morning', startHour: 8, endHour: 12 },
+    { id: 'afternoon', label: 'Afternoon', startHour: 12, endHour: 16 },
+    { id: 'evening', label: 'Evening', startHour: 16, endHour: 20 },
+    { id: 'night', label: 'Night', startHour: 20, endHour: 24 },
+  ],
+  shares: [[0, 0, 1, 0, 2, 1], [0, 0, 0, 1, 1, 0], [0, 0, 1, 0, 2, 2], [0, 0, 0, 1, 4, 2], [1, 0, 0, 0, 1, 3], [1, 0, 1, 2, 1, 2], [0, 0, 2, 1, 0, 1]],
+  listens: [[0, 1, 2, 1, 3, 2], [0, 0, 1, 2, 2, 1], [0, 0, 1, 1, 3, 3], [0, 1, 1, 2, 6, 3], [2, 0, 0, 1, 2, 4], [2, 0, 2, 3, 1, 3], [1, 0, 3, 2, 1, 1]],
+  totals: { shares: 34, listens: 64 },
+  streak: { current: 6, longest: 9, record: 14 },
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -78,6 +96,7 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
     }
     else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
+    else if (path.endsWith('/analytics/g1/golden-hour')) json = { success: true, data: goldenHour };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };

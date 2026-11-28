@@ -7,6 +7,7 @@ import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
 import { AnalyticsRange, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
+import type { GoldenHour, GoldenHourRange } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -1216,3 +1217,22 @@ export const removeGroupMember = async (
   return { success: true, message: data.message };
 };
 
+/**
+ * Golden hour and group streak in Group Dynamics.
+ * @param timeZone - IANA zone the weekdays, hours and days are counted in
+ */
+export const getGoldenHour = async (
+  groupId: string,
+  range: GoldenHourRange,
+  timeZone: string
+): Promise<GoldenHour> => {
+  const params = new URLSearchParams({ range, tz: timeZone });
+  const response = await fetchWithAuth(`/analytics/${groupId}/golden-hour?${params}`);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to fetch golden hour');
+  }
+
+  return data.data;
+};
