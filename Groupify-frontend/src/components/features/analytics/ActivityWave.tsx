@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Trophy } from 'lucide-react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipProps } from 'recharts';
 import { useIsMobile } from '../../ui/use-mobile';
+import { activityHeadline } from '../../../lib/groupChartsCopy';
+import type { AnalyticsRange } from '../../../types/analytics';
 
 // Format date in UTC to avoid timezone issues with daily buckets
 // This ensures that 2025-12-13T00:00:00.000Z displays as "Dec 13" regardless of local timezone
@@ -28,22 +28,25 @@ interface ActivityData {
 
 interface ActivityWaveProps {
     data: ActivityData[];
-    isLoading?: boolean;
+    mode: 'shares' | 'engagement';
+    range: AnalyticsRange;
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
+type ChartPoint = { ts: number; shares: number; activity: number };
+
+const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
-        const date = new Date(payload[0].payload.ts);
+        const point = payload[0].payload as ChartPoint;
         return (
-            <div className="bg-background/95 border border-border p-3 rounded-lg shadow-xl backdrop-blur-md">
+            <div className="rounded-lg border border-hair bg-raised p-3 shadow-xl">
                 <p className="text-sm font-medium text-foreground mb-1">
-                    {formatDateUTC(date, 'MMM d, yyyy')}
+                    {formatDateUTC(new Date(point.ts), 'MMM d, yyyy')}
                 </p>
-                <p className="text-xs text-primary font-semibold">
-                    Activity: {payload[0].value}
+                <p className="text-xs text-foreground">
+                    Shares, listens and likes: {point.activity}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                    Shares: {payload[0].payload.shares}
+                <p className="text-xs text-soft">
+                    Shares: {point.shares}
                 </p>
             </div>
         );
@@ -51,7 +54,11 @@ const CustomTooltip = ({ active, payload }: any) => {
     return null;
 };
 
-export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
+/**
+ * Resonance Frequency: the whole group's shares, listens and likes per day
+ * in the page's period. Everyone's activity, so the marks are white.
+ */
+export default function ActivityWave({ data, mode, range }: ActivityWaveProps) {
     const isMobile = useIsMobile();
 
     const chartData = useMemo(() => {
@@ -115,85 +122,56 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
         }, chartData[0]);
     }, [chartData]);
 
-    if (isLoading) {
-        return (
-            <div className="w-full flex-1 flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                        Group Frequency
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex items-center justify-center">
-                    <div className="w-full h-full animate-pulse bg-primary/5 rounded-md" />
-                </CardContent>
-            </div>
-        );
-    }
+    const headline = activityHeadline(
+        {
+            shares: totalShares,
+            activity: totalNoise,
+            peakDay: peakDay && peakDay.activity > 0 ? formatDateUTC(new Date(peakDay.ts), 'MMM d') : null,
+        },
+        mode,
+        range
+    );
 
-    if (!data || data.length === 0) {
-        return (
-            <div className="w-full flex-1 flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                        Group Frequency
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex items-center justify-center text-muted-foreground">
-                    No activity recorded yet. Start the wave!
-                </CardContent>
-            </div>
-        );
+    if (!data || data.length === 0 || totalNoise === 0) {
+        return <p className="text-base font-medium text-foreground">{headline}</p>;
     }
 
     return (
-        <div className="w-full flex-1 flex flex-col min-h-0">
-            <CardHeader className="pb-2 shrink-0">
-                <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase flex items-center gap-2">
-                    Group Frequency
-                    {isMobile && chartData.length > 10 && (
-                        <span className="normal-case text-[10px] font-normal text-muted-foreground/60 tracking-normal">· weekly view</span>
-                    )}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 p-4 flex flex-col gap-4">
-                {/* Mobile: aggregated bar chart (weekly buckets when > 10 days) — fits screen without scrolling */}
-                {isMobile ? (
-                    <div>
-                        <ResponsiveContainer width="100%" height={180}>
-                            <BarChart data={mobileChartData} margin={{ top: 8, right: 8, bottom: 24, left: 0 }} barCategoryGap="30%">
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" vertical={false} />
-                                <XAxis
-                                    dataKey="label"
-                                    tick={{ fill: 'var(--text-quiet)', fontSize: 10 }}
-                                    stroke="var(--line)"
-                                    interval="preserveStartEnd"
-                                />
-                                <YAxis hide />
-                                <Tooltip
-                                    content={<CustomTooltip />}
-                                    cursor={{ fill: 'var(--selected)' }}
-                                />
-                                <Bar dataKey="activity" radius={[3, 3, 0, 0]}>
-                                    {mobileChartData.map((entry, index) => (
-                                        <Cell
-                                            key={index}
-                                            fill={entry.activity === mobileMaxActivity ? 'var(--text)' : 'var(--text-quiet)'}
-                                        />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                ) : (
-                /* Desktop: area chart */
-                <div className="w-full" style={{ minHeight: '200px' }}>
-                    <ResponsiveContainer width="100%" height={220}>
-                        <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
-                            <CartesianGrid
-                                strokeDasharray="3 3"
+        <div className="flex w-full min-w-0 flex-col gap-4">
+            <p className="text-base font-medium text-foreground" aria-live="polite">{headline}</p>
+            {/* Phone: bars, in weekly buckets past 10 days so they fit without scrolling */}
+            {isMobile ? (
+                <div aria-hidden="true">
+                    {chartData.length > 10 && <p className="mb-1 text-xs text-quiet">Each bar is one week</p>}
+                    <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={mobileChartData} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="30%">
+                            <CartesianGrid stroke="var(--hair)" vertical={false} />
+                            <XAxis
+                                dataKey="label"
+                                tick={{ fill: 'var(--text-quiet)', fontSize: 10 }}
                                 stroke="var(--hair)"
-                                vertical={false}
+                                tickLine={false}
+                                interval="preserveStartEnd"
                             />
+                            <YAxis hide />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--selected)' }} />
+                            <Bar dataKey="activity" radius={[4, 4, 0, 0]} maxBarSize={24}>
+                                {mobileChartData.map((entry) => (
+                                    <Cell
+                                        key={entry.ts}
+                                        fill={entry.activity === mobileMaxActivity ? 'var(--text)' : 'var(--text-quiet)'}
+                                    />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                /* Desktop: area chart */
+                <div aria-hidden="true">
+                    <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                            <CartesianGrid stroke="var(--hair)" vertical={false} />
                             <XAxis
                                 dataKey="ts"
                                 type="number"
@@ -201,68 +179,71 @@ export default function ActivityWave({ data, isLoading }: ActivityWaveProps) {
                                 domain={['dataMin', 'dataMax']}
                                 tick={{ fill: 'var(--text-quiet)', fontSize: 11 }}
                                 tickFormatter={(ts) => formatDateUTC(new Date(ts), 'MMM d')}
-                                stroke="var(--line)"
-                                axisLine={{ strokeWidth: 1 }}
+                                stroke="var(--hair)"
+                                tickLine={false}
                                 tickCount={6}
                                 minTickGap={50}
                             />
                             <YAxis
                                 domain={[0, Math.max(5, maxActivity + 2)]}
+                                allowDecimals={false}
                                 tick={{ fill: 'var(--text-quiet)', fontSize: 11 }}
-                                stroke="var(--line)"
-                                axisLine={{ strokeWidth: 1 }}
+                                axisLine={false}
+                                tickLine={false}
                                 width={30}
                             />
-                            <Tooltip
-                                content={<CustomTooltip />}
-                                cursor={{ stroke: 'var(--line)', strokeWidth: 1 }}
-                            />
+                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--line)', strokeWidth: 1 }} />
                             <Area
                                 type="monotone"
                                 dataKey="activity"
                                 stroke="var(--text)"
                                 fill="var(--text)"
-                                fillOpacity={0.08}
-                                strokeWidth={3}
+                                fillOpacity={0.1}
+                                strokeWidth={2}
                                 dot={false}
-                                activeDot={{
-                                    r: 5,
-                                    fill: 'var(--text)',
-                                    stroke: 'var(--card)',
-                                    strokeWidth: 2
-                                }}
+                                activeDot={{ r: 5, fill: 'var(--text)', stroke: 'var(--raised)', strokeWidth: 2 }}
                                 animationDuration={1200}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-                )}
-                {/* Stats — horizontal row below the chart */}
-                <div className="flex items-stretch border-t border-hair pt-4">
-                    <div className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[11px] text-muted-foreground">Shares</span>
-                        <span className="text-2xl font-bold">{totalShares}</span>
-                    </div>
-                    <div className="w-px bg-hair mx-2" />
-                    <div className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[11px] text-muted-foreground">Noise</span>
-                        <span className="text-2xl font-bold text-primary">{totalNoise}</span>
-                    </div>
-                    {peakDay && peakDay.activity > 0 && (
-                        <>
-                            <div className="w-px bg-hair mx-2" />
-                            <div className="flex-1 flex flex-col items-center gap-1">
-                                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                    <Trophy className="w-3 h-3 text-primary" /> Peak
-                                </span>
-                                <span className="text-2xl font-bold text-primary">
-                                    {formatDateUTC(new Date(peakDay.ts), 'MMM d')}
-                                </span>
-                            </div>
-                        </>
-                    )}
+            )}
+            {/* The chart's numbers for screen readers */}
+            <div className="sr-only">
+                <table>
+                    <caption>Shares, listens and likes per day</caption>
+                    <thead>
+                        <tr><th scope="col">Day</th><th scope="col">Shares, listens and likes</th><th scope="col">Shares</th></tr>
+                    </thead>
+                    <tbody>
+                        {chartData.map((d) => (
+                            <tr key={d.ts}>
+                                <th scope="row">{formatDateUTC(new Date(d.ts), 'MMM d, yyyy')}</th>
+                                <td>{d.activity}</td>
+                                <td>{d.shares}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <dl className="grid grid-cols-3 gap-2 border-t border-hair pt-4">
+                <div className="flex flex-col gap-0.5">
+                    <dt className="text-xs text-soft">Shares</dt>
+                    <dd className="mt-auto font-display text-2xl font-semibold text-foreground">{totalShares}</dd>
                 </div>
-            </CardContent>
+                <div className="flex flex-col gap-0.5">
+                    <dt className="text-xs text-soft">Shares, listens and likes</dt>
+                    <dd className="mt-auto font-display text-2xl font-semibold text-foreground">{totalNoise}</dd>
+                </div>
+                {peakDay && peakDay.activity > 0 && (
+                    <div className="flex flex-col gap-0.5">
+                        <dt className="text-xs text-soft">Busiest day</dt>
+                        <dd className="mt-auto font-display text-2xl font-semibold text-foreground">
+                            {formatDateUTC(new Date(peakDay.ts), 'MMM d')}
+                        </dd>
+                    </div>
+                )}
+            </dl>
         </div>
     );
 }

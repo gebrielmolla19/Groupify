@@ -8,7 +8,11 @@ import ListenerReflexCard from "./ListenerReflexCard";
 import TasteGravity from "./TasteGravity";
 import YouSection from "./YouSection";
 import AnalyticsRangeControl from "./AnalyticsRangeControl";
-import { Sparkles, Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
+import { Activity, ArrowLeft, Zap, BarChart3 } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "../../ui/toggle-group";
+import { eyebrow } from "../profile/SettingsSection";
+import { useUser } from "../../../contexts/UserContext";
+import type { SuperlativeKind } from "../../../lib/groupChartsCopy";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGroups } from "../../../hooks/useGroups";
 import { useMemo, useState } from "react";
@@ -16,10 +20,26 @@ import { cn } from "../../../lib/utils";
 import { useAnalyticsRange } from "../../../hooks/useAnalyticsRange";
 import type { ListenerReflexMode } from "../../../hooks/useListenerReflex";
 
+// The "You" section's card, for every group section on the page.
+const card = "rounded-2xl border border-hair bg-raised p-4 md:p-5";
+
+const HALL_OF_FAME: { kind: SuperlativeKind; title: string }[] = [
+  { kind: "trendsetter", title: "Trendsetter" },
+  { kind: "hypeMan", title: "Hype Man" },
+  { kind: "dj", title: "The DJ" },
+  { kind: "diehard", title: "Diehard" },
+];
+
+const MODES = [
+  { value: "shares", label: "Shares" },
+  { value: "engagement", label: "Engagement" },
+] as const;
+
 export default function AnalyticsScreen() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const { groups } = useGroups();
+  const { user } = useUser();
   
   // Find the group from the groups list
   const group = useMemo(() => groups.find(g => g._id === groupId) || null, [groups, groupId]);
@@ -121,59 +141,42 @@ export default function AnalyticsScreen() {
         <YouSection groupId={groupId} range={range} />
 
         {/* Resonance Frequency */}
-        <div className="flex flex-col gap-3 md:gap-4" data-tour="analytics-resonance">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-base md:text-xl font-bold flex items-center gap-2">
-              <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-              Resonance Frequency
-            </h2>
-          </div>
-
-          {/* Mode Toggle */}
-          <div className="flex items-center justify-end gap-3 px-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">View:</span>
-              <div className="flex gap-1 border border-hair rounded-md p-0.5">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => changeActivityMode('shares')}
+        <section className="flex flex-col gap-3 md:gap-4" aria-labelledby="resonance-heading" data-tour="analytics-resonance">
+          <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 px-2">
+            <h2 id="resonance-heading" className={eyebrow}>Resonance frequency</h2>
+            <ToggleGroup
+              type="single"
+              value={activityMode}
+              // Radix sends "" when the selected chip is pressed again; keep it selected.
+              onValueChange={(next) => next && changeActivityMode(next as typeof activityMode)}
+              aria-label="Count shares or engagement"
+              className="shrink-0 gap-1.5"
+            >
+              {MODES.map((mode) => (
+                <ToggleGroupItem
+                  key={mode.value}
+                  value={mode.value}
                   disabled={isActivityLoading}
-                  className={
-                    activityMode === 'shares'
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                  }
+                  className="min-h-11 flex-none rounded-xl first:rounded-xl last:rounded-xl border border-line px-3 text-xs text-foreground hover:bg-raised hover:text-foreground data-[state=on]:border-iris data-[state=on]:bg-selected data-[state=on]:text-foreground"
                 >
-                  Shares Posted
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => changeActivityMode('engagement')}
-                  disabled={isActivityLoading}
-                  className={
-                    activityMode === 'engagement'
-                      ? 'bg-primary hover:bg-primary/90 text-primary-foreground h-8 sm:h-7 px-3 text-xs min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                      : 'hover:bg-selected h-8 sm:h-7 px-3 text-xs text-muted-foreground min-h-[44px] min-w-11 sm:min-h-0 sm:min-w-0'
-                  }
-                >
-                  Engagement
-                </Button>
-              </div>
-            </div>
+                  {mode.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
-          <Card className="overflow-hidden flex flex-col relative">
+          <div className={`${card} relative`}>
             {isActivityLoading && !isLoading && (
-              <div className="absolute inset-0 bg-pane/70 backdrop-blur-[2px] z-20 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-raised/70">
+                <div className="size-8 animate-spin rounded-full border-2 border-hair border-t-foreground" aria-label="Loading" />
               </div>
             )}
-            <CardContent className="flex-1 p-0 flex items-stretch w-full">
-              <ActivityWave data={activityData} isLoading={false} />
-            </CardContent>
-          </Card>
-        </div>
+            {isLoading ? (
+              <Skeleton className="h-64 w-full rounded-xl" />
+            ) : (
+              <ActivityWave data={activityData} mode={activityMode} range={range} />
+            )}
+          </div>
+        </section>
 
         {/* Listener Reflex Section */}
         <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-reflex">
@@ -244,105 +247,46 @@ export default function AnalyticsScreen() {
           />
         </div>
 
-        {/* Taste Gravity Section */}
-        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-taste">
-          <div className="flex flex-col gap-4 px-2">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <span className="text-xl md:text-2xl">🌌</span>
-              </div>
-              <div>
-                <h2 className="text-base md:text-xl font-bold">Taste Gravity</h2>
-                <span className="text-xs text-muted-foreground hidden sm:inline">Musical taste connections</span>
-              </div>
-            </div>
-          </div>
-          <TasteGravity
-            groupId={groupId || ''}
-            timeRange={range}
-          />
-        </div>
+        {/* Taste Gravity */}
+        <section className="flex flex-col gap-3 md:gap-4" aria-labelledby="taste-heading" data-tour="analytics-taste">
+          <h2 id="taste-heading" className={`${eyebrow} flex min-h-11 items-center px-2`}>Taste gravity</h2>
+          <TasteGravity groupId={groupId || ''} range={range} viewerId={user?._id} />
+        </section>
 
-        {/* Bottom Section: Hall of Fame */}
-        <div className="space-y-4 md:space-y-6 pt-4 md:pt-6 border-t border-border/50" data-tour="analytics-halloffame">
-          <div className="flex items-center gap-2 px-2">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold">Hall of Fame</h2>
-              <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Top performers and outliers in the group</p>
-            </div>
-          </div>
+        {/* Hall of Fame */}
+        <section className="flex flex-col gap-3 md:gap-4" aria-labelledby="hall-of-fame-heading" data-tour="analytics-halloffame">
+          <h2 id="hall-of-fame-heading" className={`${eyebrow} flex min-h-11 items-center px-2`}>Hall of fame</h2>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 md:h-40 w-full rounded-xl" />)}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label="Loading the hall of fame">
+              {HALL_OF_FAME.map(({ kind }) => <Skeleton key={kind} className="h-40 w-full rounded-2xl" />)}
+            </div>
+          ) : HALL_OF_FAME.some(({ kind }) => superlatives[kind]) ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {HALL_OF_FAME.map(({ kind, title }) => {
+                const holder = superlatives[kind];
+                return holder ? (
+                  <SuperlativeCard
+                    key={kind}
+                    kind={kind}
+                    title={title}
+                    user={holder.user}
+                    value={holder.value}
+                    isViewer={!!user && holder.user._id === user._id}
+                  />
+                ) : null;
+              })}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-              {superlatives.trendsetter && (
-                <SuperlativeCard
-                  title="Trendsetter"
-                  description="Most likes received across all shares"
-                  icon="✨"
-                  user={superlatives.trendsetter.user}
-                  value={superlatives.trendsetter.value}
-                  label="Influencer"
-                  gradient="from-purple-500/20 to-pink-500/10"
-                  delay={0.1}
-                />
-              )}
-              {superlatives.hypeMan && (
-                <SuperlativeCard
-                  title="Hype Man"
-                  description="Most likes given to others"
-                  icon="❤️"
-                  user={superlatives.hypeMan.user}
-                  value={superlatives.hypeMan.value}
-                  label="Supporter"
-                  gradient="from-red-500/20 to-orange-500/10"
-                  delay={0.2}
-                />
-              )}
-              {superlatives.dj && (
-                <SuperlativeCard
-                  title="The DJ"
-                  description="Most active sharer in the group"
-                  icon="🎧"
-                  user={superlatives.dj.user}
-                  value={superlatives.dj.value}
-                  label="Selector"
-                  gradient="from-blue-500/20 to-cyan-500/10"
-                  delay={0.3}
-                />
-              )}
-              {superlatives.diehard && (
-                <SuperlativeCard
-                  title="Diehard"
-                  description="Most tracks listened to"
-                  icon="👂"
-                  user={superlatives.diehard.user}
-                  value={superlatives.diehard.value}
-                  label="Listener"
-                  gradient="from-emerald-500/20 to-green-500/10"
-                  delay={0.4}
-                />
-              )}
-
-              {/* Empty state if no superlatives found */}
-              {Object.keys(superlatives).length === 0 && (
-                <Card className="col-span-full border-dashed bg-transparent">
-                  <CardContent className="h-24 md:h-32 flex items-center justify-center text-sm md:text-base text-muted-foreground px-4">
-                    {range === 'all'
-                      ? 'No data available for superlatives yet.'
-                      : `Nobody shared, liked or listened in the last ${range === '7d' ? '7' : '30'} days. Try All.`}
-                  </CardContent>
-                </Card>
-              )}
+            <div className={card}>
+              <p className="text-base font-medium text-foreground">
+                {range === 'all'
+                  ? 'No data available for superlatives yet.'
+                  : `Nobody shared, liked or listened in the last ${range === '7d' ? '7' : '30'} days. Try All.`}
+              </p>
             </div>
           )}
-        </div>
+        </section>
 
       </main>
     </>
