@@ -37,6 +37,33 @@ const youSummary = {
   reflex: { youPlayMs: 240_000, groupPlayMs: 480_000, yoursPlayedMs: 360_000, groupYoursPlayedMs: 300_000 },
 };
 
+// Resonance Frequency: 30 daily buckets with a peak on day 18.
+const activity = Array.from({ length: 30 }, (_, i) => {
+  const shares = [0, 1, 2, 1, 0, 3, 1][i % 7] + (i === 17 ? 3 : 0);
+  return { timestamp: new Date(Date.UTC(2026, 0, i + 1)).toISOString(), shares, activity: shares * 3 + (i % 4) };
+});
+// Hall of Fame: the sample user holds two of the four titles (none in 7d).
+const superlatives = {
+  trendsetter: { user: friend, value: 5 },
+  hypeMan: { user: me, value: 4 },
+  dj: { user: me, value: 3 },
+  diehard: { user: other, value: 6 },
+};
+// Taste Gravity: the sample user is closest to the friend.
+const tasteGravity = {
+  nodes: [
+    { id: 'u1', name: me.displayName, img: null, mass: 0.8, topArtists: ['Sample Artist', 'Another Artist'] },
+    { id: 'u2', name: friend.displayName, img: null, mass: 0.6, topArtists: ['Sample Artist'] },
+    { id: 'u4', name: other.displayName, img: null, mass: 0.4, topArtists: ['Third Artist'] },
+  ],
+  links: [
+    { source: 'u1', target: 'u2', gravity: 0.8, reasons: ['Shared Artists: Sample Artist'] },
+    { source: 'u1', target: 'u4', gravity: 0.35, reasons: ['Shared Artists: Another Artist'] },
+    { source: 'u2', target: 'u4', gravity: 0.2, reasons: ['Shared Artists: Third Artist'] },
+  ],
+  insights: [],
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -78,6 +105,10 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
     }
     else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
+    else if (path.endsWith('/analytics/g1/activity')) json = { success: true, data: activity };
+    // Nobody earned a title in the last 7 days, so that period shows the empty card.
+    else if (path.endsWith('/analytics/g1/superlatives')) json = { success: true, data: url.searchParams.get('timeRange') === '7d' ? {} : superlatives };
+    else if (path.endsWith('/analytics/g1/taste-gravity')) json = { success: true, data: tasteGravity };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };

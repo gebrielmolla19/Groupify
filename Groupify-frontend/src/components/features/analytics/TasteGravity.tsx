@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Skeleton } from '../../ui/skeleton';
 import { Button } from '../../ui/button';
-import { useTasteGravity, TimeRange } from '../../../hooks/useTasteGravity';
-import type { TasteGravityNode, TasteGravityLink } from '../../../types/analytics';
+import { useTasteGravity } from '../../../hooks/useTasteGravity';
+import { tasteHeadline } from '../../../lib/groupChartsCopy';
+import TasteGravityLegend from './TasteGravityLegend';
+import type { AnalyticsRange, TasteGravityNode, TasteGravityLink } from '../../../types/analytics';
 
 /**
  * UI Polish Refinements Applied (2024):
@@ -38,11 +39,28 @@ import type { TasteGravityNode, TasteGravityLink } from '../../../types/analytic
 
 interface TasteGravityProps {
   groupId: string;
-  timeRange: TimeRange;
+  range: AnalyticsRange;
+  /** The signed-in member: their node and connections are drawn in iris. */
+  viewerId: string | undefined;
 }
 
-export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) {
-  const { data, isLoading, error } = useTasteGravity(groupId, timeRange);
+const card = 'flex flex-col gap-3 rounded-2xl border border-hair bg-raised p-4 md:p-5';
+
+// D3's force simulation replaces a link's ends with the node objects.
+const endId = (end: unknown): string =>
+  typeof end === 'object' && end !== null && 'id' in end ? String((end as { id: unknown }).id) : String(end);
+
+const isViewerLink = (d: TasteGravityLink, viewerId: string | undefined) =>
+  !!viewerId && (endId(d.source) === viewerId || endId(d.target) === viewerId);
+
+// Link colour: iris for the viewer's own connections, white (quiet to soft by strength) for the rest.
+const linkStroke = (d: TasteGravityLink, viewerId: string | undefined) => {
+  if (isViewerLink(d, viewerId)) return 'var(--iris)';
+  return d.gravity > 0.7 ? 'var(--text-soft)' : 'var(--text-quiet)';
+};
+
+export default function TasteGravity({ groupId, range, viewerId }: TasteGravityProps) {
+  const { data, isLoading, error } = useTasteGravity(groupId, range);
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<TasteGravityNode, undefined> | null>(null);
   const nodesRef = useRef<d3.Selection<SVGGElement, TasteGravityNode, SVGGElement, unknown> | null>(null);
@@ -109,7 +127,9 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
       )
       .force(
         'collision',
-        d3.forceCollide<TasteGravityNode>().radius((d: any) => 12 + (d.mass || 0.5) * 8)
+        // The drawn circle (20 + mass * 15) plus room for the name under it, so no
+        // circle covers another member's name, the viewer's "You" included
+        d3.forceCollide<TasteGravityNode>().radius((d: any) => 34 + (d.mass || 0.5) * 15)
       )
       .force('center', d3.forceCenter(width / 2, height / 2));
 
@@ -233,14 +253,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
       .data(data.links)
       .enter()
       .append('line')
-      .attr('stroke', (d) => {
-        // For very strong links (gravity > 0.7), blend toward violet with higher opacity
-        if (d.gravity > 0.7) {
-          return 'var(--text-soft)';
-        }
-        // Base electric cyan for links - increased opacity for better visibility
-        return 'var(--text-quiet)';
-      })
+      .attr('stroke', (d) => linkStroke(d, viewerId))
       .attr('stroke-width', (d) => {
         // Encode gravity using thickness: increased base (1.0) + gravity * 2.5 for more visibility
         return 1.0 + d.gravity * 2.5;
@@ -260,8 +273,8 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
           const isConnected = d.source === hoveredNodeId || d.target === hoveredNodeId;
           return isConnected ? (0.4 + d.gravity * 0.4) + 0.2 : 0.12;
         }
-        // Default opacity: increased base opacity for better visibility
-        return 0.3 + d.gravity * 0.35;
+        // Default: the viewer's connections stand out from the rest
+        return isViewerLink(d, viewerId) ? 0.6 + d.gravity * 0.4 : 0.3 + d.gravity * 0.35;
       });
 
     // Draw nodes
@@ -409,6 +422,9 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
       .attr('r', (d) => 20 + d.mass * 15)
       .attr('fill', 'none')
       .attr('stroke', (d) => {
+        if (d.id === viewerId) {
+          return 'var(--iris)'; // The viewer, always
+        }
         if (d.id === focusedNodeId) {
           return 'var(--text)'; // Selected
         }
@@ -427,7 +443,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
         if (d.id === hoveredNodeId && !focusedNodeId) {
           return 2; // Medium for hover
         }
-        return 1; // Thin for default
+        return d.id === viewerId ? 2 : 1; // Thin for default, the viewer a step heavier
       })
       .attr('filter', (d) => {
         if (d.id === focusedNodeId) {
@@ -510,7 +526,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
     // Add labels with near-white text and subtle shadow
     nodeElements
       .append('text')
-      .text((d) => d.name)
+      .text((d) => (d.id === viewerId ? 'You' : d.name))
       .attr('text-anchor', 'middle')
       .attr('dy', (d) => 20 + d.mass * 6)
       .attr('fill', 'var(--text)')
@@ -652,7 +668,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
       linksRef.current = null;
       containerRef.current = null;
     };
-  }, [data]); // Only recreate simulation when data changes, not on focus/hover
+  }, [data, viewerId]); // Only recreate simulation when data or viewer changes, not on focus/hover
 
   // Apply node separation when selection changes
   useEffect(() => {
@@ -758,14 +774,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
 
     // Update link styles
     links
-      .attr('stroke', (d) => {
-        // For very strong links (gravity > 0.7), blend toward violet with higher opacity
-        if (d.gravity > 0.7) {
-          return 'var(--text-soft)';
-        }
-        // Base electric cyan for links - increased opacity for better visibility
-        return 'var(--text-quiet)';
-      })
+      .attr('stroke', (d) => linkStroke(d, viewerId))
       .attr('stroke-width', (d) => {
         // Encode gravity using thickness: increased base (1.0) + gravity * 2.5 for more visibility
         return 1.0 + d.gravity * 2.5;
@@ -785,8 +794,8 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
           const isConnected = d.source === hoveredNodeId || d.target === hoveredNodeId;
           return isConnected ? (0.4 + d.gravity * 0.4) + 0.2 : 0.12;
         }
-        // Default opacity: increased base opacity for better visibility
-        return 0.3 + d.gravity * 0.35;
+        // Default: the viewer's connections stand out from the rest
+        return isViewerLink(d, viewerId) ? 0.6 + d.gravity * 0.4 : 0.3 + d.gravity * 0.35;
       });
 
     // Update node ring styles (not fill - avatar-centric)
@@ -805,6 +814,9 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
 
         ringSelection
           .attr('stroke', () => {
+            if (nodeId === viewerId) {
+              return 'var(--iris)'; // The viewer, always
+            }
             if (nodeId === focusedNodeId) {
               return 'var(--text)'; // Selected
             }
@@ -823,7 +835,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
             if (nodeId === hoveredNodeId && !focusedNodeId) {
               return 2; // Medium for hover
             }
-            return 1; // Thin for default
+            return nodeId === viewerId ? 2 : 1; // Thin for default, the viewer a step heavier
           })
           .attr('filter', () => {
             if (nodeId === focusedNodeId) {
@@ -927,7 +939,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
           return hoveredNodeId === nodeId ? 1 : 1; // Full opacity when nothing selected
         });
     });
-  }, [hoveredNodeId, focusedNodeId, data]);
+  }, [hoveredNodeId, focusedNodeId, data, viewerId]);
 
   // Handle window resize
   useEffect(() => {
@@ -1048,7 +1060,7 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
     if (connectedLinks.length === 0) {
       // Still show card even if no connections, just with limited info
       return {
-        selectedMember: selectedNode.name,
+        selectedMember: selectedNode.id === viewerId ? 'You' : selectedNode.name,
         connectedMember: null,
         sharedArtists: [],
         averageGravity: 0,
@@ -1116,182 +1128,140 @@ export default function TasteGravity({ groupId, timeRange }: TasteGravityProps) 
       connectedLinks.length;
 
     return {
-      selectedMember: selectedNode.name,
-      connectedMember: connectedMember?.name || 'Unknown',
+      selectedMember: selectedNode.id === viewerId ? 'You' : selectedNode.name,
+      connectedMember: connectedMemberId === viewerId ? 'You' : connectedMember?.name || 'Unknown',
       sharedArtists: sharedArtists, // All shared artists (will be limited in display)
       totalSharedArtists: sharedArtists.length, // Total count for "+N more" display
       averageGravity: Math.round(averageGravity * 100), // Convert to percentage
       hasConnections: true,
     };
-  }, [focusedNodeId, data]);
+  }, [focusedNodeId, data, viewerId]);
 
   if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-            Taste Gravity
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <Skeleton className="h-[500px] w-full" />
-        </CardContent>
-      </Card>
-    );
+    return <Skeleton className="h-[440px] w-full rounded-2xl md:h-[580px]" aria-label="Loading taste gravity" />;
   }
 
   if (error) {
     return (
-      <Card className="border-destructive">
-        <CardContent className="p-6">
-          <p className="text-destructive">{error}</p>
-          <Button onClick={() => window.location.reload()} className="mt-4">
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
+      <div className={`${card} items-start`} role="alert">
+        <p className="text-sm text-foreground">{error}</p>
+        <Button variant="outline" className="min-h-11" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
     );
   }
 
   if (!data || data.nodes.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-            Taste Gravity
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground text-center">
-            No data available. Share and listen to tracks to see taste connections.
-          </p>
-        </CardContent>
-      </Card>
+      <div className={card}>
+        <p className="text-base font-medium text-foreground">
+          No taste connections yet. Share and listen to tracks to see who listens alike.
+        </p>
+      </div>
     );
   }
 
   return (
-    <Card className="relative group">
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
-      <CardHeader className="relative z-10">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-            Taste Gravity
-          </CardTitle>
-          {focusedNodeId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFocusedNodeId(null)}
-              className="text-xs"
-            >
-              Reset Focus
-            </Button>
-          )}
+    <div className={card}>
+      <div className="flex min-h-11 items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-base font-medium text-foreground" aria-live="polite">
+            {tasteHeadline(data, viewerId)}
+          </p>
+          <p className="text-sm text-soft">Lines join members who listen to the same artists. Tap a member to see their closest match.</p>
         </div>
-      </CardHeader>
-      <CardContent className="p-0 relative z-10">
-        {/* SVG container with overflow to prevent bleeding */}
-        <div className="relative w-full h-[500px] overflow-hidden">
-          <svg
-            ref={svgRef}
-            width="100%"
-            height="100%"
-            className="cursor-move"
-            style={{ display: 'block', minHeight: '500px' }}
-            onClick={() => setFocusedNodeId(null)}
+        {focusedNodeId && (
+          <Button variant="ghost" size="sm" onClick={() => setFocusedNodeId(null)} className="min-h-11 shrink-0 text-xs">
+            Reset focus
+          </Button>
+        )}
+      </div>
+      {/* SVG container with overflow to prevent bleeding */}
+      <div className="relative -mx-4 h-[340px] overflow-hidden md:-mx-5 md:h-[460px]">
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="100%"
+          className="block cursor-move"
+          onClick={() => setFocusedNodeId(null)}
+        >
+          {/* SVG content is rendered by D3 */}
+        </svg>
+        {/* Tooltip positioned absolutely within SVG container */}
+        {hoveredNode && tooltipPosition && (
+          <div
+            className="pointer-events-none absolute z-50 max-w-xs rounded-lg border border-hair bg-raised px-3 py-2 text-foreground shadow-md"
+            style={{
+              left: `${tooltipPosition.x}px`,
+              top: `${tooltipPosition.y - 10}px`,
+              transform: 'translate(-50%, -100%)'
+            }}
           >
-            {/* SVG content is rendered by D3 */}
-          </svg>
-          {/* Tooltip positioned absolutely within SVG container */}
-          {hoveredNode && tooltipPosition && (
-            <div
-              className="absolute z-50 bg-popover text-popover-foreground rounded-md border border-border px-3 py-2 shadow-md max-w-xs pointer-events-none"
-              style={{
-                left: `${tooltipPosition.x}px`,
-                top: `${tooltipPosition.y - 10}px`,
-                transform: 'translate(-50%, -100%)'
-              }}
-            >
-              <div className="space-y-1">
-                <p className="font-semibold text-sm">{hoveredNode.name}</p>
-                {hoveredNode.topArtists.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Top Artists: {hoveredNode.topArtists.join(', ')}
-                  </p>
-                )}
-                {focusedNodeLinks.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs font-medium">Connections:</p>
-                    {focusedNodeLinks.slice(0, 3).map((link, idx) => {
-                      const otherNodeId =
-                        link.source === hoveredNode.id ? link.target : link.source;
-                      const otherNode = data.nodes.find((n) => n.id === otherNodeId);
-                      return (
-                        <div key={idx} className="text-xs">
-                          <span className="text-primary">
-                            {otherNode?.name || 'Unknown'}
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">{hoveredNode.id === viewerId ? 'You' : hoveredNode.name}</p>
+              {hoveredNode.topArtists.length > 0 && (
+                <p className="text-xs text-soft">
+                  Top artists: {hoveredNode.topArtists.join(', ')}
+                </p>
+              )}
+              {focusedNodeLinks.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs font-medium">Connections:</p>
+                  {focusedNodeLinks.slice(0, 3).map((link, idx) => {
+                    const otherNodeId =
+                      link.source === hoveredNode.id ? link.target : link.source;
+                    const otherNode = data.nodes.find((n) => n.id === otherNodeId);
+                    return (
+                      <div key={idx} className="text-xs">
+                        <span className="text-foreground">
+                          {otherNode?.name || 'Unknown'}
+                        </span>
+                        {link.reasons.length > 0 && (
+                          <span className="ml-1 text-soft">
+                            - {link.reasons[0]}
                           </span>
-                          {link.reasons.length > 0 && (
-                            <span className="text-muted-foreground ml-1">
-                              - {link.reasons[0]}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        {/* Focus Card below SVG */}
-        {focusedNodeId && focusCardData && (
-          <div className="p-4 border-t border-hair">
-            <Card className="bg-raised border border-line shadow-2xl">
-              <CardContent className="p-3.5">
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm">🔗</span>
-                    <h4 className="text-xs font-semibold text-foreground">
-                      Closest Taste Match
-                    </h4>
-                  </div>
-                  {focusCardData.hasConnections && focusCardData.connectedMember ? (
-                    <>
-                      <div className="text-xs text-foreground">
-                        <span className="font-medium">{focusCardData.selectedMember}</span>
-                        <span className="mx-1.5 text-muted-foreground">↔</span>
-                        <span className="font-medium">{focusCardData.connectedMember}</span>
+                        )}
                       </div>
-                      {focusCardData.sharedArtists.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-medium">Shared artists:</span>{' '}
-                          {focusCardData.sharedArtists.slice(0, 3).join(' · ')}
-                          {focusCardData.totalSharedArtists > 3 && (
-                            <span> +{focusCardData.totalSharedArtists - 3} more</span>
-                          )}
-                        </div>
-                      )}
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-medium">Avg gravity:</span>{' '}
-                        {focusCardData.averageGravity}%
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-medium">{focusCardData.selectedMember}</span>
-                      <span className="ml-2">No connections yet</span>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      <TasteGravityLegend />
+      {/* Focus card below the chart */}
+      {focusedNodeId && focusCardData && (
+        <div className="flex flex-col gap-1.5 border-t border-hair pt-3">
+          <p className="text-sm text-soft">Closest taste match</p>
+          {focusCardData.hasConnections && focusCardData.connectedMember ? (
+            <>
+              <p className="text-sm font-medium text-foreground">
+                {focusCardData.selectedMember}
+                <span className="mx-1.5 text-soft" aria-hidden="true">↔</span>
+                <span className="sr-only"> and </span>
+                {focusCardData.connectedMember}
+              </p>
+              {focusCardData.sharedArtists.length > 0 && (
+                <p className="text-xs text-soft">
+                  Shared artists: {focusCardData.sharedArtists.slice(0, 3).join(' · ')}
+                  {focusCardData.totalSharedArtists > 3 && (
+                    <span> +{focusCardData.totalSharedArtists - 3} more</span>
+                  )}
+                </p>
+              )}
+              <p className="text-xs text-soft">Average gravity: {focusCardData.averageGravity}%</p>
+            </>
+          ) : (
+            <p className="text-xs text-soft">
+              <span className="font-medium text-foreground">{focusCardData.selectedMember}</span>
+              <span className="ml-2">No connections yet</span>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
-

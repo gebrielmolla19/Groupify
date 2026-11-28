@@ -1,85 +1,42 @@
-import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { cn } from '../../../lib/utils';
-import { Badge } from '../../ui/badge';
+import { superlativeHeadline, superlativeValue, type SuperlativeKind } from '../../../lib/groupChartsCopy';
 
 interface SuperlativeCardProps {
+    kind: SuperlativeKind;
     title: string;
-    description: string;
-    icon: string;
     user: {
+        _id?: string;
         displayName: string;
         profileImage?: string;
     };
-    value: string | number;
-    label?: string;
-    gradient?: string;
-    delay?: number;
+    value: number;
+    /** The signed-in member holds this title: their number is in iris. */
+    isViewer: boolean;
 }
 
-export default function SuperlativeCard({
-    title,
-    description,
-    icon,
-    user,
-    value,
-    label,
-    gradient = "from-primary/20 to-primary/5",
-    delay = 0
-}: SuperlativeCardProps) {
+/** One Hall of Fame title: who holds it, said in a sentence, then the number. */
+export default function SuperlativeCard({ kind, title, user, value, isViewer }: SuperlativeCardProps) {
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay }}
-            whileHover={{ y: -5, scale: 1.02 }}
-        >
-            <Card className={cn(
-                "overflow-hidden border-white/10 backdrop-blur-sm relative group",
-                "bg-gradient-to-br", gradient
-            )}>
-                {/* Holographic Shine Effect */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-tr from-transparent via-white/5 to-transparent skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%]" />
-
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        <span className="text-2xl">{icon}</span>
-                        {title}
-                    </CardTitle>
-                    <Badge variant="secondary" className="bg-black/30 text-xs">
-                        {label || 'Top Member'}
-                    </Badge>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center gap-4 mt-2">
-                        <div className="relative">
-                            <Avatar className="w-16 h-16 border-2 border-white/20 shadow-lg group-hover:border-primary/50 transition-colors">
-                                <AvatarImage src={user.profileImage} />
-                                <AvatarFallback className="bg-primary/20 text-primary text-xl font-bold">
-                                    {user.displayName.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
-                                #1
-                            </div>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-lg truncate text-foreground/90">
-                                {user.displayName}
-                            </h3>
-                            <p className="text-sm text-muted-foreground line-clamp-1 mb-1">
-                                {description}
-                            </p>
-                            <div className="inline-flex items-center px-2 py-1 rounded bg-white/5 border border-white/5">
-                                <span className="font-mono font-bold text-primary mr-2">{value}</span>
-                                <span className="text-xs text-muted-foreground uppercase tracking-wider">Total</span>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </motion.div>
+        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-hair bg-raised p-4 md:p-5">
+            <p className="text-sm text-soft">{title}</p>
+            <div className="flex min-w-0 items-center gap-3">
+                <Avatar className={cn('size-11 shrink-0', isViewer && 'ring-2 ring-iris ring-offset-2 ring-offset-raised')}>
+                    <AvatarImage src={user.profileImage} alt="" />
+                    <AvatarFallback className="bg-selected text-sm font-semibold text-soft">
+                        {user.displayName.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                </Avatar>
+                <p className="min-w-0 text-base font-medium text-foreground">
+                    {superlativeHeadline(kind, isViewer ? null : user.displayName)}
+                </p>
+            </div>
+            <p className="mt-auto flex items-baseline gap-2">
+                <span className={cn('font-display text-3xl font-semibold', isViewer ? 'text-iris' : 'text-foreground')}>
+                    {value}
+                </span>
+                <span className="text-sm text-soft">{superlativeValue(kind, value)}</span>
+            </p>
+        </div>
     );
 }
