@@ -7,6 +7,32 @@ import type { ViewerSummary } from '../../../types/analytics';
 
 vi.mock('../../../hooks/useViewerSummary', () => ({ useViewerSummary: vi.fn() }));
 
+// jsdom has no layout observers or matchMedia; Embla and framer-motion need them.
+class NoopObserver {
+  observe(_target?: Element) {}
+  unobserve() {}
+  disconnect() {}
+}
+// The section counts as on screen as soon as it's observed.
+class InViewObserver extends NoopObserver {
+  constructor(private callback: IntersectionObserverCallback) {
+    super();
+  }
+  observe(target: Element) {
+    this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+  }
+}
+vi.stubGlobal('ResizeObserver', NoopObserver);
+vi.stubGlobal('IntersectionObserver', InViewObserver);
+vi.stubGlobal('matchMedia', (query: string) => ({
+  matches: false,
+  media: query,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+}));
+
 const MIN = 60_000;
 const sample: ViewerSummary = {
   range: '30d',
@@ -23,7 +49,10 @@ const hook = (state: Partial<ReturnType<typeof useViewerSummary>>) =>
   vi.mocked(useViewerSummary).mockReturnValue({ data: null, isLoading: false, error: null, refetch: vi.fn(), ...state });
 
 describe('YouSection', () => {
-  beforeEach(() => vi.mocked(useViewerSummary).mockReset());
+  beforeEach(() => {
+    vi.mocked(useViewerSummary).mockReset();
+    localStorage.clear();
+  });
 
   it('shows the viewer\'s role, hit rate, streak, best share, discovery and reflex', () => {
     hook({ data: sample });
@@ -66,6 +95,30 @@ describe('YouSection', () => {
     expect(screen.getByText('Shows once someone else is in the group.')).toBeInTheDocument();
     expect(screen.getByText('Shows once there are listens to compare.')).toBeInTheDocument();
     expect(screen.queryByText(/Previous/)).not.toBeInTheDocument();
+  });
+
+  it('puts the six cards in a carousel, each labelled with its place', () => {
+    hook({ data: sample });
+    render(<YouSection groupId="g1" />);
+
+    const carousel = screen.getByRole('region', { name: 'Your numbers' });
+    expect(carousel).toHaveAttribute('aria-roledescription', 'carousel');
+    const slides = screen.getAllByRole('group').filter((el) => el.getAttribute('aria-roledescription') === 'slide');
+    expect(slides.map((s) => s.getAttribute('aria-label'))).toEqual([
+      '1 of 6: Your role',
+      '2 of 6: Hit rate',
+      '3 of 6: Sharing streak',
+      '4 of 6: Best-landing share',
+      '5 of 6: Discovery credit',
+      '6 of 6: Your reflex',
+    ]);
+  });
+
+  it('nudges the cards once, then remembers it did', () => {
+    hook({ data: sample });
+    const { unmount } = render(<YouSection groupId="g1" />);
+    expect(localStorage.getItem('groupify-you-nudge-seen')).toBe('true');
+    unmount();
   });
 
   it('offers to try again when the numbers fail to load', async () => {
