@@ -38,8 +38,12 @@ export interface TasteGravityResponse {
 
 
 
+/** The periods Group Dynamics offers in its one range control, shared by every section. */
+export const ANALYTICS_RANGES = ['7d', '30d', 'all'] as const;
+export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
+
 /** Periods the "You" section of Group Dynamics covers. */
-export type ViewerSummaryRange = '7d' | '30d' | 'all';
+export type ViewerSummaryRange = AnalyticsRange;
 
 export type ViewerRoleId =
   | 'tastemaker'

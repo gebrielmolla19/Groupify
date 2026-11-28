@@ -6,7 +6,7 @@
 import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
 import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
-import { TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
+import { AnalyticsRange, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
 import { logger } from '../utils/logger';
 
 const TOKEN_STORAGE_KEY = 'groupify_token';
@@ -1018,10 +1018,10 @@ export const getMemberVibes = async (groupId: string, timeRange?: string): Promi
 };
 
 /**
- * Get superlatives (hall of fame)
+ * Get superlatives (hall of fame) for a period
  */
-export const getSuperlatives = async (groupId: string): Promise<any> => {
-  const response = await fetchWithAuth(`/analytics/${groupId}/superlatives`);
+export const getSuperlatives = async (groupId: string, timeRange: AnalyticsRange = 'all'): Promise<any> => {
+  const response = await fetchWithAuth(`/analytics/${groupId}/superlatives?timeRange=${timeRange}`);
   const data = await response.json();
 
   if (!data.success) {

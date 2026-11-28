@@ -670,10 +670,24 @@ class AnalyticsService {
 
   /**
    * Get Superlatives (Hall of Fame)
-   * @param {string} groupId 
+   * @param {string} groupId
+   * @param {string} timeRange - '7d' | '30d' | 'all' (default). A ranged
+   *   Hall of Fame counts only what happened in the period: shares created,
+   *   likes given or received (`likes.likedAt`) and listens
+   *   (`listeners.listenedAt`) since midnight UTC N days ago.
    */
-  static async getSuperlatives(groupId) {
+  static async getSuperlatives(groupId, timeRange = 'all') {
     const gid = new mongoose.Types.ObjectId(groupId);
+    const days = { '7d': 7, '30d': 30 }[timeRange];
+    let since = null;
+    if (days) {
+      const now = new Date();
+      since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+    }
+    // Only for ranged queries: keep the unwound entries inside the period.
+    const within = (field) => (since ? [{ $match: { [field]: { $gte: since } } }] : []);
+    const top = [{ $sort: { value: -1 } }, { $limit: 1 }];
+
     const rules = [
       // 1. The Hype Man: Most likes GIVEN
       {
@@ -684,9 +698,9 @@ class AnalyticsService {
         pipeline: [
           { $match: { group: gid } },
           { $unwind: "$likes" },
+          ...within('likes.likedAt'),
           { $group: { _id: "$likes.user", value: { $sum: 1 } } },
-          { $sort: { value: -1 } },
-          { $limit: 1 }
+          ...top
         ]
       },
       // 2. The Trendsetter: Most likes RECEIVED
@@ -695,12 +709,19 @@ class AnalyticsService {
         label: 'The Trendsetter',
         description: 'Most likes received',
         icon: '✨',
-        pipeline: [
-          { $match: { group: gid } },
-          { $group: { _id: "$sharedBy", value: { $sum: "$likeCount" } } },
-          { $sort: { value: -1 } },
-          { $limit: 1 }
-        ]
+        pipeline: since
+          ? [
+            { $match: { group: gid } },
+            { $unwind: "$likes" },
+            ...within('likes.likedAt'),
+            { $group: { _id: "$sharedBy", value: { $sum: 1 } } },
+            ...top
+          ]
+          : [
+            { $match: { group: gid } },
+            { $group: { _id: "$sharedBy", value: { $sum: "$likeCount" } } },
+            ...top
+          ]
       },
       // 3. The DJ: Most Shares
       {
@@ -709,10 +730,9 @@ class AnalyticsService {
         description: 'Most tracks shared',
         icon: '🎧',
         pipeline: [
-          { $match: { group: gid } },
+          { $match: since ? { group: gid, createdAt: { $gte: since } } : { group: gid } },
           { $group: { _id: "$sharedBy", value: { $sum: 1 } } },
-          { $sort: { value: -1 } },
-          { $limit: 1 }
+          ...top
         ]
       },
       // 4. The Diehard: Most Listens (using listeners array)
@@ -724,9 +744,9 @@ class AnalyticsService {
         pipeline: [
           { $match: { group: gid } },
           { $unwind: "$listeners" },
+          ...within('listeners.listenedAt'),
           { $group: { _id: "$listeners.user", value: { $sum: 1 } } },
-          { $sort: { value: -1 } },
-          { $limit: 1 }
+          ...top
         ]
       }
     ];

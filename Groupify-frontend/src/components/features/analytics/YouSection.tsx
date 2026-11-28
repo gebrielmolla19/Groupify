@@ -9,7 +9,6 @@ import {
 } from "framer-motion";
 import { Skeleton } from "../../ui/skeleton";
 import { Button } from "../../ui/button";
-import { ToggleGroup, ToggleGroupItem } from "../../ui/toggle-group";
 import { eyebrow } from "../profile/SettingsSection";
 import { useViewerSummary } from "../../../hooks/useViewerSummary";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
@@ -26,12 +25,6 @@ import {
 } from "../../../lib/viewerSummaryCopy";
 import type { ViewerSummary, ViewerSummaryRange } from "../../../types/analytics";
 import { logger } from "../../../utils/logger";
-
-const RANGES: { value: ViewerSummaryRange; label: string }[] = [
-  { value: "7d", label: "7d" },
-  { value: "30d", label: "30d" },
-  { value: "all", label: "All" },
-];
 
 const card = "flex flex-col gap-1.5 rounded-2xl border border-hair bg-raised p-4 md:p-5";
 const cardLabel = "text-sm text-soft";
@@ -455,35 +448,18 @@ function YouSkeleton() {
 
 /**
  * The top of Group Dynamics: the signed-in member's own numbers for the
- * chosen period. Iris marks the viewer, as everywhere in the app.
+ * period chosen in the page header. Iris marks the viewer, as everywhere in
+ * the app.
  */
-export default function YouSection({ groupId }: { groupId: string }) {
-  const [range, setRange] = useState<ViewerSummaryRange>("30d");
+export default function YouSection({ groupId, range }: { groupId: string; range: ViewerSummaryRange }) {
+  // While a new range loads the old numbers stay, so the phone deck stays
+  // mounted and keeps its current card on top.
   const { data, isLoading, error, refetch } = useViewerSummary(groupId, range);
 
   return (
     <section className="flex flex-col gap-3 md:gap-4" aria-labelledby="you-heading" data-tour="analytics-you">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+      <div className="flex min-h-11 items-center px-2">
         <h2 id="you-heading" className={eyebrow}>You</h2>
-        <ToggleGroup
-          type="single"
-          value={range}
-          // Radix sends "" when the selected chip is pressed again; keep it selected.
-          onValueChange={(next) => next && setRange(next as ViewerSummaryRange)}
-          role="radiogroup"
-          aria-label="Period for your numbers"
-          className="gap-1.5"
-        >
-          {RANGES.map((option) => (
-            <ToggleGroupItem
-              key={option.value}
-              value={option.value}
-              className="min-h-11 min-w-11 flex-none rounded-xl first:rounded-xl last:rounded-xl border border-line px-3 font-mono text-xs text-foreground hover:bg-raised hover:text-foreground data-[state=on]:border-iris data-[state=on]:bg-selected data-[state=on]:text-foreground"
-            >
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
       </div>
 
       {error ? (
