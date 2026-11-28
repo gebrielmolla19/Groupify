@@ -312,7 +312,7 @@ const ARCHETYPES: Archetype[] = [
 export const getInfluenceStyleLabel = (
   user: ListenerReflexUser,
   ringData: { points: Array<{ ms: number; listenedAt: string }> },
-  range: ListenerReflexRange,
+  _range: ListenerReflexRange,
   totalGroupMembers: number
 ): InfluenceStyleLabel => {
   const { points } = ringData;

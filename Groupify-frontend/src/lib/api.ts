@@ -5,7 +5,7 @@
 
 import { API_BASE_URL } from './config';
 import { ApiError, SPOTIFY_REAUTH_REQUIRED, SPOTIFY_REAUTH_EVENT } from './apiError';
-import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexRadarData, NotificationPreferences, UnheardShares } from '../types';
+import { User, SpotifyDevice, Group, Share, Invite, UserStats, GroupSettings, SpotifyTrack, ListenerReflexData, NotificationPreferences, UnheardShares } from '../types';
 import { AnalyticsRange, BetweenYou, TasteGravityResponse, ViewerSummary, ViewerSummaryRange } from '../types/analytics';
 import { logger } from '../utils/logger';
 
@@ -1094,14 +1094,14 @@ export const getBetweenYou = async (
 /**
  * Get listener reflex analytics
  * @param groupId - Group ID
- * @param range - Time range: '7d' | '30d'
- * @param mode - Analysis mode: 'received' | 'shared'
+ * @param range - Time range: '24h' | '7d' | '30d' | 'all'
+ * @param mode - 'received' (Listening) | 'shared' (Sharing)
  */
 export const getListenerReflex = async (
   groupId: string,
   range: string = '30d',
   mode: string = 'received'
-): Promise<any> => {
+): Promise<ListenerReflexData> => {
   const response = await fetchWithAuth(
     `/analytics/${groupId}/listener-reflex?range=${range}&mode=${mode}`
   );
@@ -1109,29 +1109,6 @@ export const getListenerReflex = async (
 
   if (!data.success) {
     throw new Error(data.message || 'Failed to fetch listener reflex data');
-  }
-
-  return data.data;
-};
-
-/**
- * Get listener reflex radar profiles
- * @param groupId - Group ID
- * @param window - Time window: '7d' | '30d' | 'all'
- * @param mode - Analysis mode: 'received' | 'shared'
- */
-export const getListenerReflexRadar = async (
-  groupId: string,
-  window: string = '30d',
-  mode: string = 'received'
-): Promise<ListenerReflexRadarData> => {
-  const response = await fetchWithAuth(
-    `/analytics/listener-reflex/radar?groupId=${groupId}&window=${window}&mode=${mode}`
-  );
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.message || 'Failed to fetch radar data');
   }
 
   return data.data;

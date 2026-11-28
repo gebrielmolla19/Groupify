@@ -53,6 +53,24 @@ const betweenYou = (member: string | null) => {
   };
 };
 
+// Listener Reflex for the sample group, by mode ('received' is Listening,
+// 'shared' is Sharing). Medians and buckets agree with each other.
+const reflexMember = (u: { _id: string; displayName: string }, listens: number, medianMs: number | null, timing: number[]) => ({
+  userId: u._id, displayName: u.displayName, avatarUrl: null, listens, medianMs, p25Ms: medianMs, p75Ms: medianMs,
+  category: medianMs === null ? null : 'quick', listenRatio: listens / 6,
+  timing: { sameHour: timing[0], sameDay: timing[1], withinWeek: timing[2], later: timing[3] },
+});
+const reflexAnswer = (mode: 'received' | 'shared') => {
+  const users = mode === 'received'
+    ? [reflexMember(me, 5, 240_000, [4, 1, 0, 0]), reflexMember(friend, 6, 9_000_000, [1, 3, 2, 0]), reflexMember(other, 3, 259_200_000, [0, 0, 2, 1])]
+    : [reflexMember(me, 4, 360_000, [3, 1, 0, 0]), reflexMember(friend, 3, 86_400_000, [0, 1, 2, 0]), reflexMember(other, 0, null, [0, 0, 0, 0])];
+  return {
+    groupId: 'g1', range: '30d', mode, generatedAt: at, buckets: { instant: [], quick: [], slow: [], longTail: [] }, users,
+    ringData: users.map((u) => ({ userId: u.userId, points: u.medianMs === null ? [] : Array.from({ length: u.listens }, (_, i) => ({ ms: u.medianMs, listenedAt: new Date(Date.parse(at) + i * 4 * 86_400_000).toISOString() })) })),
+    summary: { groupMedianMs: users[1].medianMs, instantReactorCount: 1, totalSharesInRange: 6 },
+  };
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -95,6 +113,7 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
     }
     else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
     else if (path.endsWith('/analytics/g1/between')) json = { success: true, data: betweenYou(url.searchParams.get('member')) };
+    else if (path.endsWith('/analytics/g1/listener-reflex')) json = { success: true, data: reflexAnswer(url.searchParams.get('mode') === 'shared' ? 'shared' : 'received') };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };

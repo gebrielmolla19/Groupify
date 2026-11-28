@@ -175,6 +175,15 @@ export interface ListenerReflexUser {
   p75Ms: number | null;
   category: ReflexCategory | null;
   listenRatio: number;
+  /** How many of these listens came the same hour, same day, within the week, or later. */
+  timing: ListenTiming;
+}
+
+export interface ListenTiming {
+  sameHour: number;
+  sameDay: number;
+  withinWeek: number;
+  later: number;
 }
 
 export interface ListenerReflexData {
@@ -201,30 +210,4 @@ export interface ListenerReflexData {
     instantReactorCount: number;
     totalSharesInRange: number;
   };
-}
-
-export interface RadarProfile {
-  userId: string;
-  displayName: string;
-  avatarUrl: string | null;
-  axes: {
-    speed: number;
-    consistency: number;
-    recency: number;
-    volume: number;
-    burstiness: number;
-  };
-  raw: {
-    reactionCount: number;
-    medianLatencySeconds: number;
-    iqrSeconds: number;
-  };
-  lowData: boolean;
-}
-
-export interface ListenerReflexRadarData {
-  window: '7d' | '30d' | 'all';
-  mode: 'received' | 'shared';
-  maxLatencySeconds: number;
-  members: RadarProfile[];
 }

@@ -1,480 +1,239 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-
-import { Badge } from '../../ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
+import { useId, useMemo, useState } from 'react';
+import { Button } from '../../ui/button';
 import { Skeleton } from '../../ui/skeleton';
-import { useIsMobile } from '../../ui/use-mobile';
+import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group';
+import { useUser } from '../../../contexts/UserContext';
 import { useListenerReflex, type ListenerReflexMode } from '../../../hooks/useListenerReflex';
 import type { AnalyticsRange } from '../../../types/analytics';
-import { formatTime } from '../../../lib/formatTime';
+import {
+  breakdownRows,
+  breakdownTitle,
+  emptyBreakdownLine,
+  rankMembers,
+  reflexExplainer,
+  reflexHeadline,
+  type ReflexRow,
+} from '../../../lib/listenerReflex';
+import { formatWait } from '../../../lib/viewerSummaryCopy';
 import { cn } from '../../../lib/utils';
-import type { ListenerReflexUser, ReflexCategory } from '../../../types';
-import { Zap, Clock, TrendingUp, Timer } from 'lucide-react';
-import ListenerReflexComparePanel from './listenerReflex/ListenerReflexComparePanel';
-import { getListeningStyleLabel } from '../../../utils/getListeningStyleLabel';
-import { useAiInsights } from '../../../hooks/useAiInsights';
 
 interface ListenerReflexCardProps {
   groupId: string;
+  /** The period to rank; the page's range control owns it. */
   range: AnalyticsRange;
-  mode: ListenerReflexMode;
-  isCompareMode: boolean;
 }
 
-const CATEGORY_CONFIG: Record<ReflexCategory, { label: string; color: string; icon: typeof Zap }> = {
-  instant: { label: 'Instant Reactor', color: 'bg-selected text-foreground border-line', icon: Zap },
-  quick: { label: 'Quick', color: 'bg-selected text-soft border-line', icon: Clock },
-  slow: { label: 'Slow Burn', color: 'bg-selected text-soft border-line', icon: TrendingUp },
-  longTail: { label: 'Long Tail', color: 'bg-muted text-muted-foreground border-border', icon: Timer }
-};
+const MODES: { value: ListenerReflexMode; label: string }[] = [
+  { value: 'received', label: 'Listening' },
+  { value: 'shared', label: 'Sharing' },
+];
 
-// ─── Timeline strip chart helpers ───────────────────────────────────────────
+const card = 'rounded-2xl border border-hair bg-raised p-4 md:p-6';
+// Bars grow when the numbers change, unless the member asked for less motion.
+const barMotion = 'motion-safe:transition-[width] motion-safe:duration-500 motion-safe:ease-out';
+
+function ModeToggle({ mode, onChange }: { mode: ListenerReflexMode; onChange: (mode: ListenerReflexMode) => void }) {
+  return (
+    <ToggleGroup
+      type="single"
+      value={mode}
+      // Radix sends "" when the selected option is pressed again; keep it selected.
+      onValueChange={(next) => next && onChange(next as ListenerReflexMode)}
+      role="radiogroup"
+      aria-label="Rank by"
+      className="w-fit gap-1 rounded-xl border border-hair p-1"
+    >
+      {MODES.map((option) => (
+        <ToggleGroupItem
+          key={option.value}
+          value={option.value}
+          className="min-h-11 flex-none rounded-lg first:rounded-lg last:rounded-lg px-4 text-sm font-medium text-soft hover:bg-selected hover:text-foreground data-[state=on]:bg-iris data-[state=on]:text-on-iris"
+        >
+          {option.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+function MemberRow({
+  row,
+  selected,
+  onSelect,
+  controls,
+}: {
+  row: ReflexRow;
+  selected: boolean;
+  onSelect: () => void;
+  controls: string;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-controls={controls}
+        className={cn(
+          'flex min-h-11 w-full flex-col gap-2 rounded-xl border px-3 py-2.5 text-left',
+          'outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          // Iris is the viewer's colour, so selection uses the plain strong line.
+          selected ? 'border-foreground/60 bg-selected' : 'border-hair hover:bg-selected'
+        )}
+      >
+        <span className="flex w-full min-w-0 items-start gap-2">
+          {/* On a phone the badge wraps under the name rather than being cut off. */}
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className={cn('min-w-0 break-words font-semibold', row.isViewer ? 'text-iris' : 'text-foreground')}>
+              {row.name}
+            </span>
+            {row.badge && (
+              <span className="rounded-full border border-line px-2 py-0.5 text-xs text-soft">
+                {row.badge}
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 pl-2 text-sm font-semibold text-foreground">
+            {row.medianMs === null ? (
+              <span className="font-normal text-quiet">No listens</span>
+            ) : (
+              <>
+                <span className="sr-only">median </span>
+                {formatWait(row.medianMs)}
+              </>
+            )}
+          </span>
+        </span>
+        <span className="h-1.5 w-full overflow-hidden rounded-full bg-hair" aria-hidden="true">
+          <span
+            className={cn('block h-full rounded-full', barMotion, row.isViewer ? 'bg-iris' : 'bg-foreground')}
+            style={{ width: `${row.barPercent}%` }}
+          />
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function Breakdown({ row, mode, id }: { row: ReflexRow; mode: ListenerReflexMode; id: string }) {
+  const headingId = `${id}-heading`;
+  return (
+    <section id={id} aria-labelledby={headingId} aria-live="polite" className="flex flex-col gap-3 border-t border-hair pt-4">
+      <h4 id={headingId} className="text-sm text-soft">
+        {breakdownTitle(mode, row.name, row.isViewer)}
+      </h4>
+      {row.listens === 0 ? (
+        <p className="text-sm text-foreground">{emptyBreakdownLine(mode, row.name, row.isViewer)}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {breakdownRows(row.timing).map((bucket) => (
+            <li key={bucket.key} className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-3 text-sm">
+              <span className="text-foreground">{bucket.label}</span>
+              <span className="h-1.5 overflow-hidden rounded-full bg-hair" aria-hidden="true">
+                <span
+                  className={cn('block h-full rounded-full', barMotion, row.isViewer ? 'bg-iris' : 'bg-foreground')}
+                  style={{ width: `${bucket.percent}%` }}
+                />
+              </span>
+              <span className="text-right font-semibold text-foreground">{bucket.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ReflexSkeleton() {
+  return (
+    <div className={cn(card, 'grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')} aria-busy="true" aria-label="Loading Listener Reflex">
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-11 w-48" />
+      </div>
+      <div className="flex flex-col gap-2">
+        {[0, 1, 2, 3].map((n) => (
+          <Skeleton key={n} className="h-16 w-full rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
- * Map a timestamp to X position in the chart.
- * @param timestamp ISO string
- * @param minTime earliest timestamp (ms since epoch)
- * @param maxTime latest timestamp (ms since epoch)
- * @param chartLeft left padding of the chart area
- * @param chartWidth usable width of the chart area
- * @returns x coordinate
+ * Listener Reflex, in Group Dynamics: one ranked list of how soon members
+ * listen after a share (Listening), or how soon others listen to each
+ * member's shares (Sharing). Tapping a member shows when their listens
+ * landed: the same hour, the same day, within the week, or later.
  */
-const mapTimestampToX = (
-  timestamp: string,
-  minTime: number,
-  maxTime: number,
-  chartLeft: number,
-  chartWidth: number
-): number => {
-  const t = new Date(timestamp).getTime();
-  if (maxTime === minTime) return chartLeft + chartWidth / 2;
-  const ratio = (t - minTime) / (maxTime - minTime);
-  return chartLeft + ratio * chartWidth;
-};
+export default function ListenerReflexCard({ groupId, range }: ListenerReflexCardProps) {
+  const [mode, setMode] = useState<ListenerReflexMode>('received');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { user } = useUser();
+  const viewerId = user?._id || user?.id;
+  const { data, isLoading, error, refetch } = useListenerReflex(groupId, range, mode);
+  const breakdownId = useId();
 
-// Y-axis ceiling per range so short-range charts aren't compressed against a 30d scale
-const RANGE_MAX_MS: Record<AnalyticsRange, number> = {
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-  'all': 90 * 24 * 60 * 60 * 1000,
-};
-
-/**
- * Map reaction time (ms) to Y position using log scale, inverted (fast = top).
- * maxMs should match the active range so the scale is meaningful.
- */
-const mapReactionTimeToY = (
-  reactionMs: number,
-  chartTop: number,
-  chartHeight: number,
-  maxMs: number
-): number => {
-  const MIN_MS = 1000; // 1 second floor
-  const clamped = Math.max(MIN_MS, Math.min(reactionMs, maxMs));
-  const logMin = Math.log(MIN_MS);
-  const logMax = Math.log(maxMs);
-  const t = (Math.log(clamped) - logMin) / (logMax - logMin); // 0 = fast, 1 = slow
-  return chartTop + t * chartHeight; // fast at top, slow at bottom
-};
-
-/**
- * Format a timestamp for axis display.
- */
-const formatAxisDate = (timestamp: number): string => {
-  const d = new Date(timestamp);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[d.getMonth()]} ${d.getDate()}`;
-};
-
-// SVG viewBox units for the timeline strip chart
-const SVG_WIDTH = 300;
-const SVG_HEIGHT = 80;
-const CHART_LEFT = 30;   // space for "Fast"/"Slow" labels
-const CHART_RIGHT = 10;
-const CHART_TOP = 4;
-const CHART_BOTTOM = 16; // space for date labels
-const CHART_WIDTH = SVG_WIDTH - CHART_LEFT - CHART_RIGHT;
-const CHART_HEIGHT = SVG_HEIGHT - CHART_TOP - CHART_BOTTOM;
-
-export default function ListenerReflexCard({ groupId, range, mode, isCompareMode }: ListenerReflexCardProps) {
-  const isMobile = useIsMobile();
-
-  const { data, isLoading, error } = useListenerReflex(groupId, range, mode);
-  const { data: aiInsights, isLoading: aiLoading } = useAiInsights(groupId, 'reflex', range, mode);
-
-  // Calculate group average listens for relative engagement comparison
-  const groupAverageListens = useMemo(() => {
-    if (!data || data.users.length === 0) return 0;
-    const totalListens = data.users.reduce((sum, user) => sum + user.listens, 0);
-    return totalListens / data.users.length;
-  }, [data]);
-
-  // Build timeline visualization data — pair each user with their ring data points
-  const timelineData = useMemo(() => {
-    if (!data || !data.ringData || data.ringData.length === 0) return null;
-
-    const usersWithTimeline = data.users
-      .map(user => {
-        const ringData = data.ringData.find(rd => rd.userId === user.userId);
-        if (!ringData) return null;
-        return { user, ringData };
-      })
-      .filter((item): item is {
-        user: ListenerReflexUser;
-        ringData: { userId: string; points: Array<{ ms: number; listenedAt: string }> };
-      } => item !== null);
-
-    return { usersWithTimeline };
-  }, [data]);
-
-  if (isLoading) {
-    return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-hair">
-        <CardHeader>
-          <Skeleton className="h-6 w-48 mb-4" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-16" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full mb-4" />
-          <Skeleton className="h-32 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
+  const rows = useMemo(() => (data ? rankMembers(data, viewerId, range) : []), [data, viewerId, range]);
 
   if (error) {
     return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-hair border-destructive/50">
-        <CardContent className="p-6">
-          <p className="text-destructive text-sm">{error}</p>
-        </CardContent>
-      </Card>
+      <div className={cn(card, 'flex flex-col items-start gap-3')} role="alert">
+        <p className="text-sm text-foreground">Listener Reflex didn't load.</p>
+        <Button variant="outline" className="min-h-11" onClick={() => refetch()}>
+          Try again
+        </Button>
+      </div>
     );
   }
 
-  if (!data || data.users.length === 0) {
-    return (
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-hair">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-            Listener Reflex
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">No listener data available for this range.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading && !data) return <ReflexSkeleton />;
+  if (!data) return null;
 
-  const groupMedianMs = data.summary.groupMedianMs;
-  const dotRadius = isMobile ? 4 : 3;
-  const yAxisMaxMs = RANGE_MAX_MS[range];
+  const hasListens = rows.some((r) => r.medianMs !== null);
+  const selected = rows.find((r) => r.userId === selectedId)
+    ?? rows.find((r) => r.isViewer)
+    ?? rows[0];
 
   return (
-    <Card className="w-full bg-card/50 backdrop-blur-sm border-hair">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-          Listener Reflex
-        </CardTitle>
-      </CardHeader>
+    <div className={cn(card, 'grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-center', isLoading && 'opacity-70')}>
+      <div className="flex flex-col gap-3">
+        <h3 className="font-display text-2xl font-semibold text-foreground md:text-3xl">
+          {rows.length < 2 ? 'Better with company' : reflexHeadline(rows, mode)}
+        </h3>
+        <p className="text-sm text-soft">
+          {rows.length < 2
+            ? 'Listener Reflex compares members, so it needs at least two. Invite someone to the group.'
+            : reflexExplainer(mode)}
+        </p>
+        {rows.length >= 2 && <ModeToggle mode={mode} onChange={setMode} />}
+      </div>
 
-      <CardContent className="space-y-6">
-        {/* Compare Mode Panel */}
-        {isCompareMode ? (
-          <div className="transition-all duration-200 space-y-3">
-            <ListenerReflexComparePanel
-              groupId={groupId}
-              window={range}
-              mode={mode}
-            />
-          </div>
-        ) : (
-          <>
-            {/* Timeline Strip Charts */}
-            {timelineData && timelineData.usersWithTimeline.length > 0 && (
-              <div className="w-full">
-                <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Reaction Timeline</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {timelineData.usersWithTimeline.map(({ user, ringData }) => {
-                    const hasPoints = ringData.points && ringData.points.length > 0;
-
-                    // Compute date range for X axis
-                    let minTime = 0;
-                    let maxTime = 0;
-                    if (hasPoints) {
-                      const timestamps = ringData.points.map(p => new Date(p.listenedAt).getTime());
-                      minTime = Math.min(...timestamps);
-                      maxTime = Math.max(...timestamps);
-                      // Add a small buffer if all timestamps are the same
-                      if (maxTime === minTime) {
-                        minTime -= 3600_000;
-                        maxTime += 3600_000;
-                      }
-                    }
-
-                    // Compute user median Y position
-                    const userMedianY = user.medianMs !== null
-                      ? mapReactionTimeToY(user.medianMs, CHART_TOP, CHART_HEIGHT, yAxisMaxMs)
-                      : null;
-
-                    // Compute group median Y position
-                    const groupMedianY = groupMedianMs > 0
-                      ? mapReactionTimeToY(groupMedianMs, CHART_TOP, CHART_HEIGHT, yAxisMaxMs)
-                      : null;
-
-                    // Badge / style label
-                    const styleLabel = getListeningStyleLabel(
-                      user,
-                      ringData,
-                      range,
-                      groupAverageListens,
-                      groupMedianMs,
-                      data.users.length
-                    );
-                    const BadgeIcon = styleLabel.badge.icon;
-
-                    return (
-                      <Card
-                        key={user.userId}
-                        className="bg-card/50 border-hair p-4 transition-all duration-150"
-                      >
-                        <div className="flex flex-col gap-3 w-full">
-                          {/* Header: Avatar + Name + Stats */}
-                          <div className="flex items-center gap-2 w-full">
-                            <Avatar className="w-8 h-8 border border-hair flex-shrink-0">
-                              <AvatarImage src={user.avatarUrl || undefined} />
-                              <AvatarFallback className="text-xs">
-                                {user.displayName.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{user.displayName}</p>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs flex-shrink-0">
-                              <div className="text-right">
-                                <p className="text-muted-foreground text-[10px]">Listens</p>
-                                <p className="font-semibold">{user.listens}</p>
-                              </div>
-                              {user.medianMs !== null && (
-                                <>
-                                  <div className="w-px h-6 bg-border" />
-                                  <div className="text-right">
-                                    <p className="text-muted-foreground text-[10px]">Median</p>
-                                    <p className="font-semibold">{formatTime(user.medianMs)}</p>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Listening Style Badge + Description */}
-                          <div className="flex flex-col gap-2">
-                            <div
-                              className="w-fit inline-flex items-center gap-1.5 px-2 py-1 border border-line bg-selected text-soft rounded-md text-xs font-medium"
-                            >
-                              <BadgeIcon className="w-3 h-3 shrink-0" />
-                              <span>{styleLabel.title}</span>
-                            </div>
-                            {aiLoading ? (
-                              <div className="space-y-1.5">
-                                <Skeleton className="h-3 w-full" />
-                                <Skeleton className="h-3 w-3/4" />
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-300 flex items-start gap-1">
-                                {aiInsights?.[user.userId] && (
-                                  <svg className="h-4 w-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                                    <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
-                                  </svg>
-                                )}
-                                {aiInsights?.[user.userId] ?? styleLabel.description}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Timeline Strip Chart */}
-                          {hasPoints ? (
-                            <svg
-                              width="100%"
-                              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-                              preserveAspectRatio="xMidYMid meet"
-                              className="mt-1"
-                              style={{ minHeight: '80px' }}
-                            >
-                              {/* Y-axis labels */}
-                              <text x={CHART_LEFT - 3} y={CHART_TOP + 6} textAnchor="end" fontSize="7" fill="var(--text-quiet)">Fast</text>
-                              <text x={CHART_LEFT - 3} y={CHART_TOP + CHART_HEIGHT} textAnchor="end" fontSize="7" fill="var(--text-quiet)">Slow</text>
-
-                              {/* Chart border */}
-                              <rect
-                                x={CHART_LEFT}
-                                y={CHART_TOP}
-                                width={CHART_WIDTH}
-                                height={CHART_HEIGHT}
-                                fill="none"
-                                stroke="var(--hair)"
-                                strokeWidth="0.5"
-                              />
-
-                              {/* Group median reference line (dashed) */}
-                              {groupMedianY !== null && (
-                                <>
-                                  <line
-                                    x1={CHART_LEFT}
-                                    y1={groupMedianY}
-                                    x2={CHART_LEFT + CHART_WIDTH}
-                                    y2={groupMedianY}
-                                    stroke="var(--line)"
-                                    strokeWidth="0.7"
-                                    strokeDasharray="4,3"
-                                  />
-                                  <text
-                                    x={CHART_LEFT + CHART_WIDTH + 1}
-                                    y={groupMedianY + 2.5}
-                                    fontSize="5.5"
-                                    fill="var(--text-quiet)"
-                                  >
-                                    grp
-                                  </text>
-                                </>
-                              )}
-
-                              {/* User median reference line (solid) */}
-                              {userMedianY !== null && (
-                                <>
-                                  <line
-                                    x1={CHART_LEFT}
-                                    y1={userMedianY}
-                                    x2={CHART_LEFT + CHART_WIDTH}
-                                    y2={userMedianY}
-                                    stroke="var(--text-soft)"
-                                    strokeWidth="0.8"
-                                  />
-                                  <text
-                                    x={CHART_LEFT + CHART_WIDTH + 1}
-                                    y={userMedianY + 2.5}
-                                    fontSize="5.5"
-                                    fill="var(--text-soft)"
-                                  >
-                                    med
-                                  </text>
-                                </>
-                              )}
-
-                              {/* Data points */}
-                              {ringData.points.slice(0, 50).map((point, i) => {
-                                const x = mapTimestampToX(point.listenedAt, minTime, maxTime, CHART_LEFT, CHART_WIDTH);
-                                const y = mapReactionTimeToY(point.ms, CHART_TOP, CHART_HEIGHT, yAxisMaxMs);
-                                return (
-                                  <circle
-                                    key={i}
-                                    cx={x}
-                                    cy={y}
-                                    r={dotRadius}
-                                    fill="var(--text)"
-                                    opacity={0.75}
-                                  />
-                                );
-                              })}
-
-                              {/* X-axis date labels */}
-                              <text x={CHART_LEFT} y={SVG_HEIGHT - 2} fontSize="6.5" fill="var(--text-quiet)">
-                                {formatAxisDate(minTime)}
-                              </text>
-                              <text x={CHART_LEFT + CHART_WIDTH} y={SVG_HEIGHT - 2} textAnchor="end" fontSize="6.5" fill="var(--text-quiet)">
-                                {formatAxisDate(maxTime)}
-                              </text>
-                            </svg>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic text-center py-4">
-                              No listens in this period
-                            </p>
-                          )}
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Member Rankings */}
-            <div className="w-full">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Member Rankings</h3>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {data.users
-                  .filter(user => user.medianMs !== null && user.category !== null)
-                  .map((user, index) => {
-                    const categoryConfig = CATEGORY_CONFIG[user.category!];
-                    const CategoryIcon = categoryConfig.icon;
-
-                    return (
-                      <div
-                        key={user.userId}
-                        className={cn(
-                          'flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border transition-colors',
-                          'bg-card/50 border-hair hover:bg-selected',
-                          'flex-wrap sm:flex-nowrap'
-                        )}
-                      >
-                        {/* Rank */}
-                        <div className="flex-shrink-0 w-6 md:w-8 text-center">
-                          <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
-                        </div>
-
-                        {/* Avatar */}
-                        <Avatar className="w-8 h-8 md:w-10 md:h-10 border border-hair flex-shrink-0">
-                          <AvatarImage src={user.avatarUrl || undefined} />
-                          <AvatarFallback className="text-xs md:text-sm">{user.displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-
-                        {/* Name */}
-                        <div className="flex-1 min-w-0 flex-shrink">
-                          <p className="font-medium text-xs md:text-sm truncate">{user.displayName}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground">
-                            {user.listens} {user.listens === 1 ? 'listen' : 'listens'}
-                          </p>
-                        </div>
-
-                        {/* Category Badge */}
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'flex items-center gap-1 flex-shrink-0',
-                            isMobile ? 'px-2 py-1.5' : 'px-2 md:px-2.5 py-1 md:py-1.5',
-                            categoryConfig.color
-                          )}
-                        >
-                          <CategoryIcon className={cn(
-                            'flex-shrink-0',
-                            isMobile ? 'w-3 h-3' : 'w-2.5 h-2.5 md:w-3 md:h-3'
-                          )} />
-                          {!isMobile && (
-                            <span className="text-[10px] md:text-[11px] whitespace-nowrap font-medium">
-                              {categoryConfig.label}
-                            </span>
-                          )}
-                        </Badge>
-
-                        {/* Median Time */}
-                        <div className="flex-shrink-0 text-right min-w-[60px] md:min-w-0">
-                          <p className="text-xs md:text-sm font-semibold whitespace-nowrap">{formatTime(user.medianMs!)}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground">median</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+      {rows.length >= 2 && (
+        <div className="flex min-w-0 flex-col gap-4">
+          {hasListens ? (
+            <>
+              <ol aria-label={mode === 'shared' ? 'Members, shares listened to fastest first' : 'Members, fastest to listen first'} className="flex flex-col gap-2">
+                {rows.map((row) => (
+                  <MemberRow
+                    key={row.userId}
+                    row={row}
+                    selected={row.userId === selected?.userId}
+                    onSelect={() => setSelectedId(row.userId)}
+                    controls={breakdownId}
+                  />
+                ))}
+              </ol>
+              {selected && <Breakdown row={selected} mode={mode} id={breakdownId} />}
+            </>
+          ) : (
+            <p className="text-sm text-foreground">
+              Once members listen to each other's shares in this period, their times show up here.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
