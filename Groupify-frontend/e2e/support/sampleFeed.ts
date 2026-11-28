@@ -37,6 +37,24 @@ const youSummary = {
   reflex: { youPlayMs: 240_000, groupPlayMs: 480_000, yoursPlayedMs: 360_000, groupYoursPlayedMs: 300_000 },
 };
 
+// "The songs" cards of Group Dynamics for the sample user. Dates are
+// relative so "2 days ago" stays true.
+const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+const songRow = (i: number, sharedBy: { _id: string; displayName: string }, days: number) => ({
+  shareId: `sh${i}`, spotifyTrackId: `t${i}`, trackName: `Sample Track ${i}`, artistName: 'Sample Artist',
+  trackImage: null, sharedBy: { id: sharedBy._id, displayName: sharedBy.displayName }, sharedAt: daysAgo(days),
+});
+const songsSummary = {
+  range: '30d',
+  sleepingOn: { shares: [songRow(2, friend, 2), songRow(5, other, 3), songRow(8, friend, 5)], total: 4 },
+  sleptOn: { shares: [songRow(4, me, 6)], total: 1, others: 2 },
+  records: {
+    fastestFullListen: { ...songRow(3, me, 9), ms: 38 * 60_000 },
+    mostLiked: { ...songRow(6, friend, 12), likes: 2, others: 2 },
+    longestStreak: { days: 4 },
+  },
+};
+
 // `olderUnheard` makes the group bigger than the feed's first page: the feed
 // reports that many more shares than it returns, and they are all unheard
 // friend shares from 2025, served only by GET /shares/unheard?groupId=g1.
@@ -78,6 +96,7 @@ export async function openSampleFeed(page: Page, opts: { theme: 'light' | 'dark'
       json = { success: true, shares: unheard, total: unheard.length, newThisWeek: 0, byGroup: { g1: unheard.length }, oldestAt: older.at(-1)?.createdAt ?? at };
     }
     else if (path.endsWith('/analytics/g1/you')) json = { success: true, data: youSummary };
+    else if (path.endsWith('/analytics/g1/songs')) json = { success: true, data: songsSummary };
     else if (path.endsWith('/auth/me')) json = { success: true, user: me };
     else if (path.includes('/shares/groups/g2')) json = { success: true, shares: [], total: 0, limit: 50, offset: 0 };
     else if (path.endsWith('/groups')) json = { success: true, groups: opts.secondGroup ? [group, second] : [group] };
