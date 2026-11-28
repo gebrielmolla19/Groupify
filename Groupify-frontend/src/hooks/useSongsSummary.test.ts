@@ -63,4 +63,15 @@ describe('useSongsSummary', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.data?.range).toBe('30d');
   });
+
+  it('loads again when a listen is recorded in this group', async () => {
+    vi.mocked(getSongsSummary).mockResolvedValue(summary('30d'));
+    renderHook(() => useSongsSummary('g1', '30d'));
+    await waitFor(() => expect(getSongsSummary).toHaveBeenCalledTimes(1));
+
+    act(() => { window.dispatchEvent(new CustomEvent('trackListened', { detail: { groupId: 'other' } })); });
+    act(() => { window.dispatchEvent(new CustomEvent('trackListened', { detail: { groupId: 'g1' } })); });
+
+    await waitFor(() => expect(getSongsSummary).toHaveBeenCalledTimes(2));
+  });
 });

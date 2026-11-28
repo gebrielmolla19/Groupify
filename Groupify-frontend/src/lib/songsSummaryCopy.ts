@@ -51,29 +51,30 @@ export const sleptOnEmpty = (range: ViewerSummaryRange, others: number): string 
 export type RecordRow = { key: string; label: string; value: string };
 
 /** The three group records, each a value or a sentence saying why there's none. */
-export const recordRows = (records: SongsSummary['records']): RecordRow[] => {
+export const recordRows = (records: SongsSummary['records'], range: ViewerSummaryRange): RecordRow[] => {
   const { fastestFullListen: fastest, mostLiked, longestStreak } = records;
+  const period = PERIOD[range];
   return [
     {
       key: 'fastest',
       label: 'Fastest full-group listen',
       value: fastest
         ? `${fastest.trackName} · ${formatWait(fastest.ms)}`
-        : 'No share has a listen from everyone yet',
+        : `No share has a listen from everyone ${period}`,
     },
     {
       key: 'most-liked',
       label: 'Most liked',
       value: mostLiked
         ? `${mostLiked.trackName} · ${mostLiked.likes} of ${mostLiked.others}`
-        : 'No likes yet',
+        : `No likes ${period}`,
     },
     {
       key: 'streak',
       label: 'Longest group streak',
       value: longestStreak
         ? `${longestStreak.days} ${longestStreak.days === 1 ? 'day' : 'days'}`
-        : 'No shares yet',
+        : `No shares ${period}`,
     },
   ];
 };

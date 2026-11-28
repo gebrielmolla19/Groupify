@@ -44,5 +44,15 @@ export const useSongsSummary = (groupId: string | undefined, range: ViewerSummar
     fetchSummary();
   }, [fetchSummary]);
 
+  // A listen recorded anywhere in the app can take a share off "sleeping on".
+  useEffect(() => {
+    const onListened = (event: Event) => {
+      const detail = (event as CustomEvent<{ groupId?: string }>).detail;
+      if (detail?.groupId === groupId) fetchSummary();
+    };
+    window.addEventListener('trackListened', onListened);
+    return () => window.removeEventListener('trackListened', onListened);
+  }, [groupId, fetchSummary]);
+
   return { data, isLoading, error, refetch: fetchSummary };
 };

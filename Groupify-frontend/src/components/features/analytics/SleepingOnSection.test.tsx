@@ -8,7 +8,10 @@ import { toast } from 'sonner';
 import type { SongsSummary, SongsSummaryShare } from '../../../types/analytics';
 
 vi.mock('../../../hooks/useSongsSummary', () => ({ useSongsSummary: vi.fn() }));
-vi.mock('../../../hooks/useSpotifyPlayer', () => ({ useSpotifyPlayer: vi.fn() }));
+vi.mock('../../../hooks/useSpotifyPlayer', () => ({
+  useSpotifyPlayer: vi.fn(),
+  wasPlaybackErrorNotified: (err: unknown) => err instanceof Error && err.message === 'already shown',
+}));
 const group = { _id: 'g1', name: 'Sample group' };
 vi.mock('../../../hooks/useGroups', () => ({ useGroups: () => ({ groups: [group] }) }));
 const setPlayingGroup = vi.fn();
@@ -83,6 +86,20 @@ describe('SleepingOnSection', () => {
     expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
+  it('says once when playing fails, unless the player already did', async () => {
+    setSummary({ data: summary() });
+    render(<SleepingOnSection groupId="g1" />);
+    const play = screen.getByRole('button', { name: /Play Lost Track/ });
+
+    playTrack.mockRejectedValueOnce(new Error('Spotify is busy'));
+    await userEvent.click(play);
+    expect(toast.error).toHaveBeenCalledWith('Spotify is busy');
+
+    playTrack.mockRejectedValueOnce(new Error('already shown'));
+    await userEvent.click(play);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the nudge stand-in and the records', async () => {
     setSummary({ data: summary() });
     render(<SleepingOnSection groupId="g1" />);
@@ -91,7 +108,7 @@ describe('SleepingOnSection', () => {
 
     expect(toast.info).toHaveBeenCalledWith("Nudges aren't available yet.");
     expect(screen.getByText('4 days')).toBeInTheDocument();
-    expect(screen.getByText('No likes yet')).toBeInTheDocument();
+    expect(screen.getByText('No likes in the last 30 days')).toBeInTheDocument();
   });
 
   it('explains empty lists', () => {

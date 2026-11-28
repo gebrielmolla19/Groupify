@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import { useSongsSummary } from "../../../hooks/useSongsSummary";
-import { useSpotifyPlayer } from "../../../hooks/useSpotifyPlayer";
+import { useSpotifyPlayer, wasPlaybackErrorNotified } from "../../../hooks/useSpotifyPlayer";
 import { useGroups } from "../../../hooks/useGroups";
 import { usePlayingGroup } from "../../../contexts/PlayingGroupContext";
 import {
@@ -56,8 +56,9 @@ function usePlayShare(groupId: string) {
       if (group) setPlayingGroup(group);
       await playTrack(`spotify:track:${share.spotifyTrackId}`);
     } catch (err) {
-      // playTrack already showed a toast.
       logger.error("Failed to play track from Group Dynamics:", err);
+      // playTrack toasts some failures itself (device gone, not Premium); say the rest once here.
+      if (!wasPlaybackErrorNotified(err)) toast.error(err instanceof Error ? err.message : "Couldn't play this track.");
     } finally {
       setStarting(null);
     }
@@ -150,7 +151,7 @@ function SleptOnCard({ data, now }: { data: SongsSummary; now: Date }) {
       <div className="mt-1 flex flex-col gap-2 border-t border-hair pt-3">
         <h3 className="text-sm text-soft">Group records</h3>
         <dl className="flex flex-col gap-2">
-          {recordRows(data.records).map((record) => (
+          {recordRows(data.records, data.range).map((record) => (
             <div key={record.key} className="flex items-baseline justify-between gap-3 text-sm">
               <dt className="shrink-0 text-foreground">{record.label}</dt>
               <dd className="min-w-0 text-right font-semibold text-foreground">{record.value}</dd>

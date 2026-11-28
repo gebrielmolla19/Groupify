@@ -53,14 +53,19 @@ describe('songsSummaryCopy', () => {
       fastestFullListen: { ...share({ trackName: 'Glue' }), ms: 38 * 60_000 },
       mostLiked: { ...share({ trackName: 'Pink + White' }), likes: 4, others: 4 },
       longestStreak: { days: 1 },
-    });
+    }, '30d');
     expect(rows.map((r) => r.value)).toEqual(['Glue · 38 min', 'Pink + White · 4 of 4', '1 day']);
 
-    const empty = recordRows({ fastestFullListen: null, mostLiked: null, longestStreak: null });
-    expect(empty.map((r) => r.value)).toEqual([
+    const none = { fastestFullListen: null, mostLiked: null, longestStreak: null };
+    expect(recordRows(none, 'all').map((r) => r.value)).toEqual([
       'No share has a listen from everyone yet',
       'No likes yet',
       'No shares yet',
+    ]);
+    expect(recordRows(none, '7d').map((r) => r.value)).toEqual([
+      'No share has a listen from everyone in the last 7 days',
+      'No likes in the last 7 days',
+      'No shares in the last 7 days',
     ]);
   });
 });
