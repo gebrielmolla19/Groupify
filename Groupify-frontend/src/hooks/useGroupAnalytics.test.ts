@@ -96,4 +96,18 @@ describe('useGroupAnalytics', () => {
     await waitFor(() => expect(result.current.error).toBe('Server down'));
     expect(result.current.isLoading).toBe(false);
   });
+
+  it('clears the error once the next range loads', async () => {
+    vi.mocked(getGroupActivity).mockRejectedValueOnce(new Error('Server down')).mockResolvedValue(point('7d'));
+    vi.mocked(getSuperlatives).mockResolvedValue(fame('Sample'));
+    const { result, rerender } = renderHook(({ range }) => useGroupAnalytics('g1', range), {
+      initialProps: { range: '30d' as AnalyticsRange },
+    });
+    await waitFor(() => expect(result.current.error).toBe('Server down'));
+
+    rerender({ range: '7d' });
+
+    await waitFor(() => expect(result.current.activity).toEqual(point('7d')));
+    expect(result.current.error).toBeNull();
+  });
 });

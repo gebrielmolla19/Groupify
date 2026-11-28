@@ -18,7 +18,10 @@ export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
   const [superlatives, setSuperlatives] = useState<Superlatives | null>(null);
   const [activityMode, setActivityMode] = useState<ActivityMode>('shares');
   const [isActivityLoading, setIsActivityLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // One error per request, so a later success of one clears only its own.
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [superlativesError, setSuperlativesError] = useState<string | null>(null);
+  const error = activityError ?? superlativesError;
   // Only the latest request of each kind may write state, so a slow answer
   // for an old group, range or mode never replaces a newer one.
   const activityRequest = useRef(0);
@@ -27,7 +30,8 @@ export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
   useEffect(() => {
     setActivity(null);
     setSuperlatives(null);
-    setError(null);
+    setActivityError(null);
+    setSuperlativesError(null);
   }, [groupId]);
 
   const fetchActivity = useCallback(async () => {
@@ -36,11 +40,14 @@ export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
     setIsActivityLoading(true);
     try {
       const result = await getGroupActivity(groupId, range, activityMode);
-      if (request === activityRequest.current) setActivity(result);
+      if (request === activityRequest.current) {
+        setActivity(result);
+        setActivityError(null);
+      }
     } catch (err) {
       logger.error('Failed to fetch activity:', err);
       if (request === activityRequest.current) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch activity');
+        setActivityError(err instanceof Error ? err.message : 'Failed to fetch activity');
       }
     } finally {
       if (request === activityRequest.current) setIsActivityLoading(false);
@@ -52,11 +59,14 @@ export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
     const request = ++superlativesRequest.current;
     try {
       const result = await getSuperlatives(groupId, range);
-      if (request === superlativesRequest.current) setSuperlatives(result);
+      if (request === superlativesRequest.current) {
+        setSuperlatives(result);
+        setSuperlativesError(null);
+      }
     } catch (err) {
       logger.error('Failed to fetch superlatives:', err);
       if (request === superlativesRequest.current) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
+        setSuperlativesError(err instanceof Error ? err.message : 'Failed to fetch analytics');
       }
     }
   }, [groupId, range]);
@@ -69,11 +79,6 @@ export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
     fetchSuperlatives();
   }, [fetchSuperlatives]);
 
-  const refetch = useCallback(async () => {
-    setError(null);
-    await Promise.all([fetchActivity(), fetchSuperlatives()]);
-  }, [fetchActivity, fetchSuperlatives]);
-
   return {
     activity: activity ?? [],
     superlatives: superlatives ?? {},
@@ -83,6 +88,5 @@ export const useGroupAnalytics = (groupId: string, range: AnalyticsRange) => {
     error,
     activityMode,
     changeActivityMode: setActivityMode,
-    refetch,
   };
 };

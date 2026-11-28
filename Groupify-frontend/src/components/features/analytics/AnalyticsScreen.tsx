@@ -334,7 +334,9 @@ export default function AnalyticsScreen() {
               {Object.keys(superlatives).length === 0 && (
                 <Card className="col-span-full border-dashed bg-transparent">
                   <CardContent className="h-24 md:h-32 flex items-center justify-center text-sm md:text-base text-muted-foreground px-4">
-                    No data available for superlatives yet.
+                    {range === 'all'
+                      ? 'No data available for superlatives yet.'
+                      : `Nobody shared, liked or listened in the last ${range === '7d' ? '7' : '30'} days. Try All.`}
                   </CardContent>
                 </Card>
               )}

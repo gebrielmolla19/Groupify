@@ -48,6 +48,8 @@ for (const size of [{ width: 375, height: 812 }, { width: 1280, height: 800 }]) 
     await control.getByRole('radio', { name: '7d' }).click();
     await expect(control.getByRole('radio', { name: '7d' })).toHaveAttribute('aria-checked', 'true');
     await expect.poll(() => everySectionAsked(asked, '7d')).toEqual(expected('7d'));
+    // The sample Hall of Fame is empty: the card says which period is empty.
+    await expect(page.getByText('Nobody shared, liked or listened in the last 7 days. Try All.')).toBeVisible();
 
     for (const name of Object.keys(sections)) delete asked[name];
     await page.reload();
